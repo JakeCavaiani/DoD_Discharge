@@ -272,7 +272,7 @@ VAUL_Q_bf = BaseflowSeparation(vaul.final.discharge$MeanDischarge, filter_parame
 hydrograph(input=subset(VAUL_Q, select = c(day, Discharge_Lsec)), streamflow2=VAUL_Q_bf$bt) 
 
 MOOS_Q_bf = BaseflowSeparation(moos.final.discharge$MeanDischarge, filter_parameter = 0.90, passes = 3)
-hydrograph(input=subset(MOOS_Q, select = c(day, Discharge_Lsec)), streamflow2=VAUL_Q_bf$bt) 
+hydrograph(input=subset(MOOS_Q, select = c(day, Discharge_Lsec)), streamflow2=MOOS_Q_bf$bt) 
 
 ###.925 ###
 FRCH_Q_bf = BaseflowSeparation(frch.final.discharge$MeanDischarge, filter_parameter = 0.925, passes = 3)
