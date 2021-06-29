@@ -71,6 +71,61 @@ VAUL <- ggplot(vaul.gauge) +
   ggtitle("Vault Rain Gauge")
 VAUL
 
+## STRT ##
+strt.gauge$inst_rainfall_mm = 0.2
+
+## FRCH ##
+frch.gauge$inst_rainfall_mm = 0.2
+
+## VAUL ##
+vaul.gauge$inst_rainfall_mm = 0.2
+
+
+#### compile into per 15 min rainfall ###
+
+## STRT ##
+min<-cut(strt.gauge$DateTime, breaks="15 min")
+STRT.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = strt.gauge, FUN=function(x) 
+  sum=sum(x)))
+STRT.st$datetimeAK<-as.POSIXct(STRT.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+## FRCH ##
+min<-cut(frch.gauge$DateTime, breaks="15 min")
+FRCH.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = frch.gauge, FUN=function(x) 
+  sum=sum(x)))
+FRCH.st$datetimeAK<-as.POSIXct(FRCH.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+## VAUL ##
+min<-cut(vaul.gauge$DateTime, breaks="15 min")
+VAUL.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data=vaul.gauge, FUN=function(x) 
+  sum=sum(x)))
+VAUL.st$datetimeAK<-as.POSIXct(VAUL.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+#### round time to nearest 15 min ####
+STRT.st$datetimeAK = lubridate::round_date(STRT.st$datetimeAK, "15 minutes")
+FRCH.st$datetimeAK = lubridate::round_date(FRCH.st$datetimeAK, "15 minutes")
+VAUL.st$datetimeAK = lubridate::round_date(VAUL.st$datetimeAK, "15 minutes")
+
+
+#### plot to check ####
+
+par(mfrow=c(3,1))
+
+plot(STRT.st$inst_rainfall_mm ~ STRT.st$datetimeAK, type="h", 
+     xlim=c(as.POSIXct("2020-07-25 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h", 
+     xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$datetimeAK, type="h", 
+     xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+
 
 allrain.2020 <- bind_rows(strt.gauge, frch.gauge, vaul.gauge)
 

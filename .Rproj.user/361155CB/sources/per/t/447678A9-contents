@@ -28,18 +28,18 @@ library(car)
 library(EcoHydRology)
 
 #### Load from google drive ####
-suna.2020.url <- "https://drive.google.com/drive/u/1/folders/1QGwlgWHBQI_AeLuMGNzD4qWB90UqlykK"
+#suna.2020.url <- "https://drive.google.com/drive/u/1/folders/1QGwlgWHBQI_AeLuMGNzD4qWB90UqlykK"
 
-SUNA_new <- drive_get(as_id(suna.2020.url))
-EXO_new <- drive_get(as_id(exo.2020.url))
+#SUNA_new <- drive_get(as_id(suna.2020.url))
+#EXO_new <- drive_get(as_id(exo.2020.url))
 
-SUNA_glist <- drive_ls(SUNA_new, type = "csv")
-EXO_glist <- drive_ls(EXO_new, type = "csv")
+#SUNA_glist <- drive_ls(SUNA_new, type = "csv")
+#EXO_glist <- drive_ls(EXO_new, type = "csv")
 
-SUNAfile_list <- list.files(path = "")
+#SUNAfile_list <- list.files(path = "")
 
-SUNA.ALL <- lapply(SUNA_glist)
-read.csv(SUNA_glist)
+#SUNA.ALL <- lapply(SUNA_glist)
+#read.csv(SUNA_glist)
 
 ### Load from local machine ###
 EXO_ALL <- read_csv("~/Documents/DoD_2020/EXO_data/from_internal_harddrive/processed/EXO.ALL.csv")
@@ -352,6 +352,17 @@ par(new = T)
 
 ### Import precipitation data into the *ALL document ### 
 # FRCH rain gauge installed on the 11th of June. 
+plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h",
+     xlim = as.POSIXct(c("2019-06-11 0:00:00","2019-10-15 00:00:00"), tz="America/Anchorage"),
+     ylim = c(10,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
+lines(FRCH$nitrateuM ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+      xlim = as.POSIXct(c("2019-06-01 00:00:00","2019-10-15 01:00:00"), tz="America/Anchorage"))
+par(new = T)
+
+
 plot(frch.gauge$Precip ~ frch.gauge$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-11 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
      ylim = c(400,0), 
