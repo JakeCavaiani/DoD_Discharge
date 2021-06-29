@@ -327,6 +327,15 @@ VAUL_bfQ_mn = mean(VAUL_Q_bf$bt)
 VAUL_bfQ_mn
 VAUL_bfQ_mn*2
 
+POKE_bfQ_mn = mean(POKE_Q_bf$bt)
+POKE_bfQ_mn
+POKE_bfQ_mn*2
+
+MOOS_bfQ_mn = mean(MOOS_Q_bf$bt)
+MOOS_bfQ_mn
+MOOS_bfQ_mn*2
+
+
 plot(FRCH_Q$Discharge_Lsec ~ FRCH_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,3000), col="blue", main="FRCH")
 lines(FRCH_Q_bf$bt ~ FRCH_Q$day, col="red")
 #lines((C3_Q_bf$bt*1.3) ~ C3_Q$day, col="red", lty=2)
@@ -337,7 +346,7 @@ plot(FRCH$MeanDischarge ~ FRCH$DateTime, type="l", xlab="", ylab="Q (L/sec)",
      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"))
 abline(h=FRCH_bfQ_mn*2, col="red", lty=2)
 abline(h=FRCH_bfQ_mn, col="red")
-lines(FRCH$nitrateuM ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+lines(FRCH$nitrateuM * 20 ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
 par(new = T)
 
@@ -349,6 +358,9 @@ plot(frch.gauge$Precip ~ frch.gauge$DateTime, type="h",
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
+lines(FRCH$nitrateuM ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
+par(new = T)
 
 # STRT rain gauge installed on the 29th of July #
 plot(strt.gauge$Precip ~ strt.gauge$DateTime, type="h",
@@ -425,6 +437,41 @@ axis(side = 4)
 mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
 abline(v= as.POSIXct("2020-06-22 01:00:00", tz="America/Anchorage"), col="purple")
 abline(v= as.POSIXct("2020-06-24 23:00:00", tz="America/Anchorage"), col="purple")
+
+
+
+
+
+
+
+### POKE ### 
+plot(POKE_Q$Discharge_Lsec ~ POKE_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,3000), col="blue", main="POKE")
+lines(POKE_Q_bf$bt ~ POKE_Q$day, col="red")
+#lines((C3_Q_bf$bt*1.3) ~ C3_Q$day, col="red", lty=2)
+#lines((C3_Q_bf$bt*5) ~ C3_Q$day, col="red", lty=2)
+abline(h = POKE_bfQ_mn*2, col="red", lty=2)
+
+plot(POKE$MeanDischarge ~ POKE$DateTime, type="l", xlab="", ylab="Q (L/sec)",
+     xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"))
+abline(h=POKE_bfQ_mn*2, col="red", lty=2)
+abline(h=POKE_bfQ_mn, col="red")
+lines(POKE$nitrateuM ~ POKE.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
+par(new = T)
+
+### Import precipitation data into the *ALL document ### 
+# Poke rain gauge installed on the 11th of June. 
+plot(poke.gauge$Precip ~ poke.gauge$DateTime, type="h",
+     xlim = as.POSIXct(c("2020-06-11 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
+     ylim = c(400,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'POKE precip. (mm)')
+
+
+
+
+
 
 
 
