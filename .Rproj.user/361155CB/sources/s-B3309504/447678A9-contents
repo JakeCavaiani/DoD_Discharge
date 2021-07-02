@@ -72,6 +72,7 @@ head(MOOS$DateTime)
 FRCH_Q = as.data.frame(Q.daily$FRCH)
 FRCH_Q$day = as.Date(rownames(Q.daily))
 names(FRCH_Q) = c("Discharge_Lsec", "day")
+write.csv(FRCH_Q, "Predicted_Discharge/processed/FRCH_Q_2020.csv", row.names = FALSE)
 
 STRT_Q = as.data.frame(Q.daily$STRT)
 STRT_Q$day = as.Date(rownames(Q.daily))
@@ -203,18 +204,24 @@ names(MOOS.fDOM) = c("fDOM_filled", "DateTime")
 
 any(is.na(FRCH_Q$day))
 any(is.na(FRCH_Q$Discharge_Lsec))
+FRCH_Q <- na.omit(FRCH_Q) # Remove NaNs
 
 any(is.na(STRT_Q$day))
 any(is.na(STRT_Q$Discharge_Lsec))
+STRT_Q <- na.omit(STRT_Q) # Remove NaNs
 
 any(is.na(POKE_Q$day))
 any(is.na(POKE_Q$Discharge_Lsec))
+POKE_Q <- na.omit(POKE_Q) # Remove NaNs
+
 
 any(is.na(VAUL_Q$day))
 any(is.na(VAUL_Q$Discharge_Lsec))
+VAUL_Q <- na.omit(VAUL_Q) # Remove NaNs
 
 any(is.na(MOOS_Q$day))
 any(is.na(MOOS_Q$Discharge_Lsec))
+MOOS_Q <- na.omit(MOOS_Q) # Remove NaNs
 
 
 #C3_Q_bf = bf_eckhardt_filter(date = class(as.Date.POSIXct(C3_Q$day)), 
@@ -335,43 +342,34 @@ MOOS_bfQ_mn = mean(MOOS_Q_bf$bt)
 MOOS_bfQ_mn
 MOOS_bfQ_mn*2
 
+par(mfrow=c(1,1))
 
 plot(FRCH_Q$Discharge_Lsec ~ FRCH_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,3000), col="blue", main="FRCH")
 lines(FRCH_Q_bf$bt ~ FRCH_Q$day, col="red")
-#lines((C3_Q_bf$bt*1.3) ~ C3_Q$day, col="red", lty=2)
-#lines((C3_Q_bf$bt*5) ~ C3_Q$day, col="red", lty=2)
+lines(FRCH_Q_bf$bt*1.3 ~ FRCH_Q$day, col="red", lty = 2)
+lines((FRCH_Q_bf$bt*5) ~ FRCH_Q$day, col="red", lty=2)
 abline(h = FRCH_bfQ_mn*2, col="red", lty=2)
 
 plot(FRCH$MeanDischarge ~ FRCH$DateTime, type="l", xlab="", ylab="Q (L/sec)",
      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"))
 abline(h=FRCH_bfQ_mn*2, col="red", lty=2)
 abline(h=FRCH_bfQ_mn, col="red")
-lines(FRCH$nitrateuM * 20 ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+lines(FRCH$nitrateuM * 20 ~ FRCH.no3$DateTime, type="l", xlab="", ylab="", col="purple",
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
 par(new = T)
 
 ### Import precipitation data into the *ALL document ### 
 # FRCH rain gauge installed on the 11th of June. 
 plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h",
-     xlim = as.POSIXct(c("2019-06-11 0:00:00","2019-10-15 00:00:00"), tz="America/Anchorage"),
-     ylim = c(10,0), 
+     xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
+     ylim = c(25,0), 
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
-lines(FRCH$nitrateuM ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
-      xlim = as.POSIXct(c("2019-06-01 00:00:00","2019-10-15 01:00:00"), tz="America/Anchorage"))
+lines(FRCH$nitrateuM ~ FRCH$DateTime, type="l", xlab="", ylab="", col="purple",
+      xlim = as.POSIXct(c("2020-06-05 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
 par(new = T)
 
-
-plot(frch.gauge$Precip ~ frch.gauge$DateTime, type="h",
-     xlim = as.POSIXct(c("2020-06-11 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
-     ylim = c(400,0), 
-     axes=F, xlab="", ylab="")
-axis(side = 4)
-mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
-lines(FRCH$nitrateuM ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
-      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
-par(new = T)
 
 # STRT rain gauge installed on the 29th of July #
 plot(strt.gauge$Precip ~ strt.gauge$DateTime, type="h",
@@ -393,7 +391,7 @@ mtext(side = 4, line = 3, 'VAUL precip (mm)')
 ### Storm 1 ###
 # FRCH #
 par(mar=c(3,5,3,5), bty = "n")
-plot(FRCH$MeanDischarge ~ as.POSIXct(FRCH$datetimeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,2000), col="blue", main="C3",
+plot(FRCH$MeanDischarge ~ as.POSIXct(FRCH$datetimeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,2000), col="blue", main="FRCH",
      xlim = as.POSIXct(c("2020-06-12 01:00:00","2020-06-15 01:00:00"), tz="America/Anchorage"))
 abline(h=FRCH_bfQ_mn*2, col="red", lty=2)
 abline(h=FRCH_bfQ_mn, col="red")
@@ -481,10 +479,30 @@ mtext(side = 4, line = 3, 'POKE precip. (mm)')
 
 
 
+#### 2019 & 2020 data together ####
+#import 2019 
+FRCH_Q_2019 <- read_csv("~/Documents/DoD_2019/Storm Analysis/Plots/Hydrograph Separation /FRCH/FRCH_Q_2019.csv") # discharge per day
+FRCH_final_2019 <- read_csv("~/Documents/DoD_2019/Q/Final_Q/FRCH/FRCH.csv") # predicted discharge
+FRCH_final_2019 <- FRCH_final_2019[,-c(4:5)] # Remove PTs
+#import 2020 discharge per day
+FRCH_Q_2020 <- read_csv("Predicted_Discharge/Processed/FRCH_Q_2020.csv")
+FRCH_final_2020 <- read_csv("Predicted_Discharge/Processed/FRCH.csv")
+names(FRCH_final_2020) <- c("Site", "DateTime", "MeanDischarge")
 
+#Combine data sets
+FRCH_all <- full_join(FRCH_Q_2019, FRCH_Q_2020)
+FRCH_ALL.final.discharge <- full_join(FRCH_final_2019, FRCH_final_2020)
 
+any(is.na(FRCH_ALL.final.discharge))
+FRCH_ALL.final.discharge <- na.omit(FRCH_ALL.final.discharge) # Removed 4 rows
 
+any(is.na(FRCH_all))
+FRCH_all <- na.omit(FRCH_all) # Removed 22 rows
 
+FRCH_Q_bf_2019_2020 = BaseflowSeparation(FRCH_ALL.final.discharge$MeanDischarge, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(FRCH_all, select = c(day, Discharge_Lsec)), streamflow2 = FRCH_Q_bf_2019_2020$bt) 
 
-
+FRCH_Q_bf = BaseflowSeparation(frch.final.discharge$MeanDischarge, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(FRCH_Q, select = c(day, Discharge_Lsec)), streamflow2=FRCH_Q_bf$bt) 
+hydrograph(FRCH_Q_bf_2019_2020)
 

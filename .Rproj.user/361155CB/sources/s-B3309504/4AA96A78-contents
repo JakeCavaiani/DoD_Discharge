@@ -49,8 +49,7 @@ ggplot(aes(x = DateTime, y = pred.french2.Q), data=French2comb) +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   ggtitle("French") +
   xlab("") +
-  ylab("Discharge (L/s)") +
-  scale_x_datetime(limits = as_datetime(c("2020-05-15","2020-10-10")))
+  ylab("Discharge (L/s)") 
 
 # Final Discharge # 
 frch.final.discharge <- data.frame(French1comb$Site, French1comb$DateTime, French1comb$pred.french1.Q, French2comb$pred.french2.Q)
@@ -96,18 +95,24 @@ ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose2comb) +
   scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
 
 # Final Discharge # 
-moos.final.discharge <- data.frame(Moose2comb$Site, Moose2comb$DateTime, Moose1comb$pred.moos1.Q, Moose2comb$pred.moos2.Q)
+Moose1comb$DateTime <- as.POSIXct(Moose1comb$DateTime)
+Moose1comb <- Moose1comb %>% subset(Moose1comb$DateTime > "2020-06-15" & Moose1comb$DateTime < "2020-10-14") # dates when it was installed
 
-moos.final.discharge$MeanDischarge <- rowMeans(moos.final.discharge[,c('Moose1comb.pred.moos1.Q', 'Moose2comb.pred.moos2.Q')], na.rm = TRUE) 
+Moose2comb$DateTime <- as.POSIXct(Moose2comb$DateTime)
+Moose2comb <- Moose2comb %>% subset(Moose2comb$DateTime > "2020-06-15" & Moose2comb$DateTime < "2020-10-14") # dates when it was installed)
 
-moos.final.discharge <- moos.final.discharge[,-(3:4)]
+moos.final.discharge <- left_join(Moose1comb, Moose2comb, by = c("DateTime"))
+moos.final.discharge$MeanDischarge <- rowMeans(moos.final.discharge[,c(13,25)], na.rm = TRUE)
+
+moos.final.discharge <- moos.final.discharge[,-c(2:4, 6:12, 14:24)]
+moos.final.discharge <- moos.final.discharge[,-(4:5)]
 
 ### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
 
 moos.final <- ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose1comb) +
   geom_line(aes(x = DateTime, y = pred.moos1.Q), data = Moose1comb, color="#A6CEE3", size=1.25) +
   geom_line(aes(x = DateTime, y = pred.moos2.Q), data = Moose2comb,color="#1F78B4", size=1.25, alpha = 0.75) +
-  geom_line(aes(x = Moose2comb.DateTime, y = MeanDischarge), data = moos.final.discharge, color = "red", size = 1.25, alpha = 0.25) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
   ylim(0, 3500) +

@@ -129,7 +129,7 @@ plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$datetimeAK, type="h",
 
 allrain.2020 <- bind_rows(strt.gauge, frch.gauge, vaul.gauge)
 
-allrain.2020$Precip <- allrain$Precip/10
+allrain.2020$Precip <- allrain.2020$Precip/10
 
 ALL <- ggplot(allrain.2020) +
   geom_line(aes(x = DateTime, y = Precip, color = Site)) +
