@@ -1,4 +1,6 @@
-### This script reads in and plots Rain Gauge data at STRT FRCH and MOOS sites for 2020 ###
+###Cant find 2018 rain gauge data ###
+
+### This script reads in and plots Rain Gauge data at FRCH, STRT, VAUL sites for 2020 from our HOBOs and POKE from LTER data ###
 
 #Step 1: Import raw data from HOBOware 
 #Step 2: Plot data
@@ -18,6 +20,15 @@ strt.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT05dgyg07MOSVdaEFF
 frch.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSXjY8hE7y3xpQs42ce8tTuqxadD-9GSLdlzmlzapcdxZoYwZ0M3GOjrQfKshj5Cw1XlPMICGK2v51L/pub?output=csv"
 vaul.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTd-IH6XcwWpzDQav6eQO5NBzV2XB3XzCwJdxHarSiOniu57EoqegV8vU4eF8bo_8REcr8SxsXaDMpR/pub?output=csv"
 
+precip.cariboupeak = read.csv("CPCRW_Caribou_2020.csv", 
+                              skip = 4)
+precip.cariboupeak$date_timeAK = as.POSIXct(precip.cariboupeak$Time, "%m/%d/%y %H:%M", tz="America/Anchorage")
+class(precip.cariboupeak$date_timeAK)
+tz(precip.cariboupeak$date_timeAK)
+precip.cariboupeak = precip.cariboupeak[,-1]
+names(precip.cariboupeak) = c("Precip", "DateTime")
+
+                              
 strt.gauge <- read.csv(url(strt.url), skip = 1)
 frch.gauge <- read.csv(url(frch.url), skip = 1)                       
 vaul.gauge <- read.csv(url(vaul.url), skip = 1)
@@ -71,6 +82,13 @@ VAUL <- ggplot(vaul.gauge) +
   ggtitle("Vault Rain Gauge")
 VAUL
 
+POKE.precip <- ggplot(precip.cariboupeak) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Cumulative Precipitation in mm") +
+  ggtitle("CPCRW Rain Gauge")
+POKE.precip
+
 ## STRT ##
 strt.gauge$inst_rainfall_mm = 0.2
 
@@ -111,7 +129,7 @@ VAUL.st$datetimeAK = lubridate::round_date(VAUL.st$datetimeAK, "15 minutes")
 
 #### plot to check ####
 
-par(mfrow=c(3,1))
+par(mfrow=c(1,1))
 
 plot(STRT.st$inst_rainfall_mm ~ STRT.st$datetimeAK, type="h", 
      xlim=c(as.POSIXct("2020-07-25 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
