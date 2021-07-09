@@ -20,6 +20,7 @@ strt.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT05dgyg07MOSVdaEFF
 frch.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSXjY8hE7y3xpQs42ce8tTuqxadD-9GSLdlzmlzapcdxZoYwZ0M3GOjrQfKshj5Cw1XlPMICGK2v51L/pub?output=csv"
 vaul.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTd-IH6XcwWpzDQav6eQO5NBzV2XB3XzCwJdxHarSiOniu57EoqegV8vU4eF8bo_8REcr8SxsXaDMpR/pub?output=csv"
 
+### from CPCRW Caribou Peak Met Station ###
 precip.cariboupeak = read.csv("CPCRW_Caribou_2020.csv", 
                               skip = 4)
 precip.cariboupeak$date_timeAK = as.POSIXct(precip.cariboupeak$Time, "%m/%d/%y %H:%M", tz="America/Anchorage")
@@ -27,6 +28,16 @@ class(precip.cariboupeak$date_timeAK)
 tz(precip.cariboupeak$date_timeAK)
 precip.cariboupeak = precip.cariboupeak[,-1]
 names(precip.cariboupeak) = c("Precip", "DateTime")
+
+### from CPCRW CRREL Main Met Station ###
+precip.crrel <- read_csv("CPCRW_CRREL_2020_Precip.csv", 
+                         skip = 4)
+precip.crrel$DateTime = as.POSIXct(precip.crrel$Time, "%m/%d/%Y %H:%M", tz="America/Anchorage")
+class(precip.crrel$DateTime)
+tz(precip.crrel$DateTime)
+precip.crrel = precip.crrel[,-1]
+names(precip.crrel) = c("Precip", "DateTime")
+
 
                               
 strt.gauge <- read.csv(url(strt.url), skip = 1)
@@ -89,6 +100,13 @@ POKE.precip <- ggplot(precip.cariboupeak) +
   ggtitle("CPCRW Rain Gauge")
 POKE.precip
 
+POKE.precip.crrel <- ggplot(precip.crrel) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Cumulative Precipitation in mm") +
+  ggtitle("CPCRW CRREL Rain Gauge")
+POKE.precip.crrel
+
 ## STRT ##
 strt.gauge$inst_rainfall_mm = 0.2
 
@@ -143,7 +161,11 @@ plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$datetimeAK, type="h",
      xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
      ylim=c(0,13))
 
-
+# Bind Together #
+poke.gauge <- data.frame(precip.cariboupeak$DateTime, precip.crrel$Precip, precip.cariboupeak$Precip)
+poke.gauge$MeanPrecip <- rowMeans(poke.gauge[,c('precip.crrel.Precip', 'precip.cariboupeak.Precip')], na.rm = TRUE)
+poke.gauge$Site <- "POKE"
+names(poke.gauge) <- c("DateTime", "CRREL_Precip", "Caribou_Precip", "Precip", "Site")
 
 allrain.2020 <- bind_rows(strt.gauge, frch.gauge, vaul.gauge)
 
