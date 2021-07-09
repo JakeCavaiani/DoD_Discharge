@@ -326,23 +326,38 @@ MOOS_bfQ_mn = mean(MOOS_Q_bf$bt)
 MOOS_bfQ_mn
 MOOS_bfQ_mn*2
 
+### Merge Discharge and Precip ###
+frch.precip.discharge <- full_join(frch.final.discharge, FRCH.st) # merging precip data and discharge
+
 ### Sum daily discharge ###
-frch.gauge$date <- as.Date(frch.gauge$DateTime)
-daily.sum <- aggregate(frch.gauge["inst_rainfall_mm"], by = frch.gauge["date"], sum)
-frch.ten <- daily.sum[which(daily.sum$inst_rainfall_mm >= 10),]
+frch.daily.sum <- rollapply(frch.precip.discharge[1:11986, 5], width = 95, FUN = sum, na.rm = TRUE) # Taking the sum of 95 values (amount of measurements in a day)
+frch.daily.sum <- as.data.frame(frch.daily.sum)
 
-strt.gauge$date <- as.Date(strt.gauge$DateTime)
-strt.daily.sum <- aggregate(strt.gauge["inst_rainfall_mm"], by = strt.gauge["date"], sum)
-strt.ten <- strt.daily.sum[which(strt.daily.sum$inst_rainfall_mm >= 10),]
+frch.ten.one <- frch_precip_discharge_FourtyEight[which(frch_precip_discharge_FourtyEight$twentyfour >= 10),] # twenty four hour period where the precip is 10
 
-vaul.gauge$date <- as.Date(vaul.gauge$DateTime)
-vaul.daily.sum <- aggregate(vaul.gauge["inst_rainfall_mm"], by = vaul.gauge["date"], sum)
-vaul.ten <- vaul.daily.sum[which(vaul.daily.sum$inst_rainfall_mm >= 10),]
-par(mfrow=c(1,1))
 
-precip.cariboupeak$date <- as.Date(precip.cariboupeak$DateTime)
-poke.daily.sum <- aggregate(precip.cariboupeak["Precip"], by = precip.cariboupeak["date"], sum)
-poke.ten <- poke.daily.sum[which(poke.daily.sum$Precip >= 10),]
+frch.ten.two <- frch_precip_discharge_FourtyEight[which(frch_precip_discharge_FourtyEight$fourtyeight >= 10),] # fourty eight hour period where the precip is greater than 10
+ 
+frch_precip_discharge_FourtyEight <- read_csv("frch.precip.discharge.FourtyEight.csv")
+frch_precip_discharge_FourtyEight$DateTime <- mdy_hm(frch_precip_discharge_FourtyEight$DateTime)
+
+
+#frch.gauge$date <- as.Date(frch.gauge$DateTime) # breaking into days
+#daily.sum <- aggregate(frch.gauge["inst_rainfall_mm"], by = frch.gauge["date"], sum) # summing days
+#frch.ten <- daily.sum[which(daily.sum$inst_rainfall_mm >= 10),] # anything greater than 10 is filtered 
+
+#strt.gauge$date <- as.Date(strt.gauge$DateTime)
+#strt.daily.sum <- aggregate(strt.gauge["inst_rainfall_mm"], by = strt.gauge["date"], sum)
+#strt.ten <- strt.daily.sum[which(strt.daily.sum$inst_rainfall_mm >= 10),]
+
+#vaul.gauge$date <- as.Date(vaul.gauge$DateTime)
+#vaul.daily.sum <- aggregate(vaul.gauge["inst_rainfall_mm"], by = vaul.gauge["date"], sum)
+#vaul.ten <- vaul.daily.sum[which(vaul.daily.sum$inst_rainfall_mm >= 10),]
+#par(mfrow=c(1,1))
+
+#precip.cariboupeak$date <- as.Date(precip.cariboupeak$DateTime)
+#poke.daily.sum <- aggregate(precip.cariboupeak["Precip"], by = precip.cariboupeak["date"], sum)
+#poke.ten <- poke.daily.sum[which(poke.daily.sum$Precip >= 10),]
 
 
 #plot(FRCH_Q$Discharge_Lsec ~ FRCH_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,3000), col="blue", main="FRCH")
@@ -372,26 +387,26 @@ plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h",
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
-abline(v = as.POSIXct(frch.ten$date), col="red")
-
+abline(v = as.POSIXct(frch.ten.two$DateTime), col="red")
+?plot
 ### Storms ###
 # FRCH #
 # Storm 1 #
 plot(FRCH$MeanDischarge ~ FRCH$DateTime, type="l", xlab="", ylab="Q (L/sec)",
-     xlim = as.POSIXct(c("2020-06-20 00:00:00","2020-06-25 00:00:00"), tz="America/Anchorage"))
+     xlim = as.POSIXct(c("2020-06-20 00:00:00","2020-07-07 00:00:00"), tz="America/Anchorage"))
 abline(h=FRCH_bfQ_mn*2, col="red", lty=2)
 abline(h=FRCH_bfQ_mn, col="red")
 par(new = T)
 
 
 plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h",
-     xlim = as.POSIXct(c("2020-06-20 0:00:00","2020-06-25 00:00:00"), tz="America/Anchorage"),
+     xlim = as.POSIXct(c("2020-06-20 0:00:00","2020-07-07 00:00:00"), tz="America/Anchorage"),
      ylim = c(5,0), 
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
 abline(v= as.POSIXct("2020-06-20 18:30:00", tz="America/Anchorage"), col="purple")
-abline(v= as.POSIXct("2020-06-22 00:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2020-07-07 00:00:00", tz="America/Anchorage"), col="purple")
 
 # Storm 2 #
 
