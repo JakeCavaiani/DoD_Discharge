@@ -91,21 +91,16 @@ ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose2comb) +
   ggtitle("Moose") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
-  ylab("Discharge (L/s)") +
-  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
+  ylab("Discharge (L/s)") 
 
 # Final Discharge # 
-Moose1comb$DateTime <- as.POSIXct(Moose1comb$DateTime)
-Moose1comb <- Moose1comb %>% subset(Moose1comb$DateTime > "2020-06-15" & Moose1comb$DateTime < "2020-10-14") # dates when it was installed
+Moose1comb[c(540:1594), 13] <- NA # Remove the noisy data
 
-Moose2comb$DateTime <- as.POSIXct(Moose2comb$DateTime)
-Moose2comb <- Moose2comb %>% subset(Moose2comb$DateTime > "2020-06-15" & Moose2comb$DateTime < "2020-10-14") # dates when it was installed)
-
-moos.final.discharge <- left_join(Moose1comb, Moose2comb, by = c("DateTime"))
+moos.final.discharge <- full_join(Moose1comb, Moose2comb, by = c("DateTime"))
 moos.final.discharge$MeanDischarge <- rowMeans(moos.final.discharge[,c(13,25)], na.rm = TRUE)
 
 moos.final.discharge <- moos.final.discharge[,-c(2:4, 6:12, 14:24)]
-moos.final.discharge <- moos.final.discharge[,-(4:5)]
+moos.final.discharge <- moos.final.discharge[,-(3:4)]
 
 ### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
 

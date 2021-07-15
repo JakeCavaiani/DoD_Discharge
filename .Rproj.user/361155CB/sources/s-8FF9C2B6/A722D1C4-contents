@@ -40,18 +40,17 @@ dir.create(here("PT_data", "clean"))
 
 setwd(here("PT_data", "clean"))
 
-
 ### Import Raw Data ### 
 # VAUL only has one because data for PT1 was very erroneous 
-moos.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSqPvEKpJI6Kq5O6_oRRj0t9IDXvUwGeHD3t_mYiQvGRL_ZFsCU_4Hw1FMBadCipWjzk-Tg2D2xBK9b/pub?output=csv"
-moos.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRLiymnxf0Kh0V9RC-aYvoOuVR1mdUR4h4Eyd2QM8eE-C0WnSGiHU30G7hNmBrla7q78ApCi8TIQX4y/pub?output=csv"
-frch.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTEniUzPMlYhqf_XyFnCG5j97f9uZxBCafA8qs4L6KybqvF0eve9Ic4-IkvkeEoYDzAstr40ftBBSnc/pub?output=csv"
-frch.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBuhkfYzLPVefrA5bLqybCkJmQtT1zLo5OFavWhjVCYX82QqhYo712IWgxKlpDbk3zMBkJ-QiN_RpZ/pub?output=csv"
-strt.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTv0x_cYRqBh5Aw1shmc630pIXbjVbV8Vet_gZun7AhngwvQWVLkGL7t8gbBuaMnP4tcUQsSN_Zl_f5/pub?output=csv"
-strt.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQfQQybzS-N-iEQBLalffAhOzLvWOZYTjo84q9rGx_5q1oxm9Kv3WjFePB15m0hSQQLc5DYrPXlwEcS/pub?output=csv"
+moos.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_IoyPoUK6tDeBoPsTibXES49eORxi6SUzt5Df3iSmMmIXncaIAQWlsmzKwjecJelrcKDL3rryyKjS/pub?output=csv"
+moos.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRb88DUzb4g2wJjmw0wfBatqS6Hg90epELO1sMlnQfzuI0t7aTWuqXYIY18r-T8mt0koTH4gc041PxL/pub?output=csv"
+frch.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ0F4a3e4MTwKTChJmS3GTwC_ENETsM_CoJNq6awdnXzXnl1nQKizm63JjFg3WUbXZusXBLt_DNcMX/pub?output=csv"
+frch.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJhzv4dunVMRCmolhShz29XDicFk2wFafUUC4ZDWaOs7z-5Q--vEJWCcYJsVEikjXYql6fc3TZV63/pub?output=csv"
+strt.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSE57c7ol5XBElx6nIOm4fl4UFB5qgffo49nSw2RuJ_kIZAC43vLusqtjQy5h2h3bNikmJwDvIBEO7X/pub?output=csv"
+strt.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSPRQxqqKl_N36uEzbMC1_T5v8k67aUyJhhMYZvsmwJKafU2NmL1NtbmOW8BvtqWqxSTY3ndYnjzy_f/pub?output=csv"
 vaul.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVA4AxNNaYJY6hJCD7c7Y4jloR68x1Zols2Grg7xiKx-gVQlqh5yb3e3L5XkFUXyRn0GnD1nRi_XXJ/pub?output=csv"
-poke.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTVII1zFxhCY1VCg6D_NH9dZkE0lsv15W3_hDnvuj0lvnOV3yOhqwiGjs0lSR-ELXnfjc_bLb8mC6M6/pub?output=csv"
-poke.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTx06zsh-FYmaIix2GBP-GW7E-EYH78bINSLusSbSpD_FP6P7H28JD0M8p8KKXxCFGeiXKEHKitEZW_/pub?output=csv"
+poke.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwtaiz8D9c4QelUMsM5BwCMu4lu_Eqlo6IwTC0s-MXE-a075hQ4xgEvMovGrrMuv9_qX7cCYJvISrN/pub?output=csv"
+poke.stream.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQuyeltwK25QUepwlUKTSL9SAFCwgTtxs6YscILt_npSKjFV1mY5DVrs-RxGivvpg7ZCKfGuej0DOJO/pub?output=csv"
 
 # Load Data#
 moos.stream.one <- read.csv(url(moos.stream.url), skip = 491)
@@ -128,6 +127,7 @@ attributes(poke.stream.two$DateTime)$tzone <- 'America/Anchorage'
 ### Filtering out data ###
 ### MOOS ###
 moos.stream.one <- moos.stream.one %>% filter(moos.stream.one$WaterLevel > 165.5) %>% subset(moos.stream.one$DateTime < "2020-10-14") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out
+
 plot(x = moos.stream.one$DateTime, y = moos.stream.one$WaterLevel) # Plot check
 
 moos.stream.two <- moos.stream.two %>% subset(moos.stream.two$DateTime < "2020-10-14")

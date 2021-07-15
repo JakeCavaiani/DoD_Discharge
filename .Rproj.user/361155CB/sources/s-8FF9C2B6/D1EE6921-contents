@@ -125,7 +125,10 @@ STRT.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = strt.gauge, FU
   sum=sum(x)))
 STRT.st$DateTime <-as.POSIXct(STRT.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
 
+STRT.FRCH <- FRCH.st[-c(438:677), ] #clipping off 7/29-on 
 
+STRT.st.final <- full_join(STRT.FRCH, STRT.st, by = c("DateTime")) #merging FRCH and STRT
+STRT.st.final$Precip <- rowMeans(STRT.st.final[,c(2,5)], na.rm = TRUE)
 ## FRCH ##
 min<-cut(frch.gauge$DateTime, breaks="15 min")
 FRCH.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = frch.gauge, FUN=function(x) 
