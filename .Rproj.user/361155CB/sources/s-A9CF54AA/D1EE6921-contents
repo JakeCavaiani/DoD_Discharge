@@ -107,6 +107,12 @@ POKE.precip.crrel <- ggplot(precip.crrel) +
   ggtitle("CPCRW CRREL Rain Gauge")
 POKE.precip.crrel
 
+# Bind Together #
+poke.gauge <- data.frame(precip.cariboupeak$DateTime, precip.crrel$Precip, precip.cariboupeak$Precip)
+poke.gauge$MeanPrecip <- rowMeans(poke.gauge[,c('precip.crrel.Precip', 'precip.cariboupeak.Precip')], na.rm = TRUE)
+poke.gauge$Site <- "POKE"
+names(poke.gauge) <- c("DateTime", "CRREL_Precip", "Caribou_Precip", "Precip", "Site")
+
 ## STRT ##
 strt.gauge$inst_rainfall_mm = 0.2
 
@@ -141,6 +147,11 @@ VAUL.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data=vaul.gauge, FUN=
   sum=sum(x)))
 VAUL.st$DateTime<-as.POSIXct(VAUL.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
 
+VAUL.POKE <- poke.gauge[-c(535:3672), ] # clippling off 6/22- on
+VAUL.st.final <- full_join(VAUL.POKE, VAUL.st) #merging POKE and VAUL
+VAUL.st.final$PRECIP<- rowMeans(VAUL.st.final[,c(4,7)], na.rm = TRUE)
+
+
 
 #### round time to nearest 15 min ####
 STRT.st$DateTime = lubridate::round_date(STRT.st$DateTime, "15 minutes")
@@ -164,11 +175,7 @@ plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$datetimeAK, type="h",
      xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
      ylim=c(0,13))
 
-# Bind Together #
-poke.gauge <- data.frame(precip.cariboupeak$DateTime, precip.crrel$Precip, precip.cariboupeak$Precip)
-poke.gauge$MeanPrecip <- rowMeans(poke.gauge[,c('precip.crrel.Precip', 'precip.cariboupeak.Precip')], na.rm = TRUE)
-poke.gauge$Site <- "POKE"
-names(poke.gauge) <- c("DateTime", "CRREL_Precip", "Caribou_Precip", "Precip", "Site")
+
 
 allrain.2020 <- bind_rows(strt.gauge, frch.gauge, vaul.gauge)
 

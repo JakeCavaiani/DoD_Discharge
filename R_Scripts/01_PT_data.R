@@ -126,7 +126,14 @@ attributes(poke.stream.two$DateTime)$tzone <- 'America/Anchorage'
 
 ### Filtering out data ###
 ### MOOS ###
-moos.stream.one <- moos.stream.one %>% filter(moos.stream.one$WaterLevel > 165.5) %>% subset(moos.stream.one$DateTime < "2020-10-14") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out
+moos.stream.one <- moos.stream.one %>% subset(moos.stream.one$DateTime < "2020-10-14") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 05:15"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 05:30"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 05:45"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 06:00"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 06:15"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 06:30"] <- NA
+moos.stream.one$DateTime[moos.stream.one$DateTime == "2020-08-17 06:45"] <- NA
 
 plot(x = moos.stream.one$DateTime, y = moos.stream.one$WaterLevel) # Plot check
 
@@ -135,7 +142,10 @@ moos.stream.two <- moos.stream.two %>% subset(moos.stream.two$DateTime < "2020-1
 plot(x = moos.stream.two$DateTime, y = moos.stream.two$WaterLevel) #plot check
 
 ### FRCH ###
-frch.stream.one <- frch.stream.one %>% filter(frch.stream.one$WaterLevel > 184) %>%  subset(frch.stream.one$DateTime < "2020-10-14") #cleaning data that is before the 14th (Site was taken down the 15th)
+frch.stream.one <- frch.stream.one  %>%  subset(frch.stream.one$DateTime < "2020-10-14") #cleaning data that is before the 14th (Site was taken down the 15th)
+frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-11 4:45"] <- NA
+frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-11 5:00"] <- NA
+frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-11 5:15"] <- NA
 frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-28 21:15"] <- NA
 frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-29 14:45"] <- NA
 

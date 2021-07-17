@@ -131,11 +131,11 @@ FRCH.no3 <- subset(FRCH, select = c("datetimeAK","nitrateuM"))
 #FRCH.no3 <-  fillgaps15(FRCH.no3, FRCH.no3$nitrateuM, "nitrateuM", 16)
 
 names(FRCH.no3) = c("DateTime", "nitrate_uM_filled")
-
-FRCH.fDOM = subset(FRCH, select = c("date","fDOM.RFU"))
+FRCH$
+FRCH.fDOM = subset(FRCH, select = c("date","fDOM.QSU"))
 #FRCH.fDOM = fillgaps15(FRCH.fDOM, FRCH.fDOM$fDOM.RFU, "fDOM.RFU", 16)
 ggplot(FRCH) +
-  geom_point(mapping = aes(x = Date, y = fDOM.RFU)) +
+  geom_point(mapping = aes(x = Date, y = fDOM.QSU)) +
   theme_classic()
 names(FRCH.fDOM) = c("fDOM_filled", "DateTime")
 
@@ -159,7 +159,7 @@ FRCH = left_join(FRCH, FRCH.turb, by="date_timeAK")
 STRT.no3 <- subset(STRT, select = c("DateTime", "nitrateuM"))
 #STRT.no3 = fillgaps15(STRT.no3, STRT.no3$nitrateuM, "nitrateuM", 16)
 plot(STRT.no3$dat_filled, type="l")
-names(STRT.no3) = c("nitrate_uM_filled", "DateTime")
+names(STRT.no3) = c("DateTime", "nitrate_uM_filled")
 
 STRT.fDOM = subset(STRT, select = c("DateTime","fDOM.QSU"))
 #STRT.fDOM = fillgaps15(STRT.fDOM, STRT.fDOM$fDOM.RFU, "fDOM.RFU", 16)
@@ -193,7 +193,7 @@ names(VAUL.fDOM) = c("fDOM_filled", "DateTime")
 MOOS.no3 <- subset(MOOS, select = c("DateTime", "nitrateuM"))
 #MOOS.no3 <-  fillgaps15(MOOS.no3, MOOS.no3$nitrateuM, "nitrateuM", 16)
 plot(MOOS.no3$dat_filled, type="l")
-names(MOOS.no3) = c("nitrate_uM_filled", "DateTime")
+
 
 MOOS.fDOM = subset(MOOS, select = c("DateTime","fDOM.RFU"))
 #MOOS.fDOM = fillgaps15(MOOS.fDOM, MOOS.fDOM$fDOM.RFU, "fDOM.RFU", 16)
@@ -204,23 +204,23 @@ names(MOOS.fDOM) = c("fDOM_filled", "DateTime")
 
 any(is.na(FRCH_Q$day))
 any(is.na(FRCH_Q$Discharge_Lsec))
-FRCH_Q <- na.omit(FRCH_Q) # Remove NaNs
+FRCH_Q <- na.omit(FRCH_Q) # Remove 7 NaNs
 
 any(is.na(STRT_Q$day))
 any(is.na(STRT_Q$Discharge_Lsec))
-STRT_Q <- na.omit(STRT_Q) # Remove NaNs
+STRT_Q <- na.omit(STRT_Q) # Remove 19 NaNs
 
 any(is.na(POKE_Q$day))
 any(is.na(POKE_Q$Discharge_Lsec))
-POKE_Q <- na.omit(POKE_Q) # Remove NaNs
+POKE_Q <- na.omit(POKE_Q) # Remove 4 NaNs
 
 any(is.na(VAUL_Q$day))
 any(is.na(VAUL_Q$Discharge_Lsec))
-VAUL_Q <- na.omit(VAUL_Q) # Remove NaNs
+VAUL_Q <- na.omit(VAUL_Q) # Remove 21 NaNs
 
 any(is.na(MOOS_Q$day))
 any(is.na(MOOS_Q$Discharge_Lsec))
-MOOS_Q <- na.omit(MOOS_Q) # Remove NaNs
+MOOS_Q <- na.omit(MOOS_Q) # Remove 11 NaNs
 
 
 ### examine the recursive digital filter at .9, .925, .95 levels ###
@@ -329,23 +329,23 @@ MOOS_bfQ_mn*2
 ### Merge Discharge and Precip ###
 frch.precip.discharge <- full_join(frch.final.discharge, FRCH.st) # merging precip data and discharge
 strt.precip.discharge <- full_join(strt.final.discharge, STRT.st.final) # merging precip data and discharge
-vaul.precip.discharge <- full_join(vaul.final.discharge, VAUL.st) # merging precip data and discharge
+vaul.precip.discharge <- rbind(vaul.final.discharge, VAUL.st.final) # merging precip data and discharge
 poke.precip.discharge <- full_join(poke.final.discharge, poke.gauge) # merging precip data and discharge
 
 
 ### Sum daily discharge ###
-frch.precip.discharge$twentyfour <- rollapplyr(frch.precip.discharge$inst_rainfall_mm, 96, sum, na.rm = TRUE, fill = NA)
-frch.precip.discharge$fourtyeight <- rollapplyr(frch.precip.discharge$inst_rainfall_mm, 192, sum, na.rm = TRUE, fill = NA)
+frch.precip.discharge <- frch.precip.discharge[-c(1:3),] # Remove out of water discharge
+frch.precip.discharge$twentyfour <- rollapplyr(frch.precip.discharge$inst_rainfall_mm, 96, sum, na.rm = TRUE, fill = NA, partial = TRUE)
+frch.precip.discharge$fourtyeight <- rollapplyr(frch.precip.discharge$inst_rainfall_mm, 192, sum, na.rm = TRUE, fill = NA, partial = TRUE)
 
+strt.precip.discharge$twentyfour <- rollapplyr(strt.precip.discharge$Precip, 96, sum, na.rm = TRUE, fill = NA, partial = TRUE)
+strt.precip.discharge$fourtyeight <- rollapplyr(strt.precip.discharge$Precip, 192, sum, na.rm = TRUE, fill = NA, partial = TRUE)
 
-strt.precip.discharge$twentyfour <- rollapplyr(strt.precip.discharge$Precip, 96, sum, na.rm = TRUE, fill = NA)
-strt.precip.discharge$fourtyeight <- rollapplyr(strt.precip.discharge$Precip, 192, sum, na.rm = TRUE, fill = NA)
+vaul.precip.discharge$twentyfour <- rollapplyr(vaul.precip.discharge$PRECIP, 96, sum, na.rm = TRUE, fill = NA, partial = TRUE)
+vaul.precip.discharge$fourtyeight <- rollapplyr(vaul.precip.discharge$PRECIP, 192, sum, na.rm = TRUE, fill = NA, partial = TRUE)
 
-vaul.precip.discharge$twentyfour <- rollapplyr(vaul.precip.discharge$inst_rainfall_mm, 96, sum, na.rm = TRUE, fill = NA)
-vaul.precip.discharge$fourtyeight <- rollapplyr(vaul.precip.discharge$inst_rainfall_mm, 192, sum, na.rm = TRUE, fill = NA)
-
-poke.precip.discharge$twentyfour <- rollapplyr(poke.precip.discharge$Precip, 96, sum, na.rm = TRUE, fill = NA)
-poke.precip.discharge$fourtyeight <- rollapplyr(poke.precip.discharge$Precip, 192, sum, na.rm = TRUE, fill = NA)
+poke.precip.discharge$twentyfour <- rollapplyr(poke.precip.discharge$Precip, 96, sum, na.rm = TRUE, fill = NA, partial = TRUE)
+poke.precip.discharge$fourtyeight <- rollapplyr(poke.precip.discharge$Precip, 192, sum, na.rm = TRUE, fill = NA, partial = TRUE)
 
 # Greater than 10 #
 frch.ten.twenty.four <- frch.precip.discharge[which(frch.precip.discharge$twentyfour >= 10),] # twenty four hour period where the precip is 10
@@ -396,29 +396,28 @@ write.csv(poke.precip.discharge, "poke.precip.discharge.csv", row.names = FALSE)
 # FRCH rain gauge installed on the 11th of June. 
 plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
-     ylim = c(25,0), 
+     ylim = c(20,0), 
      axes=F, xlab="", ylab="")
+axis(side = 4)
 par(mfrow=c(1,1))
-abline(v = as.POSIXct(frch.ten.fourty.eight$DateTime), col = "red", lwd = 0.1)
-abline(v = as.POSIXct(frch.ten.twenty.four$DateTime), col="blue", lwd = 0.1)
+abline(v = as.POSIXct(frch.ten.fourty.eight$DateTime), col = "yellow", lwd = 0.1)
+abline(v = as.POSIXct(frch.ten.twenty.four$DateTime), col="green", lwd = 0.1)
 par(new = T)
 plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
      ylim = c(25,0), 
      axes=F, xlab="", ylab="")
-axis(side = 4)
-mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
 par(new = T)
 
 plot(FRCH$MeanDischarge ~ FRCH$DateTime, type="l", xlab="", ylab="Q (L/sec)",
      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"))
 abline(h=FRCH_bfQ_mn*2, col="red", lty=2)
 abline(h=FRCH_bfQ_mn, col="red")
-lines(FRCH$nitrateuM * 20 ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+lines(FRCH$nitrateuM * 20 ~ FRCH.no3$DateTime, type="l", xlab="", ylab="", col="purple",
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
-lines(FRCH$fDOM.RFU ~ FRCH.no3$datetimeAK, type="l", xlab="", ylab="", col="purple",
+lines(FRCH$fDOM.RFU * 10 ~ FRCH$DateTime, type="l", xlab="", ylab="", col="purple",
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
-plot(FRCH$fDOM.QSU ~ FRCH.fDOM$DateTime)
+
 
 ### Storms ###
 # FRCH #
@@ -450,8 +449,8 @@ plot(STRT.st.final$Precip ~ STRT.st.final$DateTime, type="h",
 axis(side = 4)
 mtext(side = 4, line = 3, 'STRT precip. (mm)') 
 par(new = T)
-abline(v = as.POSIXct(strt.ten.fourty.eight$DateTime), col = "red", lwd = 0.1)
-abline(v = as.POSIXct(strt.ten.twenty.four$DateTime), col="blue", lwd = 0.1)
+abline(v = as.POSIXct(strt.ten.fourty.eight$DateTime), col = "yellow", lwd = 0.1)
+abline(v = as.POSIXct(strt.ten.twenty.four$DateTime), col="green", lwd = 0.1)
 par(new = T)
 plot(STRT.st.final$Precip ~ STRT.st.final$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
@@ -466,7 +465,7 @@ lines(STRT$nitrateuM * 45 ~ STRT.no3$DateTime, type="l", xlab="", ylab="", col="
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
 lines(STRT$fDOM.QSU * 20 ~ STRT.fDOM$DateTime, type="l", xlab="", ylab="", col="purple",
       xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 01:00:00"), tz="America/Anchorage"))
-
+plot(x = STRT.no3$DateTime, y = STRT$nitrateuM)
 
 ### Storms ###
 # STRT #
@@ -497,8 +496,8 @@ plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$DateTime, type="h",
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'VAUL precip. (mm)') 
-abline(v = as.POSIXct(vaul.ten.fourty.eight$DateTime), col = "red", lwd = 0.1)
-abline(v = as.POSIXct(vaul.ten.twenty.four$DateTime), col="blue", lwd = 0.1)
+abline(v = as.POSIXct(vaul.ten.fourty.eight$DateTime), col = "yellow", lwd = 0.1)
+abline(v = as.POSIXct(vaul.ten.twenty.four$DateTime), col="green", lwd = 0.1)
 par(new = T)
 
 plot(vaul.final.discharge$MeanDischarge ~ vaul.final.discharge$DateTime, type="l", xlab="", ylab="Q (L/sec)",
@@ -534,7 +533,7 @@ abline(v= as.POSIXct("2020-06-24 23:00:00", tz="America/Anchorage"), col="purple
 ### Import precipitation data from LTER ### 
 plot(poke.gauge$Precip ~ poke.gauge$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-01 0:00:00","2020-10-31 00:00:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
+     ylim = c(15,0), 
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'POKE precip. (mm)') 
@@ -557,16 +556,20 @@ lines(POKE$fDOM.RFU * 15 ~ POKE.no3$DateTime, type="l", xlab="", ylab="", col="p
 ### MOOS ###
 ### Import precipitation data into the *ALL document ### 
 # FRCH rain gauge installed on the 11th of June. 
-plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$datetimeAK, type="h",
+plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$DateTime, type="h",
      xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
-     ylim = c(25,0), 
+     ylim = c(15,0), 
      axes=F, xlab="", ylab="")
 axis(side = 4)
 mtext(side = 4, line = 3, 'FRCH precip. (mm)') 
-abline(v = as.POSIXct(frch.ten.fourty.eight$DateTime), col = "red", lwd = 0.1)
-abline(v = as.POSIXct(frch.ten.twenty.four$DateTime), col="blue", lwd = 0.1)
+abline(v = as.POSIXct(frch.ten.fourty.eight$DateTime), col = "yellow", lwd = 0.1)
+abline(v = as.POSIXct(frch.ten.twenty.four$DateTime), col="green", lwd = 0.1)
 par(new = T)
-
+plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$DateTime, type="h",
+     xlim = as.POSIXct(c("2020-06-05 0:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"),
+     ylim = c(15,0), 
+     axes=F, xlab="", ylab="")
+par(new = T)
 plot(moos.final.discharge$MeanDischarge ~ moos.final.discharge$DateTime, type="l", xlab="", ylab="Q (L/sec)",
      xlim = as.POSIXct(c("2020-06-01 00:00:00","2020-10-15 00:00:00"), tz="America/Anchorage"))
 abline(h=MOOS_bfQ_mn*2, col="red", lty=2)

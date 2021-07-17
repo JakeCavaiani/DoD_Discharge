@@ -136,6 +136,7 @@ ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb) +
   ggtitle("Poker") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
+  ylim(0, 3500) +
   ylab("Discharge(L/s)") +
   scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
 
@@ -158,7 +159,7 @@ poke.final <- ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb) +
   ggtitle("Poker1(light) & Poker2(dark) predicted all measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time")
-
+Poke1comb$DateTime
 ### STRT ###
 # PT1 #
 Strt1comb$pred.strt1.Q <- coef(STRT1.lm)[2] * Strt1comb$WaterLevel+ coef(STRT1.lm)[1]
