@@ -147,10 +147,9 @@ VAUL.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data=vaul.gauge, FUN=
   sum=sum(x)))
 VAUL.st$DateTime<-as.POSIXct(VAUL.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
 
-VAUL.POKE <- poke.gauge[-c(535:3672), ] # clippling off 6/22- on
-VAUL.st.final <- full_join(VAUL.POKE, VAUL.st) #merging POKE and VAUL
-VAUL.st.final$PRECIP<- rowMeans(VAUL.st.final[,c(4,7)], na.rm = TRUE)
+VAUL.FRCH <- FRCH.st[-c(175:677)] #clipping off 6-22 on
 
+VAUL.st.final <- full_join(VAUL.FRCH, VAUL.st) #merging FRCH and VAUL
 
 
 #### round time to nearest 15 min ####
@@ -171,7 +170,7 @@ plot(FRCH.st$inst_rainfall_mm ~ FRCH.st$DateTime, type="h",
      xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
      ylim=c(0,13))
 
-plot(VAUL.st$inst_rainfall_mm ~ VAUL.st$datetimeAK, type="h", 
+plot(VAUL.st.final$inst_rainfall_mm ~ VAUL.st.final$DateTime, type="h", 
      xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
      ylim=c(0,13))
 

@@ -52,16 +52,23 @@ ggplot(aes(x = DateTime, y = pred.french2.Q), data=French2comb) +
   ylab("Discharge (L/s)") 
 
 # Final Discharge # 
-frch.final.discharge <- data.frame(French1comb$Site, French1comb$DateTime, French1comb$pred.french1.Q, French2comb$pred.french2.Q)
+French1comb$DateTimeGMT <- mdy_hms(French1comb$DateTimeGMT, tz = "GMT")
+attributes(French1comb$DateTimeGMT)$tzone <- 'America/Anchorage' # Changing GMT to AK time to prep to remove pred Q for PT1
+
+
+French1comb[c(1039:2382), 13] <- NA # Setting NA to noisy part of the data set
+frch.final.discharge <- data.frame(French1comb$Site, French2comb$DateTime, French1comb$pred.french1.Q, French2comb$pred.french2.Q)
 
 frch.final.discharge$MeanDischarge <- rowMeans(frch.final.discharge[,c ('French1comb.pred.french1.Q', 'French2comb.pred.french2.Q')], na.rm = TRUE) 
 
 frch.final.discharge <- frch.final.discharge[,-(3:4)] # Just mean discharge because it looks fine
+frch.final.discharge <- frch.final.discharge[-c(1:2), ] # Removing errant points
+names(frch.final.discharge) <- c("Site", "DateTime", "MeanDischarge")
 ### French1 (light blue), French2 (dark blue), and mean (red) with observed Q.
-French.final <- ggplot(aes(x = DateTime, y = pred.french1.Q), data = French1comb) +
+French.final <- ggplot(aes(x = DateTime, y = pred.french2.Q), data = French2comb) +
   geom_line(aes(x = DateTime, y = pred.french1.Q), data = French1comb, color="#A6CEE3", size=1.25) +
   geom_line(aes(x = DateTime, y = pred.french2.Q), data = French2comb,color="#1F78B4", size=1.25, alpha = 0.75) +
-  geom_line(aes(x = French1comb.DateTime, y = MeanDischarge), data = frch.final.discharge, color = "red", size = 1.25, alpha = 0.25) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = frch.final.discharge, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
   ggtitle("French1(light) & French2(dark) predicted all measured Q") +

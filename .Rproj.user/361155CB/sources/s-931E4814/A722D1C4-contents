@@ -150,7 +150,7 @@ frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-28 21:15"] <- NA
 frch.stream.one$DateTime[frch.stream.one$DateTime == "2020-06-29 14:45"] <- NA
 
 plot(x = frch.stream.one$DateTime, y = frch.stream.one$WaterLevel) # plot check
-
+frch.stream.one[c(1039:2382), 4] <- NA # Setting NA to noisy part of the data set
 frch.stream.two <- frch.stream.two %>%  subset(frch.stream.two$DateTime < "2020-10-14") #cleaning data that is before the 14th (Site was taken down the 15th)
 
 plot(x = frch.stream.two$DateTime, y = frch.stream.two$WaterLevel) # plot check
@@ -227,7 +227,7 @@ plot(x = poke.stream.one$WaterLevel, y = poke.stream.two$WaterLevel, main = "Pok
      ylab = "Poker2 PT")
 abline(1,1)
 
-
+# Moos dirty #
 Moos <- ggplot(allmoos) + 
   geom_line(aes(x = DateTime , y= WaterLevel, color = Site), size=1.25) +
   xlab("Date") +
@@ -236,7 +236,56 @@ Moos <- ggplot(allmoos) +
   ggtitle("Moose PT comparison") + 
   scale_color_brewer(palette = "Paired")
 Moos
+## MOOS FINAL ##
+allmoos[6031,4] # Last measurement before cleaning
+allmoos[6039,4] # First measurement after cleaning
+allmoos[6031,4] - allmoos[6039,4] #0.116
 
+moos.stream.one.before <- moos.stream.one[-c(6032:11578), ] # clipping off after cleaning
+moos.stream.one.after <- moos.stream.one[-c(1:6031),] # clipping off before cleaning
+moos.stream.one.after$difference <- moos.stream.one.after[, 4] + 0.116
+names(moos.stream.one.after) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WLB4", "DateTime", "WaterLevel")
+moos.stream.one.final <- full_join(moos.stream.one.before, moos.stream.one.after)
+
+plot(moos.stream.two$WaterLevel ~ moos.stream.two$DateTime, type="l", xlab="", ylab="Q (L/sec)",
+     xlim = as.POSIXct(c("2020-08-17 04:45:00","2020-08-17 06:45:00"), tz="America/Anchorage"))
+moos.stream.two[6030, 4] # Last measurement before cleaning
+moos.stream.two[6038, 4] # first measurement after cleaning
+moos.stream.two[6030, 4] - moos.stream.two[6038, 4] #0.19 is the difference 
+
+moos.stream.two.before <- moos.stream.two[-c(6031:11578), ]
+moos.stream.two.after <- moos.stream.two[-c(1:6030), ]
+moos.stream.two.after$difference <- moos.stream.two.after[, 4] + 0.19
+names(moos.stream.two.after) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WLB4", "DateTime", "WaterLevel")
+moos.stream.two.final <- full_join(moos.stream.two.before, moos.stream.two.after)
+
+all.moos.final <- full_join(moos.stream.one.final, moos.stream.two.final)
+allmoosfinal <- full_join(moos.stream.one.final, moos.stream.two.final, by = c("DateTime"))
+allmoosfinal <- allmoosfinal[, -c(2,3,6,8,9,11)] # cleaning unnecessary columns
+names(allmoosfinal) <- c("Site", "WL1", "DateTime", "Site", "WL2") #rename
+allmoosfinal$MeanWL <- rowMeans(allmoosfinal[,c(2, 5)], na.rm = TRUE) # mean of both WL
+
+#Final STRT #
+allstrtfinal <- full_join(strt.stream.one, strt.stream.two, by = c("DateTime"))
+allstrtfinal <- allstrtfinal[, -c(2, 3, 7, 8)]
+names(allstrtfinal) <- c("Site", "WL1", "DateTime", "Site", "WL2") #rename
+allstrtfinal$MeanWL <- rowMeans(allstrtfinal[,c(2, 5)], na.rm = TRUE) # mean of both WL
+
+# Final FRCH #
+allfrchfinal <- full_join(frch.stream.one, frch.stream.two, by = c("DateTime"))
+allfrchfinal <- allfrchfinal[, -c(2, 3, 7, 8)]
+names(allfrchfinal) <- c("Site", "WL1", "DateTime", "Site", "WL2") #rename
+allfrchfinal$MeanWL <- rowMeans(allfrchfinal[,c(2, 5)], na.rm = TRUE) # mean of both WL
+
+# Moos Clean #
+Allmoos <- ggplot(all.moos.final) + 
+  geom_line(aes(x = DateTime , y= WaterLevel, color = Site), size=1.25) +
+  xlab("Date") +
+  ylab("Water Level") +
+  theme_classic() +
+  ggtitle("Moose PT comparison") + 
+  scale_color_brewer(palette = "Paired")
+Allmoos
 
 Frch <- ggplot(allfrch) + 
   geom_line(aes(x = DateTime , y= WaterLevel, color = Site), size=1.25) +
@@ -278,9 +327,9 @@ setwd(here())
 # check: should be at DoD_Discharge
 getwd()
 ### Write CSV ###
-write.csv(allmoos,"PT_data/clean/allmoos.csv", row.names = FALSE)
-write.csv(allfrch,"PT_data/clean/allfrch.csv", row.names = FALSE)
-write.csv(allstrt,"PT_data/clean/allstrt.csv", row.names = FALSE)
+write.csv(allmoosfinal,"PT_data/clean/allmoos.csv", row.names = FALSE)
+write.csv(allfrchfinal,"PT_data/clean/allfrch.csv", row.names = FALSE)
+write.csv(allstrtfinal,"PT_data/clean/allstrt.csv", row.names = FALSE)
 write.csv(allvaul,"PT_data/clean/allvaul.csv", row.names = FALSE)
 write.csv(allpoke,"PT_data/clean/allpoke.csv", row.names = FALSE)
 
