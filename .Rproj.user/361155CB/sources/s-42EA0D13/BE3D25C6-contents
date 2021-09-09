@@ -1,0 +1,774 @@
+## DoD 2020 - process telemetry data ##
+# press Command+Option+O to collapse all sections and get an overview of the workflow! #
+
+#### load libraries ####
+library(tidyverse)
+library(lubridate)
+library(data.table)
+library(rio)
+library(ggplot2)
+library(scales)
+library(psych)
+library(crunch)
+library(googledrive)
+library(here)
+
+#### read me ####
+# this code 1) loads, formats, and saves EXO and SUNA data from the dataloggers/telemetry network and 2) plots it for remote data monitoring
+
+### NOTE ON WARNINGS:
+## Acceptable warnings:
+## The following are expected warnings. All other warnings should be investigated.
+# "In arrows...  :zero-length arrow is of indeterminate angle and so skipped": Occurs in plotting functions and is not a problem. When there are a lot of these, it will read as "There were 50 or more warnings (use warnings() to see the first 50)" right after the "makePlotTelem.combo()" or "makePlotTelem.comboNEW()" functions. Run warnings() in the Console to confirm. 
+# "Expected 286 pieces. Missing pieces filled with `NA` in...": This is an expected error in SUNA.raw.2 dataframes due to NA values generated during the datalogger scan. 
+
+## BAD warnings:
+# "1: In scan(file = file, what = what, sep = sep, quote = quote, dec = dec,: EOF within quoted string" 
+# "2: In scan(file = file, what = what, sep = sep, quote = quote, dec = dec,: number of items read is not a multiple of the number of columns""
+# AJW found this warning when the time stamps got jumbled and some extraneous lines of data showed up in the raw suna data from VAUL 200612 ~5am-7:15am. No idea why, but it messed up the import of that data, causing all the data after it to get imported as individual numbers instead of 1 record # + 1 long text string per time stamp. AJW had to go into the .dat file manually and remove those lines to fix the issue.
+# If you see this warning in the future associated with importing a SITECODE_SUNARaw.dat file, look for jumbled time stamps in the raw .dat files in a text editor and remove the offending lines. 
+
+#### load field dates and times ####
+#These are stored in field_datetime.csv on Drive (DoD project/2020 AK sensors)
+
+fieldurl <- "https://drive.google.com/drive/u/1/folders/14snoMg3FuhLl0SJFh8iPDVgnaP-3ozN1"
+fieldtimes <- drive_get(as_id(fieldurl))
+field_glist <- drive_ls(fieldtimes, pattern = "Field date_time.csv")
+walk(field_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+field_datetime <- read.csv("Field date_time.csv")
+
+field_datetime$DATE = as.Date(as.character(field_datetime$DATE), "%y%m%d")
+# format time cols
+field_datetime$TIME.Last.good.sonde.measurements = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Last.good.sonde.measurements), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.First.returned.good.sonde.measurements = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.First.returned.good.sonde.measurements), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Water.samples = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Water.samples), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Q.Salt.Slug = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Q.Salt.Slug), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Q.Flowmeter = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Q.Flowmeter), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Other = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Other), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+
+#### plotting and data loading functions ####
+
+# Function to import Campbell data
+importCSdata <- function(filename,RetOpt="data"){
+  if(RetOpt=="info"){
+    # bring in entire header of CSI TOA5 data file for metadata
+    stn.info <- scan(file=filename,nlines=4,what=character(),sep="\r")
+    return(stn.info)
+  } else {
+    # second line of header contains variable names
+    header <- scan(file=filename,skip=1,nlines=1,what=character(),sep=",")
+    # bring in data
+    stn.data <- read.table(file=filename,skip=4,header=FALSE, na.strings=c("NAN"),sep=",")
+    names(stn.data) <- header
+    # add column of R-formatted date/timestamps
+    stn.data$TIMESTAMP <- as.POSIXlt(strptime(stn.data$TIMESTAMP,"%Y-%m-%d %H:%M:%S"))
+    return(stn.data)}
+}
+
+makePlotTelem.combo <- function(EXOdata, SUNAdata){
+  plot.new()
+  par(mfrow=c(5,2), mar=c(5,6,2,3))
+  
+  EXOdata = EXOdata[!is.na(EXOdata$temp_Avg),]
+  SUNAdata = SUNAdata[!is.na(SUNAdata$Nitrate_um.mn),]
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$Batt_volt_Min,pch=20,col="black", xlab="", ylab="Battery voltage", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  abline(h=12.5, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$DarkAverageVal.mn,pch=20,col="black", xlab="", ylab="SUNA avg dark spec (counts)", type="o", ylim = c(200,2000), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  abline(h=c(500,1000), col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Absorbance_254.mn,pch=20,col="darkorange4", xlab="", ylab="SUNA abs@254", type="o", ylim = c(min(SUNAdata$Absorbance_254.mn-SUNAdata$Absorbance_254.SD), max(SUNAdata$Absorbance_254.mn+SUNAdata$Absorbance_254.SD)), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_254.mn-SUNAdata$Absorbance_254.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_254.mn+SUNAdata$Absorbance_254.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(h=1.3, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Absorbance_350.mn,pch=20,col="firebrick4", xlab="", ylab="SUNA abs@350", type="o", ylim = c(min(SUNAdata$Absorbance_350.mn-SUNAdata$Absorbance_350.SD), max(SUNAdata$Absorbance_350.mn+SUNAdata$Absorbance_350.SD)), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_350.mn-SUNAdata$Absorbance_350.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_350.mn+SUNAdata$Absorbance_350.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(h=1.3, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Nitrate_um.mn,pch=20,col="purple", xlab="", ylab="Nitrate (uM)", type="o",ylim = c(min(SUNAdata$Nitrate_um.mn-SUNAdata$Nitrate_um.SD), max(SUNAdata$Nitrate_um.mn+SUNAdata$Nitrate_um.SD)), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Nitrate_um.mn-SUNAdata$Nitrate_um.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Nitrate_um.mn+SUNAdata$Nitrate_um.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$temp_Avg,pch=20,col="black", xlab="", ylab="EXO stream temp (C)", type="o", ylim = c(-.5, max(EXOdata$temp_Avg, na.rm=T)), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  abline(h=0, col="red")
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$SpC_Avg,pch=20,col="darkslateblue", xlab="", ylab="Specific Cond. (uScm)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$fDOM_Avg,pch=20,col="darkorange4", xlab="", ylab="fDOM (QSU)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$DOsat_Avg,pch=20,col="blue", xlab="", ylab="DO (% saturation)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$turbidity_Avg,pch=20,col="firebrick4", xlab="", ylab="Turbidity (FNU)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+}
+makePlotTelem.comboNEW <- function(EXOdata, SUNAdata){
+  
+  EXOdata = EXOdata[!is.na(EXOdata$temp_Avg),]
+  SUNAdata = SUNAdata[!is.na(SUNAdata$Nitrate_um.mn),]
+  
+  EXOdata = EXOdata[EXOdata$datetimeAK > as.POSIXct((max(EXOdata$datetimeAK)-86400), tz = "America/Anchorage"),]
+  
+  SUNAdata = SUNAdata[SUNAdata$datetimeAK > as.POSIXct((max(SUNAdata$datetimeAK)-86400), tz = "America/Anchorage"),]
+  
+  plot.new()
+  par(mfrow=c(5,2), mar=c(5,6,2,1.5))
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$Batt_volt_Min,pch=20,col="black", xlab="", ylab="Battery voltage", type="o", cex.lab=2, cex.axis=1.75)
+  abline(h=12.5, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$DarkAverageVal.mn,pch=20,col="black", xlab="", ylab="SUNA avg dark spec (counts)", type="o", ylim = c(200,2000), cex.lab=2, cex.axis=1.75)
+  abline(h=c(500,1000), col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Absorbance_254.mn,pch=20,col="darkorange4", xlab="", ylab="SUNA abs@254", type="o", ylim = c(min(SUNAdata$Absorbance_254.mn-SUNAdata$Absorbance_254.SD), max(SUNAdata$Absorbance_254.mn+SUNAdata$Absorbance_254.SD)), cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_254.mn-SUNAdata$Absorbance_254.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_254.mn+SUNAdata$Absorbance_254.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(h=1.3, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Absorbance_350.mn,pch=20,col="firebrick4", xlab="", ylab="SUNA abs@350", type="o", ylim = c(min(SUNAdata$Absorbance_350.mn-SUNAdata$Absorbance_350.SD), max(SUNAdata$Absorbance_350.mn+SUNAdata$Absorbance_350.SD)), cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_350.mn-SUNAdata$Absorbance_350.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Absorbance_350.mn+SUNAdata$Absorbance_350.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(h=1.3, col="red")
+  
+  plot(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"),SUNAdata$Nitrate_um.mn,pch=20,col="purple", xlab="", ylab="Nitrate (uM)", type="o",ylim = c(min(SUNAdata$Nitrate_um.mn-SUNAdata$Nitrate_um.SD), max(SUNAdata$Nitrate_um.mn+SUNAdata$Nitrate_um.SD)), cex.lab=2, cex.axis=1.75)
+  arrows(as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Nitrate_um.mn-SUNAdata$Nitrate_um.SD, 
+         as.POSIXct(SUNAdata$datetimeAK, tz="America/Anchorage"), 
+         SUNAdata$Nitrate_um.mn+SUNAdata$Nitrate_um.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$temp_Avg,pch=20,col="black", xlab="", ylab="EXO stream temp (C)", type="o", ylim = c(-.5, max(EXOdata$temp_Avg, na.rm=T)), cex.lab=2, cex.axis=1.75)
+  abline(h=0, col="red")
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$SpC_Avg,pch=20,col="darkslateblue", xlab="", ylab="Specific Cond. (uScm)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$fDOM_Avg,pch=20,col="darkorange4", xlab="", ylab="fDOM (QSU)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$DOsat_Avg,pch=20,col="blue", xlab="", ylab="DO (% saturation)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$turbidity_Avg,pch=20,col="firebrick4", xlab="", ylab="Turbidity (FNU)", type="o", cex.lab=2, cex.axis=1.75)
+  
+}
+
+makePlotTelem.EXO <- function(EXOdata){
+  plot.new()
+  par(mfrow=c(3,2), mar=c(5,6,2,3))
+  
+  EXOdata = EXOdata[!is.na(EXOdata$temp_Avg),]
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$Batt_volt_Min,pch=20,col="black", xlab="", ylab="Battery voltage", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  abline(h=12.5, col="red")
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$temp_Avg,pch=20,col="black", xlab="", ylab="EXO stream temp (C)", type="o", ylim = c(-.5, max(EXOdata$temp_Avg, na.rm=T)), cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  abline(h=0, col="red")
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$SpC_Avg,pch=20,col="darkslateblue", xlab="", ylab="Specific Cond. (uScm)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$fDOM_Avg,pch=20,col="darkorange4", xlab="", ylab="fDOM (QSU)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$DOsat_Avg,pch=20,col="blue", xlab="", ylab="DO (% saturation)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$turbidity_Avg,pch=20,col="firebrick4", xlab="", ylab="Turbidity (FNU)", type="o", cex.main=1.25, cex.lab=2, cex.axis=1.75)
+  
+}
+makePlotTelem.EXONEW <- function(EXOdata, SUNAdata){
+  
+  EXOdata = EXOdata[!is.na(EXOdata$temp_Avg),]
+  
+  EXOdata = EXOdata[EXOdata$datetimeAK > as.POSIXct((max(EXOdata$datetimeAK)-86400), tz = "America/Anchorage"),]
+  
+  plot.new()
+  par(mfrow=c(3,2), mar=c(5,6,2,1.5))
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$Batt_volt_Min,pch=20,col="black", xlab="", ylab="Battery voltage", type="o", cex.lab=2, cex.axis=1.75)
+  abline(h=12.5, col="red")
+
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$temp_Avg,pch=20,col="black", xlab="", ylab="EXO stream temp (C)", type="o", ylim = c(-.5, max(EXOdata$temp_Avg, na.rm=T)), cex.lab=2, cex.axis=1.75)
+  abline(h=0, col="red")
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$SpC_Avg,pch=20,col="darkslateblue", xlab="", ylab="Specific Cond. (uScm)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$fDOM_Avg,pch=20,col="darkorange4", xlab="", ylab="fDOM (QSU)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$DOsat_Avg,pch=20,col="blue", xlab="", ylab="DO (% saturation)", type="o", cex.lab=2, cex.axis=1.75)
+  
+  plot(as.POSIXct(EXOdata$datetimeAK, tz="America/Anchorage"),EXOdata$turbidity_Avg,pch=20,col="firebrick4", xlab="", ylab="Turbidity (FNU)", type="o", cex.lab=2, cex.axis=1.75)
+  
+}
+
+#
+
+#### Download datalogger files from Google Drive ####
+
+# Make sub-directories where data will be stored
+dir.create(file.path("FRCH"))
+dir.create(file.path("MOOS"))
+dir.create(file.path("POKE"))
+dir.create(file.path("STRT"))
+dir.create(file.path("VAUL"))
+
+## Download data from Google Drive
+FRCHurl <- "https://drive.google.com/drive/folders/1V3GfCuSTPTsMuwupmpDGFET4ThETrGnC"
+MOOSurl <- "https://drive.google.com/drive/folders/17AoBD2f2GmHvr9Xe03H0ka_Vf5NFTmDn"
+POKEurl <- "https://drive.google.com/drive/folders/1lixq2KP3x2veJOZS45-XKYLYRzPr5du6"
+STRTurl <- "https://drive.google.com/drive/folders/1kzll5W-ZQUDmaxY-CKyQ2mffztNrJ96A"
+VAULurl <- "https://drive.google.com/drive/folders/1jZUaiaV6DYNhc7xXrVSafBEKFJtfd0k4"
+
+# First time this will ask to cache OAuth credentials. Open browser. Run the drive_get commands below. Enter "1" to allow cache. Go to browser, log in to Google, and allow API access. 
+FRCH_new <- drive_get(as_id(FRCHurl))
+MOOS_new <- drive_get(as_id(MOOSurl))
+POKE_new <- drive_get(as_id(POKEurl))
+STRT_new <- drive_get(as_id(STRTurl))
+VAUL_new <- drive_get(as_id(VAULurl))
+
+FRCH_glist <- drive_ls(FRCH_new, pattern = "FRCH")
+MOOS_glist <- drive_ls(MOOS_new, pattern = "MOOS")
+POKE_glist <- drive_ls(POKE_new, pattern = "POKE")
+STRT_glist <- drive_ls(STRT_new, pattern = "STRT")
+VAUL_glist <- drive_ls(VAUL_new, pattern = "VAUL")
+
+#I know this is hinky with the switching of working directory. The drive_download command does not currently allow downloading into subdirectories.
+setwd(here("FRCH"))
+walk(FRCH_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+setwd(here("MOOS"))
+walk(MOOS_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+setwd(here("POKE"))
+walk(POKE_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+setwd(here("STRT"))
+walk(STRT_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+setwd(here("VAUL"))
+walk(VAUL_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+setwd(here())
+
+#### Process and plot data from dataloggers ####
+# Make directories for processed data at each site
+dir.create(file.path("FRCH/processed_dat"))
+dir.create(file.path("MOOS/processed_dat"))
+dir.create(file.path("POKE/processed_dat"))
+dir.create(file.path("STRT/processed_dat"))
+dir.create(file.path("VAUL/processed_dat"))
+
+# Make directories for plots at each site
+dir.create(file.path("FRCH/plots"))
+dir.create(file.path("MOOS/plots"))
+dir.create(file.path("POKE/plots"))
+dir.create(file.path("STRT/plots"))
+dir.create(file.path("VAUL/plots"))
+
+#### ++++++++++ POKE ++++++++++ ####
+#### load data ####
+POKE.SUNA = importCSdata("POKE/POKE_SUNAShortRaw.dat")
+POKE.SUNA$datetimeAK = as.POSIXct(POKE.SUNA$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+POKE.EXO = importCSdata("POKE/POKE_YSI_data.dat")
+POKE.EXO$datetimeAK = as.POSIXct(POKE.EXO$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+POKE.SUNA.raw = importCSdata("POKE/POKE_SUNARaw.dat")
+
+
+#### compile bursts in SUNA data ####
+
+POKE.SUNA = POKE.SUNA[!is.na(POKE.SUNA$Nitrate_um),]
+POKE.SUNA = POKE.SUNA[POKE.SUNA$DarkAverageVal > 0, ]
+
+min<-cut(POKE.SUNA$datetimeAK, breaks="3 min")
+POKE.SUNA.st <- as.data.frame(as.list(aggregate(cbind(Nitrate_um, Nitrate_mgL, Absorbance_254, 
+                                                      Absorbance_350,AvgSpec, DarkAverageVal, 
+                                                      InternalTemp, SpecTemp, LampTemp, LampTimeAccum, 
+                                                      RelHumid, MainBattVolt, LampVolt, InternalVolt) 
+                                                ~ min, data=POKE.SUNA, 
+                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+POKE.SUNA.st$datetimeAK<-as.POSIXct(POKE.SUNA.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+##
+
+#### format raw SUNA data ####
+
+# remove non-data rows
+to.remove = c("Task()::INFO-Power is off, shutting down.", "N:1280 V2, FW 2.5.1")
+POKE.SUNA.raw.1 = POKE.SUNA.raw[!POKE.SUNA.raw$RawString %in% to.remove,]
+
+# set column names
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254", 
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC", 
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV", 
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime", 
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+
+# seperate raw character string into columns
+POKE.SUNA.raw.2 = separate(POKE.SUNA.raw.1, RawString, into=SUNAnames, sep=",")
+
+# add date time with time zone
+POKE.SUNA.raw.2$datetimeAK = as.POSIXct(POKE.SUNA.raw.2$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+#### remove data from site setup & sonde servicing ####
+
+# remove data from site setup
+POKE.setup = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="POKE" & field_datetime$Notes=="setup"]
+POKE.SUNA = POKE.SUNA[POKE.SUNA$datetimeAK > POKE.setup,]
+POKE.SUNA.st = POKE.SUNA.st[POKE.SUNA.st$datetimeAK > POKE.setup,]
+POKE.SUNA.raw.2 = POKE.SUNA.raw.2[POKE.SUNA.raw.2$datetimeAK > POKE.setup,]
+POKE.EXO = POKE.EXO[POKE.EXO$datetimeAK > POKE.setup,]
+
+# ID sonde servicing times
+POKE.service.start = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE=="POKE" & field_datetime$Notes!="setup"]
+POKE.service.end = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="POKE" & field_datetime$Notes!="setup"]
+POKE.service = list()
+for(i in 1:length(POKE.service.start)){
+  POKE.service[[i]] = seq.POSIXt(from = POKE.service.start[i], to = POKE.service.end[i], by = 1)
+}
+POKE.service = do.call("c",POKE.service)
+
+# remove sonde servicing times from all data frames
+POKE.SUNA[POKE.SUNA$datetimeAK %in% POKE.service,][7:15] = NA
+POKE.SUNA.st[POKE.SUNA.st$datetimeAK %in% POKE.service,][2:19] = NA
+POKE.SUNA.raw.2[POKE.SUNA.raw.2$datetimeAK %in% POKE.service,][6:288] = NA
+POKE.EXO[POKE.EXO$datetimeAK %in% POKE.service,][5:9] = NA
+
+#### save processed/formatted data ####
+
+write.csv(POKE.SUNA, "POKE/processed_dat/POKE.SUNA.csv", row.names = FALSE)
+
+saveRDS(POKE.SUNA.raw.2, "POKE/processed_dat/POKE.SUNA.raw.rds")
+
+write.csv(POKE.EXO, "POKE/processed_dat/POKE.EXO.csv", row.names = FALSE)
+
+
+#### plot and save plots of all data to date ####
+
+tiff("POKE/plots/POKEcombo_alltodate.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.combo(POKE.EXO, POKE.SUNA.st)
+dev.off()
+
+#### plot and save plots of last day of data ####
+
+tiff("POKE/plots/POKEcombo_new.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.comboNEW(POKE.EXO, POKE.SUNA.st)
+dev.off()
+
+#### ++++++++++ VAUL ++++++++++ ####
+#### load data ####
+
+VAUL.SUNA = importCSdata("VAUL/VAUL_SUNAShortRaw.dat")
+VAUL.SUNA$datetimeAK = as.POSIXct(VAUL.SUNA$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+# Restrict plots to 2021 only
+VAUL.SUNA <- VAUL.SUNA %>% filter(datetimeAK >= as.POSIXct("2021-05-11") & datetimeAK <= as.POSIXct("2021-12-01"))
+
+VAUL.EXO = importCSdata("VAUL/VAUL_YSI_data.dat")
+VAUL.EXO$datetimeAK = as.POSIXct(VAUL.EXO$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+VAUL.SUNA.raw = importCSdata("VAUL/VAUL_SUNARaw.dat")
+#VAUL.SUNA.raw = VAUL.SUNA.raw[!is.na(VAUL.SUNA.raw$TIMESTAMP),]
+
+#### compile bursts in SUNA data ####
+
+VAUL.SUNA = VAUL.SUNA[!is.na(VAUL.SUNA$Nitrate_um),]
+VAUL.SUNA = VAUL.SUNA[VAUL.SUNA$DarkAverageVal > 0, ]
+
+min<-cut(VAUL.SUNA$datetimeAK, breaks="3 min")
+VAUL.SUNA.st <- as.data.frame(as.list(aggregate(cbind(Nitrate_um, Nitrate_mgL, Absorbance_254,
+                                                      Absorbance_350,AvgSpec, DarkAverageVal,
+                                                      InternalTemp, SpecTemp, LampTemp, LampTimeAccum,
+                                                      RelHumid, MainBattVolt, LampVolt, InternalVolt)
+                                                ~ min, data=VAUL.SUNA,
+                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+VAUL.SUNA.st$datetimeAK<-as.POSIXct(VAUL.SUNA.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+##
+
+#### format raw SUNA data ####
+
+# remove non-data rows
+to.remove = c("Task()::INFO-Power is off, shutting down.", "N:1173 V2, FW 2.5.1")
+VAUL.SUNA.raw.1 = VAUL.SUNA.raw[!VAUL.SUNA.raw$RawString %in% to.remove,]
+
+# set column names
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254",
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC",
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV",
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime",
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+
+# seperate raw character string into columns
+VAUL.SUNA.raw.2 = separate(VAUL.SUNA.raw.1, RawString, into=SUNAnames, sep=",")
+
+# add date time with time zone
+VAUL.SUNA.raw.2$datetimeAK = as.POSIXct(VAUL.SUNA.raw.2$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+# Restrict analysis to 2021 only
+VAUL.SUNA.raw.2 <- VAUL.SUNA.raw.2 %>% filter(datetimeAK >= as.POSIXct("2021-05-11") & datetimeAK <= as.POSIXct("2021-12-01"))
+
+#### remove data from site setup & sonde servicing ####
+
+# remove data from site setup
+VAUL.setup = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="VAUL" & field_datetime$Notes=="setup"]
+VAUL.SUNA = VAUL.SUNA[VAUL.SUNA$datetimeAK > VAUL.setup,]
+VAUL.SUNA.st = VAUL.SUNA.st[VAUL.SUNA.st$datetimeAK > VAUL.setup,]
+VAUL.SUNA.raw.2 = VAUL.SUNA.raw.2[VAUL.SUNA.raw.2$datetimeAK > VAUL.setup,]
+VAUL.EXO = VAUL.EXO[VAUL.EXO$datetimeAK > VAUL.setup,]
+
+# ID sonde servicing times
+VAUL.service.start = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE=="VAUL" & field_datetime$Notes!="setup"]
+VAUL.service.end = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="VAUL" & field_datetime$Notes!="setup"]
+VAUL.service = list()
+for(i in 1:length(VAUL.service.start)){
+  VAUL.service[[i]] = seq.POSIXt(from = VAUL.service.start[i], to = VAUL.service.end[i], by = 1)
+}
+VAUL.service = do.call("c",VAUL.service)
+
+# remove sonde servicing times from all data frames
+VAUL.SUNA[VAUL.SUNA$datetimeAK %in% VAUL.service,][7:15] = NA
+VAUL.SUNA.st[VAUL.SUNA.st$datetimeAK %in% VAUL.service,][2:19] = NA
+VAUL.SUNA.raw.2[VAUL.SUNA.raw.2$datetimeAK %in% VAUL.service,][6:288] = NA
+VAUL.EXO[VAUL.EXO$datetimeAK %in% VAUL.service,][5:9] = NA
+
+#### save processed/formatted data ####
+
+write.csv(VAUL.SUNA, "VAUL/processed_dat/VAUL.SUNA.csv", row.names = FALSE)
+
+saveRDS(VAUL.SUNA.raw.2, "VAUL/processed_dat/VAUL.SUNA.raw.rds")
+
+write.csv(VAUL.EXO, "VAUL/processed_dat/VAUL.EXO.csv", row.names = FALSE)
+
+
+#### plot and save plots of all data to date ####
+
+tiff("VAUL/plots/VAULcombo_alltodate.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.combo(VAUL.EXO, VAUL.SUNA.st)
+dev.off()
+
+#### plot and save plots of last day of data ####
+
+tiff("VAUL/plots/VAULcombo_new.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.comboNEW(VAUL.EXO, VAUL.SUNA.st)
+dev.off()
+
+#### ++++++++++ MOOS ++++++++++ ####
+#### load data ####
+
+MOOS.SUNA = importCSdata("MOOS/MOOS_SUNAShortRaw.dat")
+MOOS.SUNA$datetimeAK = as.POSIXct(MOOS.SUNA$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+MOOS.EXO = importCSdata("MOOS/MOOS_YSI_data.dat")
+MOOS.EXO$datetimeAK = as.POSIXct(MOOS.EXO$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+MOOS.SUNA.raw = importCSdata("MOOS/MOOS_SUNARaw.dat")
+
+
+#### compile bursts in SUNA data ####
+
+MOOS.SUNA = MOOS.SUNA[!is.na(MOOS.SUNA$Nitrate_um),]
+MOOS.SUNA = MOOS.SUNA[MOOS.SUNA$DarkAverageVal > 0, ]
+
+min<-cut(MOOS.SUNA$datetimeAK, breaks="3 min")
+MOOS.SUNA.st <- as.data.frame(as.list(aggregate(cbind(Nitrate_um, Nitrate_mgL, Absorbance_254, 
+                                                      Absorbance_350,AvgSpec, DarkAverageVal, 
+                                                      InternalTemp, SpecTemp, LampTemp, LampTimeAccum, 
+                                                      RelHumid, MainBattVolt, LampVolt, InternalVolt) 
+                                                ~ min, data=MOOS.SUNA, 
+                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+MOOS.SUNA.st$datetimeAK<-as.POSIXct(MOOS.SUNA.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+##
+
+#### format raw SUNA data ####
+
+# remove non-data rows
+to.remove = c("Task()::INFO-Power is off, shutting down.", "N:1173 V2, FW 2.5.1")
+MOOS.SUNA.raw.1 = MOOS.SUNA.raw[!MOOS.SUNA.raw$RawString %in% to.remove,]
+
+# set column names
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254", 
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC", 
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV", 
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime", 
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+
+# seperate raw character string into columns
+MOOS.SUNA.raw.2 = separate(MOOS.SUNA.raw.1, RawString, into=SUNAnames, sep=",")
+
+# add date time with time zone
+MOOS.SUNA.raw.2$datetimeAK = as.POSIXct(MOOS.SUNA.raw.2$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+#### remove data from site setup & sonde servicing ####
+
+# remove data from site setup
+MOOS.setup = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="MOOS" & field_datetime$Notes=="setup"]
+MOOS.SUNA = MOOS.SUNA[MOOS.SUNA$datetimeAK > MOOS.setup,]
+MOOS.SUNA.st = MOOS.SUNA.st[MOOS.SUNA.st$datetimeAK > MOOS.setup,]
+MOOS.SUNA.raw.2 = MOOS.SUNA.raw.2[MOOS.SUNA.raw.2$datetimeAK > MOOS.setup,]
+MOOS.EXO = MOOS.EXO[MOOS.EXO$datetimeAK > MOOS.setup,]
+
+# ID sonde servicing times
+MOOS.service.start = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE=="MOOS" & field_datetime$Notes!="setup"]
+MOOS.service.end = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="MOOS" & field_datetime$Notes!="setup"]
+MOOS.service = list()
+for(i in 1:length(MOOS.service.start)){
+  MOOS.service[[i]] = seq.POSIXt(from = MOOS.service.start[i], to = MOOS.service.end[i], by = 1)
+}
+MOOS.service = do.call("c",MOOS.service)
+
+# remove sonde servicing times from all data frames
+MOOS.SUNA[MOOS.SUNA$datetimeAK %in% MOOS.service,][7:15] = NA
+MOOS.SUNA.st[MOOS.SUNA.st$datetimeAK %in% MOOS.service,][2:19] = NA
+MOOS.SUNA.raw.2[MOOS.SUNA.raw.2$datetimeAK %in% MOOS.service,][6:288] = NA
+MOOS.EXO[MOOS.EXO$datetimeAK %in% MOOS.service,][5:9] = NA
+
+#### save processed/formatted data ####
+
+write.csv(MOOS.SUNA, "MOOS/processed_dat/MOOS.SUNA.csv", row.names = FALSE)
+
+saveRDS(MOOS.SUNA.raw.2, "MOOS/processed_dat/MOOS.SUNA.raw.rds")
+
+write.csv(MOOS.EXO, "MOOS/processed_dat/MOOS.EXO.csv", row.names = FALSE)
+
+
+#### plot and save plots of all data to date ####
+
+tiff("MOOS/plots/MOOScombo_alltodate.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.combo(MOOS.EXO, MOOS.SUNA.st)
+dev.off()
+
+#### plot and save plots of last day of data ####
+
+tiff("MOOS/plots/MOOScombo_new.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.comboNEW(MOOS.EXO, MOOS.SUNA.st)
+dev.off()
+
+#### ++++++++++ FRCH ++++++++++ ####
+#### load data ####
+
+FRCH.SUNA = importCSdata("FRCH/FRCH_SUNAShortRaw.dat")
+FRCH.SUNA$datetimeAK = as.POSIXct(FRCH.SUNA$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+FRCH.EXO = importCSdata("FRCH/FRCH_YSI_data.dat")
+FRCH.EXO$datetimeAK = as.POSIXct(FRCH.EXO$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+FRCH.SUNA.raw = importCSdata("FRCH/FRCH_SUNARaw.dat")
+
+
+#### compile bursts in SUNA data ####
+
+FRCH.SUNA = FRCH.SUNA[!is.na(FRCH.SUNA$Nitrate_um),]
+FRCH.SUNA = FRCH.SUNA[FRCH.SUNA$DarkAverageVal > 0, ]
+
+#Note: changed interval to 5 min here due to irregularities in timing of the telemetered data. These irregularities don't appear in the internally-logged data.
+min<-cut(FRCH.SUNA$datetimeAK, breaks="5 min")
+FRCH.SUNA.st <- as.data.frame(as.list(aggregate(cbind(Nitrate_um, Nitrate_mgL, Absorbance_254, 
+                                                      Absorbance_350,AvgSpec, DarkAverageVal, 
+                                                      InternalTemp, SpecTemp, LampTemp, LampTimeAccum, 
+                                                      RelHumid, MainBattVolt, LampVolt, InternalVolt) 
+                                                ~ min, data=FRCH.SUNA, 
+                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+FRCH.SUNA.st$datetimeAK<-as.POSIXct(FRCH.SUNA.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+##
+
+#### format raw SUNA data ####
+
+# remove non-data rows
+to.remove = c("Task()::INFO-Power is off, shutting down.", "N:1173 V2, FW 2.5.1")
+FRCH.SUNA.raw.1 = FRCH.SUNA.raw[!FRCH.SUNA.raw$RawString %in% to.remove,]
+
+# set column names
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254", 
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC", 
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV", 
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime", 
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+
+# seperate raw character string into columns
+FRCH.SUNA.raw.2 = separate(FRCH.SUNA.raw.1, RawString, into=SUNAnames, sep=",")
+
+# add date time with time zone
+FRCH.SUNA.raw.2$datetimeAK = as.POSIXct(FRCH.SUNA.raw.2$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+#### remove data from site setup & sonde servicing ####
+
+# remove data from site setup
+FRCH.setup = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="FRCH" & field_datetime$Notes=="setup"]
+FRCH.SUNA = FRCH.SUNA[FRCH.SUNA$datetimeAK > FRCH.setup,]
+FRCH.SUNA.st = FRCH.SUNA.st[FRCH.SUNA.st$datetimeAK > FRCH.setup,]
+FRCH.SUNA.raw.2 = FRCH.SUNA.raw.2[FRCH.SUNA.raw.2$datetimeAK > FRCH.setup,]
+FRCH.EXO = FRCH.EXO[FRCH.EXO$datetimeAK > FRCH.setup,]
+
+# ID sonde servicing times
+FRCH.service.start = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE=="FRCH" & field_datetime$Notes!="setup"]
+FRCH.service.end = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="FRCH" & field_datetime$Notes!="setup"]
+FRCH.service = list()
+for(i in 1:length(FRCH.service.start)){
+  FRCH.service[[i]] = seq.POSIXt(from = FRCH.service.start[i], to = FRCH.service.end[i], by = 1)
+}
+FRCH.service = do.call("c",FRCH.service)
+
+# remove sonde servicing times from all data frames
+# This fails for SUNA (subscript out of bounds), unsure why... likely the datetimes one minute later...?
+FRCH.SUNA[FRCH.SUNA$datetimeAK %in% FRCH.service,][7:15] = NA
+FRCH.SUNA.st[FRCH.SUNA.st$datetimeAK %in% FRCH.service,][2:19] = NA
+FRCH.SUNA.raw.2[FRCH.SUNA.raw.2$datetimeAK %in% FRCH.service,][6:288] = NA
+FRCH.EXO[FRCH.EXO$datetimeAK %in% FRCH.service,][5:9] = NA
+
+#### save processed/formatted data ####
+
+write.csv(FRCH.SUNA, "FRCH/processed_dat/FRCH.SUNA.csv", row.names = FALSE)
+
+saveRDS(FRCH.SUNA.raw.2, "FRCH/processed_dat/FRCH.SUNA.raw.rds")
+
+write.csv(FRCH.EXO, "FRCH/processed_dat/FRCH.EXO.csv", row.names = FALSE)
+
+
+#### plot and save plots of all data to date ####
+
+#Remove an NA
+FRCH.SUNA.st <- FRCH.SUNA.st %>% dplyr::filter(!is.na(Nitrate_um.SD))
+
+tiff("FRCH/plots/FRCHcombo_alltodate.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.combo(FRCH.EXO, FRCH.SUNA.st)
+dev.off()
+
+#### plot and save plots of last day of data ####
+
+tiff("FRCH/plots/FRCHcombo_new.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.comboNEW(FRCH.EXO, FRCH.SUNA.st)
+dev.off()
+
+#### ++++++++++ STRT ++++++++++ ####
+#### load data ####
+
+STRT.SUNA = importCSdata("STRT/STRT_SUNAShortRaw.dat")
+STRT.SUNA$datetimeAK = as.POSIXct(STRT.SUNA$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+STRT.EXO = importCSdata("STRT/STRT_YSI_data.dat")
+STRT.EXO$datetimeAK = as.POSIXct(STRT.EXO$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+STRT.SUNA.raw = importCSdata("STRT/STRT_SUNARaw.dat")
+
+
+#### compile bursts in SUNA data ####
+
+STRT.SUNA = STRT.SUNA[!is.na(STRT.SUNA$Nitrate_um),]
+STRT.SUNA = STRT.SUNA[STRT.SUNA$DarkAverageVal > 0, ]
+
+min<-cut(STRT.SUNA$datetimeAK, breaks="3 min")
+STRT.SUNA.st <- as.data.frame(as.list(aggregate(cbind(Nitrate_um, Nitrate_mgL, Absorbance_254, 
+                                                      Absorbance_350,AvgSpec, DarkAverageVal, 
+                                                      InternalTemp, SpecTemp, LampTemp, LampTimeAccum, 
+                                                      RelHumid, MainBattVolt, LampVolt, InternalVolt) 
+                                                ~ min, data=STRT.SUNA, 
+                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+STRT.SUNA.st$datetimeAK<-as.POSIXct(STRT.SUNA.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+
+##
+
+#### format raw SUNA data ####
+
+# remove non-data rows
+to.remove = c("Task()::INFO-Power is off, shutting down.", "N:1173 V2, FW 2.5.1")
+STRT.SUNA.raw.1 = STRT.SUNA.raw[!STRT.SUNA.raw$RawString %in% to.remove,]
+
+# set column names
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254", 
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC", 
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV", 
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime", 
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+
+# seperate raw character string into columns
+STRT.SUNA.raw.2 = separate(STRT.SUNA.raw.1, RawString, into=SUNAnames, sep=",")
+
+# add date time with time zone
+STRT.SUNA.raw.2$datetimeAK = as.POSIXct(STRT.SUNA.raw.2$TIMESTAMP, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+#### remove data from site setup & sonde servicing ####
+
+# remove data from site setup
+STRT.setup = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="STRT" & field_datetime$Notes=="setup"]
+STRT.SUNA = STRT.SUNA[STRT.SUNA$datetimeAK > STRT.setup,]
+STRT.SUNA.st = STRT.SUNA.st[STRT.SUNA.st$datetimeAK > STRT.setup,]
+STRT.SUNA.raw.2 = STRT.SUNA.raw.2[STRT.SUNA.raw.2$datetimeAK > STRT.setup,]
+STRT.EXO = STRT.EXO[STRT.EXO$datetimeAK > STRT.setup,]
+
+# ID sonde servicing times
+STRT.service.start = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE=="STRT" & field_datetime$Notes!="setup"]
+STRT.service.end = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE=="STRT" & field_datetime$Notes!="setup"]
+STRT.service = list()
+for(i in 1:length(STRT.service.start)){
+  STRT.service[[i]] = seq.POSIXt(from = STRT.service.start[i], to = STRT.service.end[i], by = 1)
+}
+STRT.service = do.call("c",STRT.service)
+
+# remove sonde servicing times from all data frames
+STRT.SUNA[STRT.SUNA$datetimeAK %in% STRT.service,][7:15] = NA
+STRT.SUNA.st[STRT.SUNA.st$datetimeAK %in% STRT.service,][2:19] = NA
+
+#This one fails (subscript out of bounds)
+STRT.SUNA.raw.2[STRT.SUNA.raw.2$datetimeAK %in% STRT.service,][6:288] = NA
+STRT.EXO[STRT.EXO$datetimeAK %in% STRT.service,][5:9] = NA
+
+#### save processed/formatted data ####
+
+write.csv(STRT.SUNA, "STRT/processed_dat/STRT.SUNA.csv", row.names = FALSE)
+
+saveRDS(STRT.SUNA.raw.2, "STRT/processed_dat/STRT.SUNA.raw.rds")
+
+write.csv(STRT.EXO, "STRT/processed_dat/STRT.EXO.csv", row.names = FALSE)
+
+
+#### plot and save plots of all data to date ####
+
+STRT.SUNA.st <- STRT.SUNA.st %>% dplyr::filter(!is.na(Nitrate_um.SD))
+
+tiff("STRT/plots/STRTcombo_alltodate.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.combo(STRT.EXO, STRT.SUNA.st)
+dev.off()
+
+#### plot and save plots of last day of data ####
+
+tiff("STRT/plots/STRTcombo_new.tiff", compression = "lzw", width = 1500, height =1000)
+makePlotTelem.comboNEW(STRT.EXO, STRT.SUNA.st)
+dev.off()
+

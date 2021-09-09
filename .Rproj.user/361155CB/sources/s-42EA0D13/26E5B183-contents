@@ -1,0 +1,48 @@
+---
+title: "08_HI_FI"
+output: pdf_document
+date: "8/19/2021
+
+---
+
+# READ ME #
+**The purpose of this script is to run CPCRW storm data through the hysteresisMetrics function to get a hysteresis index and flushing index for each storm.**
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
+Sys.which("python")
+use_python("/usr/bin/python")
+library(tidyverse)
+options(tz="America/Anchorage")
+library(ggplot2)
+library(gridExtra)
+library(boot)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# Python setup
+```{python}
+import pickle
+import pandas as pd
+from hysteresis_metrics import hysteresisMetrics
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+quit()
+```
+
+# load data to pandas
+MOOS_storm2_06_28_Q <- read_csv("Storms/MOOS_storm2_06_28_Q.csv")
+```{python}
+MOOS_storm2_06_28_Q = pd.read_csv("Storms/MOOS_storm2_06_28_Q.csv", usecols = (1,2)) 
+C3_storm1_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1_NO3.csv", usecols = (1,2)) 
+C3_storm1_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1_SpCond.csv", usecols = (1,2)) 
+C3_storm1_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1_fDOM.csv", usecols = (1,2)) 
+C3_storm1_turb = pd.read_csv("Stitched_data/storms/C3_storm1_turb.csv", usecols = (1,2)) 
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

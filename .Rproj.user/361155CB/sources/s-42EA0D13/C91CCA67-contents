@@ -3,74 +3,48 @@
 # Load in libraries 
 library(readr)
 ### Load in data from desktop ###
-MOOS_final_chem_2019 <- read_csv("~/Documents/DoD_2019/Storm Analysis/Output_from_analysis/MOOS_final_chem_2019.csv")
-STRT_final_chem_2019 <- read_csv("~/Documents/DoD_2019/Storm Analysis/Output_from_analysis/STRT_final_chem_2019.csv")
+MOOS_final_chem_2020 <- read_csv("Output for analysis/MOOS_final_chem_2020.csv")
+FRCH_final_chem_2020 <- read_csv("Output for analysis/FRCH_final_chem_2020.csv")
+VAUL_final_chem_2020 <- read_csv("Output for analysis/VAUL_final_chem_2020.csv")
+STRT_final_chem_2020 <- read_csv("Output for analysis/STRT_final_chem_2020.csv")
 
-MOOS_final_chem_2020 <- read_csv("~/Desktop/MOOS_final_chem_2020.csv")
-STRT_final_chem_2020 <- read_csv("~/Desktop/STRT_final_chem_2020.csv")
-View(STRT_final_chem_2020)
-View(MOOS_final_chem_2020)
 
 # Calculate Flux # 
-# 2019 # 
-# NO3 #
-MOOS_final_chem_2019$NO3_FLUX <- MOOS_final_chem_2019$MeanDischarge * MOOS_final_chem_2019$nitrateuM
-MOOS_median_flux_2019 <- median(MOOS_final_chem_2019$NO3_FLUX, na.rm = TRUE)
-MOOS_specific_yield_2019 <- MOOS_median_flux_2019*14*(1/113)
-MOOS_specific_yield_2019
-MOOS_specific_yield_final_2019 <- ((MOOS_specific_yield_2019/100000000)*(86400))
-MOOS_specific_yield_final_2019
-
- 
-STRT_final_chem_2019$NO3_FLUX <- STRT_final_chem_2019$MeanDischarge * STRT_final_chem_2019$nitrateuM
-STRT_median_flux_2019 <- median(STRT_final_chem_2019$NO3_FLUX, na.rm = TRUE)
-STRT_specific_yield_2019 <- STRT_median_flux_2019*14*(1/125)
-STRT_specific_yield_2019
-STRT_specific_yield_final_2019 <- ((STRT_specific_yield_2019/100000000)*(86400))
-STRT_specific_yield_final_2019
-
-STRT_specific_yield_final_2019/MOOS_specific_yield_final_2019 #0.710699
-
-# fDOM # 
-MOOS_final_chem_2019$fDOM_FLUX <- MOOS_final_chem_2019$MeanDischarge * MOOS_final_chem_2019$fDOM.QSU.mn
-MOOS_median_flux_fDOM_2019 <- median(MOOS_final_chem_2019$fDOM_FLUX, na.rm = TRUE)
-MOOS_median_flux_fDOM_2019
-MOOS_specific_yield_fDOM_2019 <- MOOS_median_flux_fDOM_2019 * (1/113)
-MOOS_specific_yield_final_fDOM_2019 <- (MOOS_specific_yield_fDOM_2019*86400)
-MOOS_specific_yield_final_fDOM_2019
-
-
-STRT_final_chem_2019$fDOM_FLUX <- STRT_final_chem_2019$MeanDischarge * STRT_final_chem_2019$fDOM.QSU.mn
-STRT_median_flux_fDOM_2019 <- median(STRT_final_chem_2019$fDOM_FLUX, na.rm = TRUE)
-STRT_median_flux_fDOM_2019
-STRT_specific_yield_fDOM_2019 <- STRT_median_flux_fDOM_2019 * (1/125)
-STRT_specific_yield_final_fDOM_2019 <- (STRT_specific_yield_fDOM_2019*86400)
-STRT_specific_yield_final_fDOM_2019
-
-STRT_specific_yield_final_fDOM_2019/MOOS_specific_yield_final_fDOM_2019 #0.8911285
-
-
-# 2020 #
+# 2020 # 
 # NO3-#
 MOOS_final_chem_2020$NO3_FLUX <- MOOS_final_chem_2020$MeanDischarge * MOOS_final_chem_2020$nitrateuM
 MOOS_median_flux <- median(MOOS_final_chem_2020$NO3_FLUX, na.rm = TRUE)
 MOOS_specific_yield <- MOOS_median_flux*14*(1/113)
-MOOS_specific_yield
-MOOS_specific_yield_final <- ((MOOS_specific_yield/100000000)*(86400))
-MOOS_specific_yield_final
+MOOS_specific_yield #3099.965
+MOOS_specific_yield_final <- ((MOOS_specific_yield/1000000000)*(86400))
+MOOS_specific_yield_final #0.267837
+
+FRCH_final_chem_2020$NO3_FLUX <- FRCH_final_chem_2020$MeanDischarge * FRCH_final_chem_2020$nitrateuM
+FRCH_median_flux <- median(FRCH_final_chem_2020$NO3_FLUX, na.rm = TRUE)
+FRCH_specific_yield <- FRCH_median_flux*14*(1/44)
+FRCH_specific_yield #6288.251
+FRCH_specific_yield_final <- ((FRCH_specific_yield/1000000000)*(86400))
+FRCH_specific_yield_final #0.5433049
+
+VAUL_final_chem_2020$NO3_FLUX <- VAUL_final_chem_2020$MeanDischarge * VAUL_final_chem_2020$nitrateuM
+VAUL_median_flux <- median(VAUL_final_chem_2020$NO3_FLUX, na.rm = TRUE)
+VAUL_specific_yield <- VAUL_median_flux*14*(1/32)
+VAUL_specific_yield #2751.455
+VAUL_specific_yield_final <- ((VAUL_specific_yield/1000000000)*(86400))
+VAUL_specific_yield_final #0.2377257
 
 STRT_final_chem_2020$NO3_FLUX <- STRT_final_chem_2020$MeanDischarge * STRT_final_chem_2020$nitrateuM
 STRT_median_flux <- median(STRT_final_chem_2020$NO3_FLUX, na.rm = TRUE)
 STRT_specific_yield <- STRT_median_flux*14*(1/125)
-STRT_specific_yield_final <- ((STRT_specific_yield/100000000)*(86400))
-STRT_specific_yield_final
+STRT_specific_yield #4786.33
+STRT_specific_yield_final <- ((STRT_specific_yield/1000000000)*(86400))
+STRT_specific_yield_final #0.4135389
 
-STRT_specific_yield_final/MOOS_specific_yield_final #1.491985
 
 # fDOM # 
 MOOS_final_chem_2020$fDOM_FLUX <- MOOS_final_chem_2020$MeanDischarge * MOOS_final_chem_2020$fDOM.QSU
 MOOS_median_flux_fDOM_2020 <- median(MOOS_final_chem_2020$fDOM_FLUX, na.rm = TRUE)
-MOOS_median_flux_fDOM_2020
+MOOS_median_flux_fDOM_2020 #115245.7
 MOOS_specific_yield_fDOM_2020 <- MOOS_median_flux_fDOM_2020 * (1/113)
 MOOS_specific_yield_final_fDOM_2020 <- (MOOS_specific_yield_fDOM_2020*86400)
 MOOS_specific_yield_final_fDOM_2020
@@ -92,9 +66,7 @@ STRT_specific_yield_final/STRT_specific_yield_final_2019
 MOOS_specific_yield_final/MOOS_specific_yield_final_2019
 
 
-median(STRT_final_chem_2019$nitrateuM, na.rm = TRUE) # 23.18857
-median(STRT_final_chem_2020$nitrateuM, na.rm = TRUE) # 30.775
-median(STRT_final_chem_2019$fDOM.QSU.mn, na.rm = TRUE) # 52.64455
+
 median(STRT_final_chem_2020$fDOM.QSU, na.rm = TRUE) # 71.41455
 
 
@@ -263,7 +235,7 @@ C3.no3.Q.filled$site.ID = "C3"
 
 plot(C3.no3.Q.filled$NO3_yield_mg.km2.15min ~ C3.no3.Q.filled$date_timeAK)
 
-#FRCH/MOOS#
+# DOD Sites #
 MOOS$NO3_yield_km2 <- MOOS$nitrateuM/113 #MOOS is 113km^2
 FRCH$NO3_yield_km2 <- FRCH$nitrateuM/44 # FRCH is 44km^2
 POKE$NO3_yield_km2 <- POKE$nitrateuM/60 # Poke is 60km^2
@@ -466,49 +438,38 @@ fillgaps = function(df, dat, datquotes, largegap.num){
   return(ts.df)
 } 
 
-### C2 ###
-C2 = subset(CPCRW.2017, site.ID == "C2")
-C2.fDOM.filled = fillgaps(C2, C2$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", (24*4))
-C2.Q.filled = fillgaps(C2, C2$Discharge_Lsec, "Discharge_Lsec", (24*4))
-C2.fDOM.Q.filled = left_join(C2.fDOM.filled, C2.Q.filled, by="date_timeAK")
-names(C2.fDOM.Q.filled) = c("fDOM_Tc_TURBc", "date_timeAK", "Discharge_Lsec")
 
-C2.fDOM.Q.filled$fDOM_load = C2.fDOM.Q.filled$Discharge_Lsec * C2.fDOM.Q.filled$fDOM_Tc_TURBc
-C2.fDOM.Q.filled$fDOM_yield_mg.km2.15min = C2.fDOM.Q.filled$fDOM_load/5.2 # C2 is 5.2 km2
-C2.fDOM.Q.filled$site.ID = "C2"
+# fDOM #
+#Clean columns and make all same name # 
+MOOS_final_chem_2020 <- MOOS_final_chem_2020[,-c(1,6)]
+MOOS_final_chem_2020 <- MOOS_final_chem_2020[,-(7)]
+FRCH_final_chem_2020 <- FRCH_final_chem_2020[,-c(1,5)]
+#POKE <- POKE[,-6]
+#names(POKE) <- c("Site", "DateTime", "MeanDischarge", "fDOM.QSU", "nitrateuM")
+VAUL_final_chem_2020 <- VAUL_final_chem_2020[,-c(1,6)]
+STRT_final_chem_2020 <- STRT_final_chem_2020[,-c(1,6)]
 
-### C3 ###
-C3 = subset(CPCRW.2017, site.ID == "C3")
-C3.fDOM.filled = fillgaps(C3, C3$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", (24*4))
-C3.Q.filled = fillgaps(C3, C3$Discharge_Lsec, "Discharge_Lsec", (24*4))
-C3.fDOM.Q.filled = left_join(C3.fDOM.filled, C3.Q.filled, by="date_timeAK")
-names(C3.fDOM.Q.filled) = c("fDOM_Tc_TURBc", "date_timeAK", "Discharge_Lsec")
+MOOS_final_chem_2020$fDOM_yield_km2 <- MOOS_final_chem_2020$fDOM.QSU/113 # MOOS is 113km^2
+FRCH_final_chem_2020$fDOM_yield_km2 <- FRCH_final_chem_2020$fDOM.QSU/44  # FRCH is 44km^2
+#POKE$fDOM_yield_km2 <- POKE$fDOM.QSU/60 # Poke is 60km^2
+VAUL_final_chem_2020$fDOM_yield_km2 <- VAUL_final_chem_2020$fDOM.QSU/32 # VAUL is 32km^2
+STRT_final_chem_2020$fDOM_yield_km2 <- STRT_final_chem_2020$fDOM.QSU/125 # STRT is 125 km^2
 
-C3.fDOM.Q.filled$fDOM_load = C3.fDOM.Q.filled$Discharge_Lsec * C3.fDOM.Q.filled$fDOM_Tc_TURBc
-C3.fDOM.Q.filled$fDOM_yield_mg.km2.15min = C3.fDOM.Q.filled$fDOM_load/5.7 # C3 is 5.7 km2
-C3.fDOM.Q.filled$site.ID = "C3"
 
-### C4 ###
-C4 = subset(CPCRW.2017, site.ID == "C4")
-C4.fDOM.filled = fillgaps(C4, C4$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", (24*4))
-C4.Q.filled = fillgaps(C4, C4$Discharge_Lsec, "Discharge_Lsec", (24*4))
-C4.fDOM.Q.filled = left_join(C4.fDOM.filled, C4.Q.filled, by="date_timeAK")
-names(C4.fDOM.Q.filled) = c("fDOM_Tc_TURBc", "date_timeAK", "Discharge_Lsec")
 
-C4.fDOM.Q.filled$fDOM_load = C4.fDOM.Q.filled$Discharge_Lsec * C4.fDOM.Q.filled$fDOM_Tc_TURBc
-C4.fDOM.Q.filled$fDOM_yield_mg.km2.15min = C4.fDOM.Q.filled$fDOM_load/10 # C4 is 10 km2
-C4.fDOM.Q.filled$site.ID = "C4"
 
-### P6 ###
-P6 = subset(CPCRW.2017, site.ID == "P6")
-P6.fDOM.filled = fillgaps(P6, P6$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", (24*4))
-P6.Q.filled = fillgaps(P6, P6$Discharge_Lsec, "Discharge_Lsec", (24*4))
-P6.fDOM.Q.filled = left_join(P6.fDOM.filled, P6.Q.filled, by="date_timeAK")
-names(P6.fDOM.Q.filled) = c("fDOM_Tc_TURBc", "date_timeAK", "Discharge_Lsec")
+fDOM.yield = rbind(MOOS_final_chem_2020, FRCH_final_chem_2020, VAUL_final_chem_2020, STRT_final_chem_2020)
+fDOM.yield$day <- date(fDOM.yield$DateTime)# make a day column
+fDOM.daily.means <- aggregate(x=fDOM.yield$fDOM_yield_km2,
+                              by=list(fDOM.yield$Site,fDOM.yield$day),
+                              FUN=mean, na.rm = TRUE)
+names(fDOM.daily.means) <- c("Site", "DateTime", "fDOM_yield_km2")
 
-P6.fDOM.Q.filled$fDOM_load = P6.fDOM.Q.filled$Discharge_Lsec * P6.fDOM.Q.filled$fDOM_Tc_TURBc
-P6.fDOM.Q.filled$fDOM_yield_mg.km2.15min = P6.fDOM.Q.filled$fDOM_load/7 # P6 is 7 km2
-P6.fDOM.Q.filled$site.ID = "P6"
+ggplot(fDOM.daily.means, aes(Site, fDOM_yield_km2)) + geom_boxplot(aes(fill=Site))+
+  scale_fill_manual(values=c("#0571B0","#CA0020","green", "red"), "Catchment") +
+  theme_bw() + ylab("fDOM daily mean yield (QSU/km2/day)") + xlab("") + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), legend.position = "none")+
+  ylim(0, 10)
 
 
 

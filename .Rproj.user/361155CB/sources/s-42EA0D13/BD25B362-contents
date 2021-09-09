@@ -4,11 +4,9 @@ date: "6/7/2019"
 output: html_document
 ---
   
-  # READ ME #
-  **The purpose of this script is to run CPCRW storm data through the hysteresisMetrics function to get a hysteresis index and flushing index for each storm.**
-  
-  # R setup
-  ```{r setup, include=F}
+# READ ME #**The purpose of this script is to run CPCRW storm data through the hysteresisMetrics function to get a hysteresis index and flushing index for each storm.**
+# R setup
+{r setup, include=F}
 library(reticulate)
 Sys.which("python")
 use_python("/usr/bin/python")
@@ -17,69 +15,69 @@ options(tz="America/Anchorage")
 library(ggplot2)
 library(gridExtra)
 library(boot)
-```
+
 
 # Python setup
-```{python}
+{python}
 import pickle
 import pandas as pd
 from hysteresis_metrics import hysteresisMetrics
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 quit()
-```
+
 
 # load data to pandas
-```{python}
-C3_storm1_Q = pd.read_csv("Stitched_data/storms/C3_storm1_Q.csv", usecols = (1,2)) 
-C3_storm1_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1_NO3.csv", usecols = (1,2)) 
-C3_storm1_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1_SpCond.csv", usecols = (1,2)) 
-C3_storm1_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1_fDOM.csv", usecols = (1,2)) 
-C3_storm1_turb = pd.read_csv("Stitched_data/storms/C3_storm1_turb.csv", usecols = (1,2)) 
+{python}
+MOOS_storm2_06_28_Q <- read_csv("Storms/MOOS_storm2_06_28_Q.csv", usecols = (1,2))
+MOOS_storm2_06_28_NO3 <- read_csv("Storms/MOOS_storm2_06_28_NO3.csv", usecols = (1,2)) 
+MOOS_storm2_06_28_fDOM <- read_csv("Storms/MOOS_storm2_06_28_fDOM.csv", usecols = (1,2)) 
 
-C3_storm1a_Q = pd.read_csv("Stitched_data/storms/C3_storm1a_Q.csv", usecols = (1,2)) 
-C3_storm1a_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1a_NO3.csv", usecols = (1,2)) 
-C3_storm1a_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1a_SpCond.csv", usecols = (1,2)) 
-C3_storm1a_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1a_fDOM.csv", usecols = (1,2)) 
-C3_storm1a_turb = pd.read_csv("Stitched_data/storms/C3_storm1a_turb.csv", usecols = (1,2)) 
 
-C3_storm1b_Q = pd.read_csv("Stitched_data/storms/C3_storm1b_Q.csv", usecols = (1,2)) 
-C3_storm1b_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1b_NO3.csv", usecols = (1,2)) 
-C3_storm1b_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1b_SpCond.csv", usecols = (1,2)) 
-C3_storm1b_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1b_fDOM.csv", usecols = (1,2)) 
-C3_storm1b_turb = pd.read_csv("Stitched_data/storms/C3_storm1b_turb.csv", usecols = (1,2)) 
+#C3_storm1a_Q = pd.read_csv("Stitched_data/storms/C3_storm1a_Q.csv", usecols = (1,2)) 
+#C3_storm1a_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1a_NO3.csv", usecols = (1,2)) 
+#C3_storm1a_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1a_SpCond.csv", usecols = (1,2)) 
+#C3_storm1a_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1a_fDOM.csv", usecols = (1,2)) 
+#C3_storm1a_turb = pd.read_csv("Stitched_data/storms/C3_storm1a_turb.csv", usecols = (1,2)) 
 
-C3_storm2_Q = pd.read_csv("Stitched_data/storms/C3_storm2_Q.csv", usecols = (1,2)) 
-C3_storm2_NO3 = pd.read_csv("Stitched_data/storms/C3_storm2_NO3.csv", usecols = (1,2)) 
-C3_storm2_SpCond = pd.read_csv("Stitched_data/storms/C3_storm2_SpCond.csv", usecols = (1,2)) 
-C3_storm2_fDOM = pd.read_csv("Stitched_data/storms/C3_storm2_fDOM.csv", usecols = (1,2)) 
-C3_storm2_turb = pd.read_csv("Stitched_data/storms/C3_storm2_turb.csv", usecols = (1,2)) 
+#C3_storm1b_Q = pd.read_csv("Stitched_data/storms/C3_storm1b_Q.csv", usecols = (1,2)) 
+#C3_storm1b_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1b_NO3.csv", usecols = (1,2)) 
+#C3_storm1b_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1b_SpCond.csv", usecols = (1,2)) 
+#C3_storm1b_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1b_fDOM.csv", usecols = (1,2)) 
+#C3_storm1b_turb = pd.read_csv("Stitched_data/storms/C3_storm1b_turb.csv", usecols = (1,2)) 
 
-C3_storm3_Q = pd.read_csv("Stitched_data/storms/C3_storm3_Q.csv", usecols = (1,2)) 
-C3_storm3_NO3 = pd.read_csv("Stitched_data/storms/C3_storm3_NO3.csv", usecols = (1,2)) 
-C3_storm3_SpCond = pd.read_csv("Stitched_data/storms/C3_storm3_SpCond.csv", usecols = (1,2)) 
-C3_storm3_fDOM = pd.read_csv("Stitched_data/storms/C3_storm3_fDOM.csv", usecols = (1,2)) 
-C3_storm3_turb = pd.read_csv("Stitched_data/storms/C3_storm3_turb.csv", usecols = (1,2)) 
+#C3_storm2_Q = pd.read_csv("Stitched_data/storms/C3_storm2_Q.csv", usecols = (1,2)) 
+#C3_storm2_NO3 = pd.read_csv("Stitched_data/storms/C3_storm2_NO3.csv", usecols = (1,2)) 
+#C3_storm2_SpCond = pd.read_csv("Stitched_data/storms/C3_storm2_SpCond.csv", usecols = (1,2)) 
+#C3_storm2_fDOM = pd.read_csv("Stitched_data/storms/C3_storm2_fDOM.csv", usecols = (1,2)) 
+#C3_storm2_turb = pd.read_csv("Stitched_data/storms/C3_storm2_turb.csv", usecols = (1,2)) 
 
-C3_storm4_Q = pd.read_csv("Stitched_data/storms/C3_storm4_Q.csv", usecols = (1,2)) 
-C3_storm4_NO3 = pd.read_csv("Stitched_data/storms/C3_storm4_NO3.csv", usecols = (1,2)) 
-C3_storm4_SpCond = pd.read_csv("Stitched_data/storms/C3_storm4_SpCond.csv", usecols = (1,2)) 
-C3_storm4_fDOM = pd.read_csv("Stitched_data/storms/C3_storm4_fDOM.csv", usecols = (1,2)) 
-C3_storm4_turb = pd.read_csv("Stitched_data/storms/C3_storm4_turb.csv", usecols = (1,2)) 
+#C3_storm3_Q = pd.read_csv("Stitched_data/storms/C3_storm3_Q.csv", usecols = (1,2)) 
+#C3_storm3_NO3 = pd.read_csv("Stitched_data/storms/C3_storm3_NO3.csv", usecols = (1,2)) 
+#C3_storm3_SpCond = pd.read_csv("Stitched_data/storms/C3_storm3_SpCond.csv", usecols = (1,2)) 
+#C3_storm3_fDOM = pd.read_csv("Stitched_data/storms/C3_storm3_fDOM.csv", usecols = (1,2)) 
+#C3_storm3_turb = pd.read_csv("Stitched_data/storms/C3_storm3_turb.csv", usecols = (1,2)) 
 
-C3_storm5_Q = pd.read_csv("Stitched_data/storms/C3_storm5_Q.csv", usecols = (1,2)) 
-C3_storm5_NO3 = pd.read_csv("Stitched_data/storms/C3_storm5_NO3.csv", usecols = (1,2)) 
-C3_storm5_SpCond = pd.read_csv("Stitched_data/storms/C3_storm5_SpCond.csv", usecols = (1,2)) 
-C3_storm5_fDOM = pd.read_csv("Stitched_data/storms/C3_storm5_fDOM.csv", usecols = (1,2)) 
-C3_storm5_turb = pd.read_csv("Stitched_data/storms/C3_storm5_turb.csv", usecols = (1,2)) 
+#C3_storm4_Q = pd.read_csv("Stitched_data/storms/C3_storm4_Q.csv", usecols = (1,2)) 
+#C3_storm4_NO3 = pd.read_csv("Stitched_data/storms/C3_storm4_NO3.csv", usecols = (1,2)) 
+#C3_storm4_SpCond = pd.read_csv("Stitched_data/storms/C3_storm4_SpCond.csv", usecols = (1,2)) 
+#C3_storm4_fDOM = pd.read_csv("Stitched_data/storms/C3_storm4_fDOM.csv", usecols = (1,2)) 
+#C3_storm4_turb = pd.read_csv("Stitched_data/storms/C3_storm4_turb.csv", usecols = (1,2)) 
+
+#C3_storm5_Q = pd.read_csv("Stitched_data/storms/C3_storm5_Q.csv", usecols = (1,2)) 
+#C3_storm5_NO3 = pd.read_csv("Stitched_data/storms/C3_storm5_NO3.csv", usecols = (1,2)) 
+#C3_storm5_SpCond = pd.read_csv("Stitched_data/storms/C3_storm5_SpCond.csv", usecols = (1,2)) 
+#C3_storm5_fDOM = pd.read_csv("Stitched_data/storms/C3_storm5_fDOM.csv", usecols = (1,2)) 
+#C3_storm5_turb = pd.read_csv("Stitched_data/storms/C3_storm5_turb.csv", usecols = (1,2)) 
 
 
 
 # C3_storms
-```{python}
+{python}
 
 ## NO3 ##
-C3_storm1_Q['valuedatetime'] =  pd.to_datetime(C3_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+MOOS_storm2_06_28
+_Q['valuedatetime'] =  pd.to_datetime(MOOS_storm1_06_21_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
 C3_storm1_NO3['valuedatetime'] =  pd.to_datetime(C3_storm1_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
 timespacing = 15 # 15 minutes between records
 hysdict_C3_storm1_NO3 = hysteresisMetrics(C3_storm1_Q, C3_storm1_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
