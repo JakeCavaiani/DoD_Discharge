@@ -1,0 +1,24 @@
+"0","knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
+Sys.which(""python"")
+"
+"1","                                                                python "
+"1","
+"
+"1","""/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python"" "
+"1","
+"
+"0","use_python(""/usr/bin/python"")"
+"0","library(tidyverse)"
+"0","options(tz=""America/Anchorage"")"
+"1","$tz
+"
+"1","[1]"
+"1"," ""America/Anchorage"""
+"1","
+"
+"1","
+"
+"0","library(ggplot2)"
+"0","library(gridExtra)"
+"0","library(boot)"

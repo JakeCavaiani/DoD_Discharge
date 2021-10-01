@@ -1,0 +1,4 @@
+"0","hysdict_STRT_storm9c_09_09_fDOM = hysteresisMetrics(STRT_storm9c_09_09_Q, STRT_storm9c_09_09_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+"
+"2","AttributeError: 'str' object has no attribute 'year'
+"

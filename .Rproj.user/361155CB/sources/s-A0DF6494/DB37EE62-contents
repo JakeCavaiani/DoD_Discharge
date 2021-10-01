@@ -1,0 +1,2293 @@
+# press Command+Option+O to collapse all sections and get an overview of the workflow! #
+
+#### READ ME ####
+# The purpose of this script is to prepare CPCRW data for hysteresis analysis and, specifically, the hysteresisMetrics function.
+# Step 0: fill gaps in nitrate, fDOM, SpCond, and turbidity data
+# Step 1: Define baseflow in each catchment.
+# Step 2: Set criteria for storm deliniation for each catchment based on some percentage over baseflow.
+# Step 3: Deliniate storms in each catchment.
+# Step 4: IN PYTHON: convert R discharge df to pandas df containing a datetime column named 'valuedatetime', and discharge values in a column 'datavalue'
+# Step 5: IN PYTHON: convert R response df(s) to pandas df(s) containing a datetime column named 'valuedatetime', and response values in a column 'datavalue'
+
+#### libraries ####
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(plyr)
+library(imputeTS)
+library(TSA)
+library(bbmle)
+library(zoo)
+library(xts)
+library(forecast)
+library(stats)
+library(lattice)
+library(nlme)
+library(geosphere)
+library(car)
+library(EcoHydRology)
+
+#### load data ####
+
+CPCRW.2017 = read.csv("Stitched_data/CPCRW.2017_may22.00.00.00_sept01.00.00.00.csv", row.names = 1)
+CPCRW.2017$date_timeAK = as.POSIXct(CPCRW.2017$date_timeAK, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+class(CPCRW.2017$date_timeAK)
+tz(CPCRW.2017$date_timeAK)
+
+Q = subset(CPCRW.2017, select = c("date_timeAK","site.ID", "Discharge_Lsec"))
+
+Q$day = format(as.POSIXct(Q$date_timeAK,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q$day = as.POSIXct(Q$day, "%Y-%m-%d", tz="America/Anchorage")
+Q$date_timeAK = NULL
+
+Q.daily = with(Q, tapply(Discharge_Lsec, list(day, site.ID), mean))
+Q.daily = as.data.frame(Q.daily)
+
+#### subset data by site ####
+C2 = subset(CPCRW.2017, site.ID == "C2")
+head(C2$date_timeAK)
+C3 = subset(CPCRW.2017, site.ID == "C3")
+head(C3$date_timeAK)
+C4 = subset(CPCRW.2017, site.ID == "C4")
+head(C4$date_timeAK)
+P6 = subset(CPCRW.2017, site.ID == "P6")
+head(P6$date_timeAK)
+
+C2_Q = as.data.frame(Q.daily$C2)
+C2_Q$day = as.Date(rownames(Q.daily))
+names(C2_Q) = c("Discharge_Lsec", "day")
+
+C3_Q = as.data.frame(Q.daily$C3)
+C3_Q$day = as.Date(rownames(Q.daily))
+names(C3_Q) = c("Discharge_Lsec", "day")
+
+C4_Q = as.data.frame(Q.daily$C4)
+C4_Q$day = as.Date(rownames(Q.daily))
+names(C4_Q) = c("Discharge_Lsec", "day")
+
+P6_Q = as.data.frame(Q.daily$P6)
+P6_Q$day = as.Date(rownames(Q.daily))
+names(P6_Q) = c("Discharge_Lsec", "day")
+
+
+#### ATTEMPT: baseline correct C2 Q data ####
+# There are several places in the C2 Q data where it jumps up within 1 timestep, which isn't realistic for a primarily groundwater fed stream. I have left them alone until now because the jumps are small compared to the range of Q in other sites and I haven't had good criteria by which to correct it, but it is really messing up my hysteresis analysis. I will try correcting it here anywhere that Q jumps up within one time step and shifts the baseline up. 
+
+## correction 1 ##
+C2.Q = subset(C2, select = c("date_timeAK","Discharge_Lsec"))
+plot(C2.Q$Discharge_Lsec ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-06-27 01:00:00","2017-06-28 01:00:00"), tz="America/Anchorage"))
+
+C2.Q$Discharge_Lsec[C2.Q$date_timeAK == as.POSIXct("2017-06-27 10:45:00")] = 22.9603
+
+C2.Q$Discharge_Lsec_corr = 
+  ifelse((C2.Q$date_timeAK > as.POSIXct("2017-06-27 10:45:00")), 
+         (C2.Q$Discharge_Lsec_corr = C2.Q$Discharge_Lsec - 8.5047),
+         (C2.Q$Discharge_Lsec_corr = C2.Q$Discharge_Lsec))
+
+plot(C2.Q$Discharge_Lsec_corr ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-06-27 01:00:00","2017-06-28 01:00:00"), tz="America/Anchorage"))
+plot(C2.Q$Discharge_Lsec_corr ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="l")
+
+
+## correction 2 ##
+plot(C2.Q$Discharge_Lsec ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-03 01:00:00","2017-07-04 01:00:00"), tz="America/Anchorage"))
+
+C2.Q$Discharge_Lsec_corr2 = 
+  ifelse((C2.Q$date_timeAK > as.POSIXct("2017-07-03 10:15:00")), 
+         (C2.Q$Discharge_Lsec_corr2 = C2.Q$Discharge_Lsec_corr - (24.1533 - 18.2231)),
+         (C2.Q$Discharge_Lsec_corr2 = C2.Q$Discharge_Lsec_corr))
+
+plot(C2.Q$Discharge_Lsec_corr2 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-03 01:00:00","2017-07-04 01:00:00"), tz="America/Anchorage"))
+plot(C2.Q$Discharge_Lsec_corr2 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="l")
+
+
+## correction 3 ##
+plot(C2.Q$Discharge_Lsec ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-07 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+
+C2.Q$Discharge_Lsec_corr3 = 
+  ifelse((C2.Q$date_timeAK > as.POSIXct("2017-07-07 14:15:00")), 
+         (C2.Q$Discharge_Lsec_corr3 = C2.Q$Discharge_Lsec_corr2 - (31.6094 - 27.0891)),
+         (C2.Q$Discharge_Lsec_corr3 = C2.Q$Discharge_Lsec_corr2))
+
+plot(C2.Q$Discharge_Lsec_corr3 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-03 01:00:00","2017-07-04 01:00:00"), tz="America/Anchorage"))
+plot(C2.Q$Discharge_Lsec_corr3 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="l")
+
+## correction 4 ##
+plot(C2.Q$Discharge_Lsec ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-11 01:00:00","2017-07-12 01:00:00"), tz="America/Anchorage"))
+
+C2.Q$Discharge_Lsec_corr4 = 
+  ifelse((C2.Q$date_timeAK > as.POSIXct("2017-07-11 09:45:00")), 
+         (C2.Q$Discharge_Lsec_corr4 = C2.Q$Discharge_Lsec_corr3 - (33.2943 - 26.9727)),
+         (C2.Q$Discharge_Lsec_corr4 = C2.Q$Discharge_Lsec_corr3))
+
+plot(C2.Q$Discharge_Lsec_corr4 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="b",
+     xlim = as.POSIXct(c("2017-07-11 01:00:00","2017-07-12 01:00:00"), tz="America/Anchorage"))
+plot(C2.Q$Discharge_Lsec_corr4 ~ as.POSIXct(C2.Q$date_timeAK, tz="America/Anchorage"), type ="l")
+
+
+# OK, well now I'm getting into negative discharges... I don't think this is going to work.
+# I still think that these jumps are errors in the data, but it looks like they go back to baseline each time (though how long this takes is unknown), so there is no way to baseline correct the whole record. Grrr. I admit defeat. The Q data is just bad for C2, and there is nothing I can do about it. 
+
+
+#C2 = left_join(C2, C2.Q, by="date_timeAK")
+
+#### data wrangling - fill gaps ####
+# fxn #
+fillgaps15 = function(df, dat, datquotes, largegap.num){
+  ## Document gaps >= largegap.num (1 largegap.num = 15 min) ##
+  # (note - the criteria of what constitutes a "large" gap should be reevaluated depending on the trend being characterized)
+  is.na.rle <- rle(is.na(dat))
+  is.na.rle$values <- is.na.rle$values & is.na.rle$lengths >= (largegap.num)
+  biggaps = df[inverse.rle(is.na.rle), ]
+  tz(biggaps$date_timeAK) = "America/Anchorage"
+  biggaps = subset(biggaps, select = "date_timeAK")
+  # Make univariate time series, covert to zoo, then to ts #
+  ts.xts = subset(df, select = c("date_timeAK",datquotes))
+  ts.xts<-read.zoo(ts.xts, index.column=1, format="%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+  ts.xts<-as.xts(ts.xts)
+  # remove leading and trailing NAs #
+  ts.xts = na.trim(ts.xts, is.na="any")
+  # Apply auto.arima and kalman filter to impute missing values #
+  fit2 = auto.arima(ts.xts) 
+  kal = KalmanSmooth(ts.xts, fit2$model)
+  id.na<-which(is.na(ts.xts))
+  for(i in id.na) 
+    ts.xts[i]<-fit2$model$Z %*% kal$smooth[i,]
+  # revert to dataframe #
+  ts.df = as.data.frame((ts.xts))
+  ts.df$date_timeAK = as.POSIXct(row.names(ts.df), tz="America/Anchorage")
+  names(ts.df) = c("dat_filled", "date_timeAK")
+  # remove large gaps # 
+  ts.df$dat_filled[ts.df$date_timeAK %in% as.POSIXct(biggaps$date_timeAK)] = NA
+  # Replace large gaps with linear interpolation #
+  ts.df$dat_filled = na.interpolation(ts.df$dat_filled)
+  ts.df = subset(ts.df, select = c("dat_filled", "date_timeAK"))
+  return(ts.df)
+}
+
+
+### C3 ###
+C3.no3 = subset(C3, select = c("date_timeAK","nitrate_uM"))
+C3.no3 = fillgaps15(C3.no3, C3.no3$nitrate_uM, "nitrate_uM", 16)
+plot(C3.no3$dat_filled, type="l")
+names(C3.no3) = c("nitrate_uM_filled", "date_timeAK")
+
+C3.fDOM = subset(C3, select = c("date_timeAK","fDOM_Tc_TURBc"))
+C3.fDOM = fillgaps15(C3.fDOM, C3.fDOM$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", 16)
+plot(C3.fDOM$dat_filled, type="l")
+names(C3.fDOM) = c("fDOM_Tc_TURBc_filled", "date_timeAK")
+
+C3.SpCond = subset(C3, select = c("date_timeAK","SpCond_uScm"))
+C3.SpCond = fillgaps15(C3.SpCond, C3.SpCond$SpCond_uScm, "SpCond_uScm", 16)
+plot(C3.SpCond$dat_filled, type="l")
+names(C3.SpCond) = c("SpCond_uScm_filled", "date_timeAK")
+
+C3.turb = subset(C3, select = c("date_timeAK","Turbidity_FNU"))
+C3.turb = fillgaps15(C3.turb, C3.turb$Turbidity_FNU, "Turbidity_FNU", 16)
+plot(C3.turb$dat_filled, type="l")
+names(C3.turb) = c("Turbidity_FNU_filled", "date_timeAK")
+#
+
+C3 = left_join(C3, C3.no3, by="date_timeAK")
+C3 = left_join(C3, C3.fDOM, by="date_timeAK")
+C3 = left_join(C3, C3.SpCond, by="date_timeAK")
+C3 = left_join(C3, C3.turb, by="date_timeAK")
+
+
+### P6 ###
+P6.fDOM = subset(P6, select = c("date_timeAK","fDOM_Tc_TURBc"))
+P6.fDOM = fillgaps15(P6.fDOM, P6.fDOM$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", 16)
+plot(P6.fDOM$dat_filled, type="l")
+names(P6.fDOM) = c("fDOM_Tc_TURBc_filled", "date_timeAK")
+
+P6.SpCond = subset(P6, select = c("date_timeAK","SpCond_uScm"))
+P6.SpCond = fillgaps15(P6.SpCond, P6.SpCond$SpCond_uScm, "SpCond_uScm", 16)
+plot(P6.SpCond$dat_filled, type="l")
+names(P6.SpCond) = c("SpCond_uScm_filled", "date_timeAK")
+
+P6.turb = subset(P6, select = c("date_timeAK","Turbidity_FNU"))
+P6.turb = fillgaps15(P6.turb, P6.turb$Turbidity_FNU, "Turbidity_FNU", 16)
+plot(P6.turb$dat_filled, type="l")
+names(P6.turb) = c("Turbidity_FNU_filled", "date_timeAK")
+#
+
+P6 = left_join(P6, P6.fDOM, by="date_timeAK")
+P6 = left_join(P6, P6.SpCond, by="date_timeAK")
+P6 = left_join(P6, P6.turb, by="date_timeAK")
+
+
+### C2 ###
+C2.no3 = subset(C2, select = c("date_timeAK","nitrate_uM"))
+C2.no3 = fillgaps15(C2.no3, C2.no3$nitrate_uM, "nitrate_uM", 16)
+plot(C2.no3$dat_filled, type="l")
+names(C2.no3) = c("nitrate_uM_filled", "date_timeAK")
+
+C2.fDOM = subset(C2, select = c("date_timeAK","fDOM_Tc_TURBc"))
+C2.fDOM = fillgaps15(C2.fDOM, C2.fDOM$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", 16)
+plot(C2.fDOM$dat_filled, type="l")
+names(C2.fDOM) = c("fDOM_Tc_TURBc_filled", "date_timeAK")
+
+C2.SpCond = subset(C2, select = c("date_timeAK","SpCond_uScm"))
+C2.SpCond = fillgaps15(C2.SpCond, C2.SpCond$SpCond_uScm, "SpCond_uScm", 16)
+plot(C2.SpCond$dat_filled, type="l")
+names(C2.SpCond) = c("SpCond_uScm_filled", "date_timeAK")
+
+C2.turb = subset(C2, select = c("date_timeAK","Turbidity_FNU"))
+C2.turb = fillgaps15(C2.turb, C2.turb$Turbidity_FNU, "Turbidity_FNU", 16)
+plot(C2.turb$dat_filled, type="l")
+names(C2.turb) = c("Turbidity_FNU_filled", "date_timeAK")
+#
+
+C2 = left_join(C2, C2.no3, by="date_timeAK")
+C2 = left_join(C2, C2.fDOM, by="date_timeAK")
+C2 = left_join(C2, C2.SpCond, by="date_timeAK")
+C2 = left_join(C2, C2.turb, by="date_timeAK")
+
+
+### C4 ###
+C4.fDOM = subset(C4, select = c("date_timeAK","fDOM_Tc_TURBc"))
+C4.fDOM = fillgaps15(C4.fDOM, C4.fDOM$fDOM_Tc_TURBc, "fDOM_Tc_TURBc", 16)
+plot(C4.fDOM$dat_filled, type="l")
+names(C4.fDOM) = c("fDOM_Tc_TURBc_filled", "date_timeAK")
+
+C4.SpCond = subset(C4, select = c("date_timeAK","SpCond_uScm"))
+C4.SpCond = fillgaps15(C4.SpCond, C4.SpCond$SpCond_uScm, "SpCond_uScm", 16)
+plot(C4.SpCond$dat_filled, type="l")
+names(C4.SpCond) = c("SpCond_uScm_filled", "date_timeAK")
+
+C4.turb = subset(C4, select = c("date_timeAK","Turbidity_FNU"))
+C4.turb = fillgaps15(C4.turb, C4.turb$Turbidity_FNU, "Turbidity_FNU", 16)
+plot(C4.turb$dat_filled, type="l")
+names(C4.turb) = c("Turbidity_FNU_filled", "date_timeAK")
+#
+
+C4 = left_join(C4, C4.fDOM, by="date_timeAK")
+C4 = left_join(C4, C4.SpCond, by="date_timeAK")
+C4 = left_join(C4, C4.turb, by="date_timeAK")
+
+
+
+#### Baseflow Separation ####
+
+any(is.na(C2_Q$day))
+any(is.na(C2_Q$Discharge_Lsec))
+
+any(is.na(C3_Q$day))
+any(is.na(C3_Q$Discharge_Lsec))
+
+any(is.na(C4_Q$day))
+any(is.na(C4_Q$Discharge_Lsec))
+
+any(is.na(P6_Q$day))
+any(is.na(P6_Q$Discharge_Lsec))
+
+
+#C3_Q_bf = bf_eckhardt_filter(date = class(as.Date.POSIXct(C3_Q$day)), 
+                            # discharge = C3_Q$Discharge_Lsec_mean, 
+                            # BFImax = 0.9, alpha = .90)
+#hydrograph(input=subset(C3_Q, select = c(day, Discharge_Lsec_mean)), streamflow2=C3_Q_bf$baseflow)
+
+#C3_Q = bf_single_term_filter(date = C3_Q$date_timeAK, discharge = C3$Discharge_Lsec, alpha = .925)
+#hydrograph(input=subset(C3_Q, select = c(date_timeAK, Discharge_Lsec)), streamflow2=C3_Q$baseflow)
+
+### examine the recursive digital filter at .9, .925, .95 levels ###
+par(mfrow=c(4,2))
+plot(C3$Discharge_Lsec ~ C3$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+    # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue")
+#
+plot(C2$Discharge_Lsec ~ C2$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+    # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue")
+#
+C3_Q_bf = BaseflowSeparation(C3_Q$Discharge_Lsec, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(C3_Q, select = c(day, Discharge_Lsec)), streamflow2=C3_Q_bf$bt)
+#
+C2_Q_bf = BaseflowSeparation(C2_Q$Discharge_Lsec, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(C2_Q, select = c(day, Discharge_Lsec)), streamflow2=C2_Q_bf$bt)
+#
+C3_Q_bf = BaseflowSeparation(C3_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C3_Q, select = c(day, Discharge_Lsec)), streamflow2=C3_Q_bf$bt)
+#
+C2_Q_bf = BaseflowSeparation(C2_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C2_Q, select = c(day, Discharge_Lsec)), streamflow2=C2_Q_bf$bt)
+#
+C3_Q_bf = BaseflowSeparation(C3_Q$Discharge_Lsec, filter_parameter = 0.95, passes = 3)
+hydrograph(input=subset(C3_Q, select = c(day, Discharge_Lsec)), streamflow2=C3_Q_bf$bt)
+#
+C2_Q_bf = BaseflowSeparation(C2_Q$Discharge_Lsec, filter_parameter = 0.95, passes = 3)
+hydrograph(input=subset(C2_Q, select = c(day, Discharge_Lsec)), streamflow2=C2_Q_bf$bt)
+#
+
+par(mfrow=c(4,2))
+plot(C4$Discharge_Lsec ~ C4$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue")
+#
+plot(P6$Discharge_Lsec ~ P6$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue")
+#
+C4_Q_bf = BaseflowSeparation(C4_Q$Discharge_Lsec, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(C4_Q, select = c(day, Discharge_Lsec)), streamflow2=C4_Q_bf$bt)
+#
+P6_Q_bf = BaseflowSeparation(P6_Q$Discharge_Lsec, filter_parameter = 0.90, passes = 3)
+hydrograph(input=subset(P6_Q, select = c(day, Discharge_Lsec)), streamflow2=P6_Q_bf$bt)
+#
+C4_Q_bf = BaseflowSeparation(C4_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C4_Q, select = c(day, Discharge_Lsec)), streamflow2=C4_Q_bf$bt)
+#
+P6_Q_bf = BaseflowSeparation(P6_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(P6_Q, select = c(day, Discharge_Lsec)), streamflow2=P6_Q_bf$bt)
+#
+C4_Q_bf = BaseflowSeparation(C4_Q$Discharge_Lsec, filter_parameter = 0.95, passes = 3)
+hydrograph(input=subset(C4_Q, select = c(day, Discharge_Lsec)), streamflow2=C4_Q_bf$bt)
+#
+P6_Q_bf = BaseflowSeparation(P6_Q$Discharge_Lsec, filter_parameter = 0.95, passes = 3)
+hydrograph(input=subset(P6_Q, select = c(day, Discharge_Lsec)), streamflow2=P6_Q_bf$bt)
+#
+
+
+
+### examine the recursive digital filter at .925 level ###
+par(mfrow=c(4,2))
+plot(C3$Discharge_Lsec ~ C3$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue", main="C3")
+#
+plot(C2$Discharge_Lsec ~ C2$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue", main="C2")
+#
+C3_Q_bf = BaseflowSeparation(C3_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C3_Q, select = c(day, Discharge_Lsec)), streamflow2=C3_Q_bf$bt)
+#
+C2_Q_bf = BaseflowSeparation(C2_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C2_Q, select = c(day, Discharge_Lsec)), streamflow2=C2_Q_bf$bt)
+#
+plot(P6$Discharge_Lsec ~ P6$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue", main="P6")
+#
+plot(C4$Discharge_Lsec ~ C4$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",
+     # xlim = as.POSIXct(c("2017-05-22 00:00:00","2017-09-01 00:00:00"), tz="America/Anchorage"),
+     ylim = c(0,180), col="blue", main="C4")
+#
+P6_Q_bf = BaseflowSeparation(P6_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(P6_Q, select = c(day, Discharge_Lsec)), streamflow2=P6_Q_bf$bt)
+#
+C4_Q_bf = BaseflowSeparation(C4_Q$Discharge_Lsec, filter_parameter = 0.925, passes = 3)
+hydrograph(input=subset(C4_Q, select = c(day, Discharge_Lsec)), streamflow2=C4_Q_bf$bt)
+#
+
+
+####
+
+C2_bfQ_mn = mean(C2_Q_bf$bt)
+C3_bfQ_mn = mean(C3_Q_bf$bt)
+C4_bfQ_mn = mean(C4_Q_bf$bt)
+P6_bfQ_mn = mean(P6_Q_bf$bt)
+
+
+#### Deliniate storms in C3 ####
+
+# ID storms: Any events where Q reached 2X mean base flow 
+# Pick starting points: manually select inflection pt when Q began to rise
+# Pick ending points: manually select pt when Q reached pre-storm baseflow OR when another event occurred
+
+head(C3_Q_bf)
+C3_bfQ_mn
+C3_bfQ_mn*2
+
+
+
+par(mfrow=c(1,1))
+plot(C3_Q$Discharge_Lsec ~ C3_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3")
+lines(C3_Q_bf$bt ~ C3_Q$day, col="red")
+#lines((C3_Q_bf$bt*1.3) ~ C3_Q$day, col="red", lty=2)
+#lines((C3_Q_bf$bt*5) ~ C3_Q$day, col="red", lty=2)
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ C3$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+lines(C3$nitrate_uM_filled ~ C3$date_timeAK, type="l", xlab="", ylab="", col="purple", ylim=c(30,60),
+      xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+par(new = T)
+plot(C3$crrel_precip_mm ~ C3$date_timeAK, type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+
+
+
+### Storm 1 ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm1 = C3[C3$date_timeAK > as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage") &
+                  C3$date_timeAK < as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"),]
+plot(C3_storm1$Discharge_Lsec ~ as.POSIXct(C3_storm1$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1a",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+
+### Storm 1a ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-03 16:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm1a = C3[C3$date_timeAK > as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage") &
+              C3$date_timeAK < as.POSIXct("2017-07-03 16:00:00", tz="America/Anchorage"),]
+plot(C3_storm1a$Discharge_Lsec ~ as.POSIXct(C3_storm1a$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1a",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+
+### Storm 1b ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-03 16:15:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm1b = C3[C3$date_timeAK > as.POSIXct("2017-07-03 16:15:00", tz="America/Anchorage") &
+                  C3$date_timeAK < as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"),]
+plot(C3_storm1b$Discharge_Lsec ~ as.POSIXct(C3_storm1b$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1b",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+
+
+
+### Storm 2 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-07 17:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-09 20:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm2 = C3[C3$date_timeAK > as.POSIXct("2017-07-07 17:00:00", tz="America/Anchorage") &
+                 C3$date_timeAK < as.POSIXct("2017-07-09 20:00:00", tz="America/Anchorage"),]
+plot(C3_storm2$Discharge_Lsec ~ as.POSIXct(C3_storm2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### Storm 3 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-10 04:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-19 09:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm3 = C3[C3$date_timeAK > as.POSIXct("2017-07-10 04:00:00", tz="America/Anchorage") &
+              C3$date_timeAK < as.POSIXct("2017-07-19 09:00:00", tz="America/Anchorage"),]
+plot(C3_storm3$Discharge_Lsec ~ as.POSIXct(C3_storm3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### Storm 4 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-14 10:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage"), col="purple")
+
+C3_storm4 = C3[C3$date_timeAK > as.POSIXct("2017-08-14 10:00:00", tz="America/Anchorage") &
+                 C3$date_timeAK < as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage"),]
+plot(C3_storm4$Discharge_Lsec ~ as.POSIXct(C3_storm4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+### Storm 5 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-31 23:45:00", tz="America/Anchorage"), col="purple")
+
+C3_storm5 = C3[C3$date_timeAK > as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage") &
+                 C3$date_timeAK < as.POSIXct("2017-08-31 23:45:00", tz="America/Anchorage"),]
+plot(C3_storm5$Discharge_Lsec ~ as.POSIXct(C3_storm5$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### ALL storms ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C3$Discharge_Lsec ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C3",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C3_bfQ_mn*2, col="red", lty=2)
+abline(h=C3_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C3$crrel_precip_mm ~ as.POSIXct(C3$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+#abline(v= as.POSIXct(min(C3_storm1a$date_timeAK), tz="America/Anchorage"), col="purple")
+#abline(v= as.POSIXct(max(C3_storm1a$date_timeAK), tz="America/Anchorage"), col="purple")
+rect(xleft=as.POSIXct(min(C3_storm1a$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm1a$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C3_storm1b$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm1b$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(C3_storm2$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm2$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C3_storm3$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm3$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(C3_storm4$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm4$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C3_storm5$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C3_storm5$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+
+# exported pdf 10 x 25
+
+#### modify format and save C3 storms ####
+
+# nitrate_uM, SpCond_uScm, fDOM_Tc_TURBc, Turbidity_FNU
+
+C3_storm1a_Q = subset(C3_storm1a, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm1a_Q) = c("valuedatetime","datavalue")
+C3_storm1a_NO3 = subset(C3_storm1a, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm1a_NO3) = c("valuedatetime","datavalue")
+C3_storm1a_SpCond = subset(C3_storm1a, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm1a_SpCond) = c("valuedatetime","datavalue")
+C3_storm1a_fDOM = subset(C3_storm1a, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm1a_fDOM) = c("valuedatetime","datavalue")
+C3_storm1a_turb = subset(C3_storm1a, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm1a_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm1a, "Stitched_data/storms/C3_storm1a.csv")
+write.csv(C3_storm1a_Q, "Stitched_data/storms/C3_storm1a_Q.csv")
+write.csv(C3_storm1a_NO3, "Stitched_data/storms/C3_storm1a_NO3.csv")
+write.csv(C3_storm1a_SpCond, "Stitched_data/storms/C3_storm1a_SpCond.csv")
+write.csv(C3_storm1a_fDOM, "Stitched_data/storms/C3_storm1a_fDOM.csv")
+write.csv(C3_storm1a_turb, "Stitched_data/storms/C3_storm1a_turb.csv")
+
+C3_storm1b_Q = subset(C3_storm1b, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm1b_Q) = c("valuedatetime","datavalue")
+C3_storm1b_NO3 = subset(C3_storm1b, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm1b_NO3) = c("valuedatetime","datavalue")
+C3_storm1b_SpCond = subset(C3_storm1b, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm1b_SpCond) = c("valuedatetime","datavalue")
+C3_storm1b_fDOM = subset(C3_storm1b, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm1b_fDOM) = c("valuedatetime","datavalue")
+C3_storm1b_turb = subset(C3_storm1b, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm1b_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm1b, "Stitched_data/storms/C3_storm1b.csv")
+write.csv(C3_storm1b_Q, "Stitched_data/storms/C3_storm1b_Q.csv")
+write.csv(C3_storm1b_NO3, "Stitched_data/storms/C3_storm1b_NO3.csv")
+write.csv(C3_storm1b_SpCond, "Stitched_data/storms/C3_storm1b_SpCond.csv")
+write.csv(C3_storm1b_fDOM, "Stitched_data/storms/C3_storm1b_fDOM.csv")
+write.csv(C3_storm1b_turb, "Stitched_data/storms/C3_storm1b_turb.csv")
+
+C3_storm2_Q = subset(C3_storm2, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm2_Q) = c("valuedatetime","datavalue")
+C3_storm2_NO3 = subset(C3_storm2, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm2_NO3) = c("valuedatetime","datavalue")
+C3_storm2_SpCond = subset(C3_storm2, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm2_SpCond) = c("valuedatetime","datavalue")
+C3_storm2_fDOM = subset(C3_storm2, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm2_fDOM) = c("valuedatetime","datavalue")
+C3_storm2_turb = subset(C3_storm2, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm2_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm2, "Stitched_data/storms/C3_storm2.csv")
+write.csv(C3_storm2_Q, "Stitched_data/storms/C3_storm2_Q.csv")
+write.csv(C3_storm2_NO3, "Stitched_data/storms/C3_storm2_NO3.csv")
+write.csv(C3_storm2_SpCond, "Stitched_data/storms/C3_storm2_SpCond.csv")
+write.csv(C3_storm2_fDOM, "Stitched_data/storms/C3_storm2_fDOM.csv")
+write.csv(C3_storm2_turb, "Stitched_data/storms/C3_storm2_turb.csv")
+
+C3_storm3_Q = subset(C3_storm3, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm3_Q) = c("valuedatetime","datavalue")
+C3_storm3_NO3 = subset(C3_storm3, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm3_NO3) = c("valuedatetime","datavalue")
+C3_storm3_SpCond = subset(C3_storm3, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm3_SpCond) = c("valuedatetime","datavalue")
+C3_storm3_fDOM = subset(C3_storm3, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm3_fDOM) = c("valuedatetime","datavalue")
+C3_storm3_turb = subset(C3_storm3, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm3_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm3, "Stitched_data/storms/C3_storm3.csv")
+write.csv(C3_storm3_Q, "Stitched_data/storms/C3_storm3_Q.csv")
+write.csv(C3_storm3_NO3, "Stitched_data/storms/C3_storm3_NO3.csv")
+write.csv(C3_storm3_SpCond, "Stitched_data/storms/C3_storm3_SpCond.csv")
+write.csv(C3_storm3_fDOM, "Stitched_data/storms/C3_storm3_fDOM.csv")
+write.csv(C3_storm3_turb, "Stitched_data/storms/C3_storm3_turb.csv")
+
+C3_storm4_Q = subset(C3_storm4, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm4_Q) = c("valuedatetime","datavalue")
+C3_storm4_NO3 = subset(C3_storm4, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm4_NO3) = c("valuedatetime","datavalue")
+C3_storm4_SpCond = subset(C3_storm4, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm4_SpCond) = c("valuedatetime","datavalue")
+C3_storm4_fDOM = subset(C3_storm4, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm4_fDOM) = c("valuedatetime","datavalue")
+C3_storm4_turb = subset(C3_storm4, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm4_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm4, "Stitched_data/storms/C3_storm4.csv")
+write.csv(C3_storm4_Q, "Stitched_data/storms/C3_storm4_Q.csv")
+write.csv(C3_storm4_NO3, "Stitched_data/storms/C3_storm4_NO3.csv")
+write.csv(C3_storm4_SpCond, "Stitched_data/storms/C3_storm4_SpCond.csv")
+write.csv(C3_storm4_fDOM, "Stitched_data/storms/C3_storm4_fDOM.csv")
+write.csv(C3_storm4_turb, "Stitched_data/storms/C3_storm4_turb.csv")
+
+C3_storm5_Q = subset(C3_storm5, select = c("date_timeAK","Discharge_Lsec"))
+names(C3_storm5_Q) = c("valuedatetime","datavalue")
+C3_storm5_NO3 = subset(C3_storm5, select = c("date_timeAK","nitrate_uM_filled"))
+names(C3_storm5_NO3) = c("valuedatetime","datavalue")
+C3_storm5_SpCond = subset(C3_storm5, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C3_storm5_SpCond) = c("valuedatetime","datavalue")
+C3_storm5_fDOM = subset(C3_storm5, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C3_storm5_fDOM) = c("valuedatetime","datavalue")
+C3_storm5_turb = subset(C3_storm5, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C3_storm5_turb) = c("valuedatetime","datavalue")
+write.csv(C3_storm5, "Stitched_data/storms/C3_storm5.csv")
+write.csv(C3_storm5_Q, "Stitched_data/storms/C3_storm5_Q.csv")
+write.csv(C3_storm5_NO3, "Stitched_data/storms/C3_storm5_NO3.csv")
+write.csv(C3_storm5_SpCond, "Stitched_data/storms/C3_storm5_SpCond.csv")
+write.csv(C3_storm5_fDOM, "Stitched_data/storms/C3_storm5_fDOM.csv")
+write.csv(C3_storm5_turb, "Stitched_data/storms/C3_storm5_turb.csv")
+
+
+#### Deliniate storms in P6 ####
+
+# ID storms: Any events where Q reached 2X mean base flow 
+# Pick starting points: manually select inflection pt when Q began to rise
+# Pick ending points: manually select pt when Q reached pre-storm baseflow OR when another event occurred
+
+head(P6_Q_bf)
+P6_bfQ_mn
+P6_bfQ_mn*2
+
+par(mfrow=c(1,1))
+plot(P6_Q$Discharge_Lsec ~ P6_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6")
+lines(P6_Q_bf$bt ~ P6_Q$day, col="red")
+#lines((P6_Q_bf$bt*1.3) ~ P6_Q$day, col="red", lty=2)
+#lines((P6_Q_bf$bt*5) ~ P6_Q$day, col="red", lty=2)
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ P6$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+plot(P6$crrel_precip_mm ~ P6$date_timeAK, type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     xaxs='i', yaxs='i', axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+
+
+### Storm 1 ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$crrel_precip_mm ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-08 22:00:00", tz="America/Anchorage"), col="purple")
+
+P6_storm1 = P6[P6$date_timeAK > as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage") &
+                 P6$date_timeAK < as.POSIXct("2017-07-08 22:00:00", tz="America/Anchorage"),]
+plot(P6_storm1$Discharge_Lsec ~ as.POSIXct(P6_storm1$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### Storm 2 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$crrel_precip_mm ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-09 17:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-14 20:00:00", tz="America/Anchorage"), col="purple")
+
+P6_storm2 = P6[P6$date_timeAK > as.POSIXct("2017-07-09 17:00:00", tz="America/Anchorage") &
+                 P6$date_timeAK < as.POSIXct("2017-07-14 20:00:00", tz="America/Anchorage"),]
+plot(P6_storm2$Discharge_Lsec ~ as.POSIXct(P6_storm2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### Storm 3 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$crrel_precip_mm ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-14 06:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage"), col="purple")
+
+P6_storm3 = P6[P6$date_timeAK > as.POSIXct("2017-08-14 06:00:00", tz="America/Anchorage") &
+                 P6$date_timeAK < as.POSIXct("2017-08-27 12:00:00", tz="America/Anchorage"),]
+plot(P6_storm3$Discharge_Lsec ~ as.POSIXct(P6_storm3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+### Storm 4 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$crrel_precip_mm ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-27 21:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-31 23:45:00", tz="America/Anchorage"), col="purple")
+
+P6_storm4 = P6[P6$date_timeAK > as.POSIXct("2017-08-27 21:00:00", tz="America/Anchorage") &
+                 P6$date_timeAK < as.POSIXct("2017-08-31 23:45:00", tz="America/Anchorage"),]
+plot(P6_storm4$Discharge_Lsec ~ as.POSIXct(P6_storm4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+
+
+
+### ALL storms ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(P6$Discharge_Lsec ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="P6",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=P6_bfQ_mn*2, col="red", lty=2)
+abline(h=P6_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(P6$crrel_precip_mm ~ as.POSIXct(P6$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+rect(xleft=as.POSIXct(min(P6_storm1$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(P6_storm1$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(P6_storm2$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(P6_storm2$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(P6_storm3$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(P6_storm3$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(P6_storm4$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(P6_storm4$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+
+# exported pdf 10 x 25
+
+#### modify format and save P6 storms ####
+
+# SpCond_uScm, fDOM_Tc_TURBc, Turbidity_FNU
+
+P6_storm1_Q = subset(P6_storm1, select = c("date_timeAK","Discharge_Lsec"))
+names(P6_storm1_Q) = c("valuedatetime","datavalue")
+P6_storm1_SpCond = subset(P6_storm1, select = c("date_timeAK","SpCond_uScm_filled"))
+names(P6_storm1_SpCond) = c("valuedatetime","datavalue")
+P6_storm1_fDOM = subset(P6_storm1, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(P6_storm1_fDOM) = c("valuedatetime","datavalue")
+P6_storm1_turb = subset(P6_storm1, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(P6_storm1_turb) = c("valuedatetime","datavalue")
+write.csv(P6_storm1, "Stitched_data/storms/P6_storm1.csv")
+write.csv(P6_storm1_Q, "Stitched_data/storms/P6_storm1_Q.csv")
+write.csv(P6_storm1_SpCond, "Stitched_data/storms/P6_storm1_SpCond.csv")
+write.csv(P6_storm1_fDOM, "Stitched_data/storms/P6_storm1_fDOM.csv")
+write.csv(P6_storm1_turb, "Stitched_data/storms/P6_storm1_turb.csv")
+
+P6_storm2_Q = subset(P6_storm2, select = c("date_timeAK","Discharge_Lsec"))
+names(P6_storm2_Q) = c("valuedatetime","datavalue")
+P6_storm2_SpCond = subset(P6_storm2, select = c("date_timeAK","SpCond_uScm_filled"))
+names(P6_storm2_SpCond) = c("valuedatetime","datavalue")
+P6_storm2_fDOM = subset(P6_storm2, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(P6_storm2_fDOM) = c("valuedatetime","datavalue")
+P6_storm2_turb = subset(P6_storm2, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(P6_storm2_turb) = c("valuedatetime","datavalue")
+write.csv(P6_storm2, "Stitched_data/storms/P6_storm2.csv")
+write.csv(P6_storm2_Q, "Stitched_data/storms/P6_storm2_Q.csv")
+write.csv(P6_storm2_SpCond, "Stitched_data/storms/P6_storm2_SpCond.csv")
+write.csv(P6_storm2_fDOM, "Stitched_data/storms/P6_storm2_fDOM.csv")
+write.csv(P6_storm2_turb, "Stitched_data/storms/P6_storm2_turb.csv")
+
+P6_storm3_Q = subset(P6_storm3, select = c("date_timeAK","Discharge_Lsec"))
+names(P6_storm3_Q) = c("valuedatetime","datavalue")
+P6_storm3_SpCond = subset(P6_storm3, select = c("date_timeAK","SpCond_uScm_filled"))
+names(P6_storm3_SpCond) = c("valuedatetime","datavalue")
+P6_storm3_fDOM = subset(P6_storm3, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(P6_storm3_fDOM) = c("valuedatetime","datavalue")
+P6_storm3_turb = subset(P6_storm3, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(P6_storm3_turb) = c("valuedatetime","datavalue")
+write.csv(P6_storm3, "Stitched_data/storms/P6_storm3.csv")
+write.csv(P6_storm3_Q, "Stitched_data/storms/P6_storm3_Q.csv")
+write.csv(P6_storm3_SpCond, "Stitched_data/storms/P6_storm3_SpCond.csv")
+write.csv(P6_storm3_fDOM, "Stitched_data/storms/P6_storm3_fDOM.csv")
+write.csv(P6_storm3_turb, "Stitched_data/storms/P6_storm3_turb.csv")
+
+P6_storm4_Q = subset(P6_storm4, select = c("date_timeAK","Discharge_Lsec"))
+names(P6_storm4_Q) = c("valuedatetime","datavalue")
+P6_storm4_SpCond = subset(P6_storm4, select = c("date_timeAK","SpCond_uScm_filled"))
+names(P6_storm4_SpCond) = c("valuedatetime","datavalue")
+P6_storm4_fDOM = subset(P6_storm4, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(P6_storm4_fDOM) = c("valuedatetime","datavalue")
+P6_storm4_turb = subset(P6_storm4, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(P6_storm4_turb) = c("valuedatetime","datavalue")
+write.csv(P6_storm4, "Stitched_data/storms/P6_storm4.csv")
+write.csv(P6_storm4_Q, "Stitched_data/storms/P6_storm4_Q.csv")
+write.csv(P6_storm4_SpCond, "Stitched_data/storms/P6_storm4_SpCond.csv")
+write.csv(P6_storm4_fDOM, "Stitched_data/storms/P6_storm4_fDOM.csv")
+write.csv(P6_storm4_turb, "Stitched_data/storms/P6_storm4_turb.csv")
+
+#### Deliniate storms in C2 ####
+
+# ID storms: based on C3
+# Pick starting points: based on C3 + evidence of a rising limb
+# Pick ending points: based on C3 + evidence of a falling limb
+
+head(C2_Q_bf)
+C2_bfQ_mn
+C2_bfQ_mn*2
+
+par(mfrow=c(1,1))
+plot(C2_Q$Discharge_Lsec ~ C2_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2")
+lines(C2_Q_bf$bt ~ C2_Q$day, col="red")
+#lines((C2_Q_bf$bt*1.3) ~ C2_Q$day, col="red", lty=2)
+#lines((C2_Q_bf$bt*5) ~ C2_Q$day, col="red", lty=2)
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ C2$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+lines(C2$nitrate_uM_filled ~ C2$date_timeAK, type="l", xlab="", ylab="", col="purple", ylim=c(30,60),
+      xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+par(new = T)
+plot(C2$crrel_precip_mm ~ C2$date_timeAK, type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+
+
+### Storm 1 ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm1 = C2[C2$date_timeAK > as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage") &
+                  C2$date_timeAK < as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"),]
+plot(C2_storm1$Discharge_Lsec ~ as.POSIXct(C2_storm1$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+# same  dates as C3 Storm 1. No clear falling limb. Keep in analysis for comparision to C3, but do not consider in final results. 
+
+
+### Storm 1a ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-03 10:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm1a = C2[C2$date_timeAK > as.POSIXct("2017-07-02 18:30:00", tz="America/Anchorage") &
+                  C2$date_timeAK < as.POSIXct("2017-07-03 10:00:00", tz="America/Anchorage"),]
+plot(C2_storm1a$Discharge_Lsec ~ as.POSIXct(C2_storm1a$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1a",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+# same start  date as C3 Storm 1a. End date is sooner in order to cut out the suspect jump in Q data. This selection gives it a distinct rising and falling limb. Include this storm in results. 
+
+
+### Storm 1b ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-03 16:15:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm1b = C2[C2$date_timeAK > as.POSIXct("2017-07-03 16:15:00", tz="America/Anchorage") &
+                  C2$date_timeAK < as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"),]
+plot(C2_storm1b$Discharge_Lsec ~ as.POSIXct(C2_storm1b$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1b",
+     xlim = as.POSIXct(c("2017-07-01 01:00:00","2017-07-09 01:00:00"), tz="America/Anchorage"))
+# same start and end dates as C3 Storm 1b. No distinct rising or falling limb. Keep in analysis for comparision to C3, but do not include in final results. 
+
+
+### Storm 2 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-07-07 01:00:00","2017-07-11 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-07 01:00:00","2017-07-11 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-07 14:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-09 20:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm2 = C2[C2$date_timeAK > as.POSIXct("2017-07-07 14:00:00", tz="America/Anchorage") &
+                 C2$date_timeAK < as.POSIXct("2017-07-09 20:00:00", tz="America/Anchorage"),]
+plot(C2_storm2$Discharge_Lsec ~ as.POSIXct(C2_storm2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1",
+     xlim = as.POSIXct(c("2017-07-07 01:00:00","2017-07-11 01:00:00"), tz="America/Anchorage"))
+# same end date as C3 Storm 2. Start date is 4 hours earlier than in C3 to align with an earlier jump in discharge. There is a distinct rising and falling limb. Include this storm in results. 
+
+
+### Storm 3 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-07-09 01:00:00","2017-07-20 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+lines(C2$nitrate_uM_filled ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-07-09 01:00:00","2017-07-20 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-10 04:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-19 09:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm3 = C2[C2$date_timeAK > as.POSIXct("2017-07-10 04:00:00", tz="America/Anchorage") &
+                 C2$date_timeAK < as.POSIXct("2017-07-19 09:00:00", tz="America/Anchorage"),]
+plot(C2_storm3$Discharge_Lsec ~ as.POSIXct(C2_storm3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1",
+     xlim = as.POSIXct(c("2017-07-09 01:00:00","2017-07-20 01:00:00"), tz="America/Anchorage"))
+# same start and end date as C3 Storm 3. There is a distinct rising and falling limb. Include this storm in results. 
+
+
+### Storm 4 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(30,40), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-08-13 01:00:00","2017-08-23 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-08-13 01:00:00","2017-08-23 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-14 10:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-15 10:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm4 = C2[C2$date_timeAK > as.POSIXct("2017-08-14 10:00:00", tz="America/Anchorage") &
+                 C2$date_timeAK < as.POSIXct("2017-08-15 10:00:00", tz="America/Anchorage"),]
+plot(C2_storm4$Discharge_Lsec ~ as.POSIXct(C2_storm4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1",
+     xlim = as.POSIXct(c("2017-08-13 01:00:00","2017-08-16 01:00:00"), tz="America/Anchorage"))
+# Same start date as storm 4 in C3, but much earlier end date was chosen to select a more distinct falling limb. With these dates, there is a fairly distinct rising and falling limb. Include this storm in results. 
+ 
+
+### Storm 5 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(30,35), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-08-26 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-08-26 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-27 23:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-30 20:00:00", tz="America/Anchorage"), col="purple")
+
+C2_storm5 = C2[C2$date_timeAK > as.POSIXct("2017-08-27 23:00:00", tz="America/Anchorage") &
+                 C2$date_timeAK < as.POSIXct("2017-08-30 20:00:00", tz="America/Anchorage"),]
+plot(C2_storm5$Discharge_Lsec ~ as.POSIXct(C2_storm5$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+# Same start date as storm 4 in C3, an earlier end date (by ~1 day) was chosen to select a more distinct falling limb. With these dates, there is a fairly distinct rising and falling limb. Include this storm in results. 
+
+
+### ALL storms ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C2$Discharge_Lsec ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C2",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C2_bfQ_mn*2, col="red", lty=2)
+abline(h=C2_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C2$crrel_precip_mm ~ as.POSIXct(C2$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+#abline(v= as.POSIXct(min(C2_storm1a$date_timeAK), tz="America/Anchorage"), col="purple")
+#abline(v= as.POSIXct(max(C2_storm1a$date_timeAK), tz="America/Anchorage"), col="purple")
+rect(xleft=as.POSIXct(min(C2_storm1a$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm1a$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C2_storm1b$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm1b$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(C2_storm2$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm2$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C2_storm3$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm3$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(C2_storm4$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm4$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C2_storm5$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C2_storm5$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+
+# exported pdf 10 x 25
+
+#### modify format and save C2 storms ####
+
+# nitrate_uM, SpCond_uScm, fDOM_Tc_TURBc, Turbidity_FNU
+
+C2_storm1_Q = subset(C2_storm1, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm1_Q) = c("valuedatetime","datavalue")
+C2_storm1_NO3 = subset(C2_storm1, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm1_NO3) = c("valuedatetime","datavalue")
+C2_storm1_SpCond = subset(C2_storm1, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm1_SpCond) = c("valuedatetime","datavalue")
+C2_storm1_fDOM = subset(C2_storm1, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm1_fDOM) = c("valuedatetime","datavalue")
+C2_storm1_turb = subset(C2_storm1, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm1_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm1, "Stitched_data/storms/C2_storm1.csv")
+write.csv(C2_storm1_Q, "Stitched_data/storms/C2_storm1_Q.csv")
+write.csv(C2_storm1_NO3, "Stitched_data/storms/C2_storm1_NO3.csv")
+write.csv(C2_storm1_SpCond, "Stitched_data/storms/C2_storm1_SpCond.csv")
+write.csv(C2_storm1_fDOM, "Stitched_data/storms/C2_storm1_fDOM.csv")
+write.csv(C2_storm1_turb, "Stitched_data/storms/C2_storm1_turb.csv")
+
+C2_storm1a_Q = subset(C2_storm1a, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm1a_Q) = c("valuedatetime","datavalue")
+C2_storm1a_NO3 = subset(C2_storm1a, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm1a_NO3) = c("valuedatetime","datavalue")
+C2_storm1a_SpCond = subset(C2_storm1a, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm1a_SpCond) = c("valuedatetime","datavalue")
+C2_storm1a_fDOM = subset(C2_storm1a, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm1a_fDOM) = c("valuedatetime","datavalue")
+C2_storm1a_turb = subset(C2_storm1a, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm1a_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm1a, "Stitched_data/storms/C2_storm1a.csv")
+write.csv(C2_storm1a_Q, "Stitched_data/storms/C2_storm1a_Q.csv")
+write.csv(C2_storm1a_NO3, "Stitched_data/storms/C2_storm1a_NO3.csv")
+write.csv(C2_storm1a_SpCond, "Stitched_data/storms/C2_storm1a_SpCond.csv")
+write.csv(C2_storm1a_fDOM, "Stitched_data/storms/C2_storm1a_fDOM.csv")
+write.csv(C2_storm1a_turb, "Stitched_data/storms/C2_storm1a_turb.csv")
+
+C2_storm1b_Q = subset(C2_storm1b, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm1b_Q) = c("valuedatetime","datavalue")
+C2_storm1b_NO3 = subset(C2_storm1b, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm1b_NO3) = c("valuedatetime","datavalue")
+C2_storm1b_SpCond = subset(C2_storm1b, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm1b_SpCond) = c("valuedatetime","datavalue")
+C2_storm1b_fDOM = subset(C2_storm1b, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm1b_fDOM) = c("valuedatetime","datavalue")
+C2_storm1b_turb = subset(C2_storm1b, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm1b_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm1b, "Stitched_data/storms/C2_storm1b.csv")
+write.csv(C2_storm1b_Q, "Stitched_data/storms/C2_storm1b_Q.csv")
+write.csv(C2_storm1b_NO3, "Stitched_data/storms/C2_storm1b_NO3.csv")
+write.csv(C2_storm1b_SpCond, "Stitched_data/storms/C2_storm1b_SpCond.csv")
+write.csv(C2_storm1b_fDOM, "Stitched_data/storms/C2_storm1b_fDOM.csv")
+write.csv(C2_storm1b_turb, "Stitched_data/storms/C2_storm1b_turb.csv")
+
+C2_storm2_Q = subset(C2_storm2, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm2_Q) = c("valuedatetime","datavalue")
+C2_storm2_NO3 = subset(C2_storm2, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm2_NO3) = c("valuedatetime","datavalue")
+C2_storm2_SpCond = subset(C2_storm2, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm2_SpCond) = c("valuedatetime","datavalue")
+C2_storm2_fDOM = subset(C2_storm2, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm2_fDOM) = c("valuedatetime","datavalue")
+C2_storm2_turb = subset(C2_storm2, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm2_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm2, "Stitched_data/storms/C2_storm2.csv")
+write.csv(C2_storm2_Q, "Stitched_data/storms/C2_storm2_Q.csv")
+write.csv(C2_storm2_NO3, "Stitched_data/storms/C2_storm2_NO3.csv")
+write.csv(C2_storm2_SpCond, "Stitched_data/storms/C2_storm2_SpCond.csv")
+write.csv(C2_storm2_fDOM, "Stitched_data/storms/C2_storm2_fDOM.csv")
+write.csv(C2_storm2_turb, "Stitched_data/storms/C2_storm2_turb.csv")
+
+C2_storm3_Q = subset(C2_storm3, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm3_Q) = c("valuedatetime","datavalue")
+C2_storm3_NO3 = subset(C2_storm3, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm3_NO3) = c("valuedatetime","datavalue")
+C2_storm3_SpCond = subset(C2_storm3, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm3_SpCond) = c("valuedatetime","datavalue")
+C2_storm3_fDOM = subset(C2_storm3, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm3_fDOM) = c("valuedatetime","datavalue")
+C2_storm3_turb = subset(C2_storm3, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm3_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm3, "Stitched_data/storms/C2_storm3.csv")
+write.csv(C2_storm3_Q, "Stitched_data/storms/C2_storm3_Q.csv")
+write.csv(C2_storm3_NO3, "Stitched_data/storms/C2_storm3_NO3.csv")
+write.csv(C2_storm3_SpCond, "Stitched_data/storms/C2_storm3_SpCond.csv")
+write.csv(C2_storm3_fDOM, "Stitched_data/storms/C2_storm3_fDOM.csv")
+write.csv(C2_storm3_turb, "Stitched_data/storms/C2_storm3_turb.csv")
+
+C2_storm4_Q = subset(C2_storm4, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm4_Q) = c("valuedatetime","datavalue")
+C2_storm4_NO3 = subset(C2_storm4, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm4_NO3) = c("valuedatetime","datavalue")
+C2_storm4_SpCond = subset(C2_storm4, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm4_SpCond) = c("valuedatetime","datavalue")
+C2_storm4_fDOM = subset(C2_storm4, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm4_fDOM) = c("valuedatetime","datavalue")
+C2_storm4_turb = subset(C2_storm4, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm4_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm4, "Stitched_data/storms/C2_storm4.csv")
+write.csv(C2_storm4_Q, "Stitched_data/storms/C2_storm4_Q.csv")
+write.csv(C2_storm4_NO3, "Stitched_data/storms/C2_storm4_NO3.csv")
+write.csv(C2_storm4_SpCond, "Stitched_data/storms/C2_storm4_SpCond.csv")
+write.csv(C2_storm4_fDOM, "Stitched_data/storms/C2_storm4_fDOM.csv")
+write.csv(C2_storm4_turb, "Stitched_data/storms/C2_storm4_turb.csv")
+
+C2_storm5_Q = subset(C2_storm5, select = c("date_timeAK","Discharge_Lsec"))
+names(C2_storm5_Q) = c("valuedatetime","datavalue")
+C2_storm5_NO3 = subset(C2_storm5, select = c("date_timeAK","nitrate_uM_filled"))
+names(C2_storm5_NO3) = c("valuedatetime","datavalue")
+C2_storm5_SpCond = subset(C2_storm5, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C2_storm5_SpCond) = c("valuedatetime","datavalue")
+C2_storm5_fDOM = subset(C2_storm5, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C2_storm5_fDOM) = c("valuedatetime","datavalue")
+C2_storm5_turb = subset(C2_storm5, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C2_storm5_turb) = c("valuedatetime","datavalue")
+write.csv(C2_storm5, "Stitched_data/storms/C2_storm5.csv")
+write.csv(C2_storm5_Q, "Stitched_data/storms/C2_storm5_Q.csv")
+write.csv(C2_storm5_NO3, "Stitched_data/storms/C2_storm5_NO3.csv")
+write.csv(C2_storm5_SpCond, "Stitched_data/storms/C2_storm5_SpCond.csv")
+write.csv(C2_storm5_fDOM, "Stitched_data/storms/C2_storm5_fDOM.csv")
+write.csv(C2_storm5_turb, "Stitched_data/storms/C2_storm5_turb.csv")
+
+
+
+#### Deliniate storms in C4 ####
+
+# ID storms: based on P6
+# Pick starting points: based on P6 + evidence of a rising limb
+# Pick ending points: based on P6 + evidence of a falling limb
+
+head(C4_Q_bf)
+C4_bfQ_mn
+C4_bfQ_mn*2
+
+par(mfrow=c(1,1))
+plot(C4_Q$Discharge_Lsec ~ C4_Q$day, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4")
+lines(C4_Q_bf$bt ~ C4_Q$day, col="red")
+#lines((C4_Q_bf$bt*1.3) ~ C4_Q$day, col="red", lty=2)
+#lines((C4_Q_bf$bt*5) ~ C4_Q$day, col="red", lty=2)
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ C4$date_timeAK, type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+plot(C4$crrel_precip_mm ~ C4$date_timeAK, type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     xaxs='i', yaxs='i', axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+
+
+### Storm 1 ###
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$crrel_precip_mm ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-08 22:00:00", tz="America/Anchorage"), col="purple")
+
+C4_storm1 = C4[C4$date_timeAK > as.POSIXct("2017-07-07 16:00:00", tz="America/Anchorage") &
+                 C4$date_timeAK < as.POSIXct("2017-07-08 22:00:00", tz="America/Anchorage"),]
+plot(C4_storm1$Discharge_Lsec ~ as.POSIXct(C4_storm1$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+# same as storm 1 in P6
+
+### Storm 2 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$crrel_precip_mm ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-07-09 17:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-07-12 14:00:00", tz="America/Anchorage"), col="purple")
+
+C4_storm2 = C4[C4$date_timeAK > as.POSIXct("2017-07-09 17:00:00", tz="America/Anchorage") &
+                 C4$date_timeAK < as.POSIXct("2017-07-12 14:00:00", tz="America/Anchorage"),]
+plot(C4_storm2$Discharge_Lsec ~ as.POSIXct(C4_storm2$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+# same as storm 2 in P6
+
+### Storm 3 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(50,62), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-08-14 01:00:00","2017-08-16 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$crrel_precip_mm ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-08-14 01:00:00","2017-08-16 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-14 06:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-15 13:00:00", tz="America/Anchorage"), col="purple")
+
+C4_storm3 = C4[C4$date_timeAK > as.POSIXct("2017-08-14 06:00:00", tz="America/Anchorage") &
+                 C4$date_timeAK < as.POSIXct("2017-08-15 13:00:00", tz="America/Anchorage"),]
+plot(C4_storm3$Discharge_Lsec ~ as.POSIXct(C4_storm3$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)", col="blue", main="C4 Storm 1",
+     xlim = as.POSIXct(c("2017-08-14 01:00:00","2017-08-16 01:00:00"), tz="America/Anchorage"))
+# starting pt is the same as in P6. Ending point is much sooner (1.5 days here, as opposed to >10 days in P6) in order to define a falling limb that is more defined than the diel variation. With these dates, there is a distinct rising and falling limb. Use this in results. 
+
+### Storm 4 ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(50,65), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-08-26 01:00:00","2017-08-31 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$crrel_precip_mm ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-08-26 01:00:00","2017-08-31 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+abline(v= as.POSIXct("2017-08-27 21:00:00", tz="America/Anchorage"), col="purple")
+abline(v= as.POSIXct("2017-08-30 21:00:00", tz="America/Anchorage"), col="purple")
+
+C4_storm4 = C4[C4$date_timeAK > as.POSIXct("2017-08-27 21:00:00", tz="America/Anchorage") &
+                 C4$date_timeAK < as.POSIXct("2017-08-30 21:00:00", tz="America/Anchorage"),]
+plot(C4_storm4$Discharge_Lsec ~ as.POSIXct(C4_storm4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4 Storm 1",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+# starting point is the same as storm 4 in P6. Ending point is slightly earlier (~ 1 day) to isolate the falling limb better.
+
+
+### ALL storms ###
+par(mfrow=c(1,1), mar=c(3,5,3,5), bty = "n")
+plot(C4$Discharge_Lsec ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="l", xlab="", ylab="Q (L/sec)",ylim = c(0,180), col="blue", main="C4",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"))
+abline(h=C4_bfQ_mn*2, col="red", lty=2)
+abline(h=C4_bfQ_mn, col="red")
+par(new = T)
+par(mar=c(3,5,3,5), bty = "n")
+plot(C4$crrel_precip_mm ~ as.POSIXct(C4$date_timeAK, tz="America/Anchorage"), type="h",
+     xlim = as.POSIXct(c("2017-05-22 01:00:00","2017-09-01 01:00:00"), tz="America/Anchorage"),
+     ylim = c(30,0), 
+     axes=F, xlab="", ylab="")
+axis(side = 4)
+mtext(side = 4, line = 3, 'CRREL Met Station precip. (mm)') 
+rect(xleft=as.POSIXct(min(C4_storm1$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C4_storm1$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C4_storm2$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C4_storm2$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+rect(xleft=as.POSIXct(min(C4_storm3$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C4_storm3$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=45)
+rect(xleft=as.POSIXct(min(C4_storm4$date_timeAK), tz="America/Anchorage"),
+     xright=as.POSIXct(max(C4_storm4$date_timeAK), tz="America/Anchorage"),
+     ytop=30, ybottom = 0,
+     density=50, col="grey", angle=180)
+
+# exported pdf 10 x 25
+
+#### modify format and save C4 storms ####
+
+# SpCond_uScm, fDOM_Tc_TURBc, Turbidity_FNU
+
+C4_storm1_Q = subset(C4_storm1, select = c("date_timeAK","Discharge_Lsec"))
+names(C4_storm1_Q) = c("valuedatetime","datavalue")
+C4_storm1_SpCond = subset(C4_storm1, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C4_storm1_SpCond) = c("valuedatetime","datavalue")
+C4_storm1_fDOM = subset(C4_storm1, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C4_storm1_fDOM) = c("valuedatetime","datavalue")
+C4_storm1_turb = subset(C4_storm1, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C4_storm1_turb) = c("valuedatetime","datavalue")
+write.csv(C4_storm1, "Stitched_data/storms/C4_storm1.csv")
+write.csv(C4_storm1_Q, "Stitched_data/storms/C4_storm1_Q.csv")
+write.csv(C4_storm1_SpCond, "Stitched_data/storms/C4_storm1_SpCond.csv")
+write.csv(C4_storm1_fDOM, "Stitched_data/storms/C4_storm1_fDOM.csv")
+write.csv(C4_storm1_turb, "Stitched_data/storms/C4_storm1_turb.csv")
+
+C4_storm2_Q = subset(C4_storm2, select = c("date_timeAK","Discharge_Lsec"))
+names(C4_storm2_Q) = c("valuedatetime","datavalue")
+C4_storm2_SpCond = subset(C4_storm2, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C4_storm2_SpCond) = c("valuedatetime","datavalue")
+C4_storm2_fDOM = subset(C4_storm2, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C4_storm2_fDOM) = c("valuedatetime","datavalue")
+C4_storm2_turb = subset(C4_storm2, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C4_storm2_turb) = c("valuedatetime","datavalue")
+write.csv(C4_storm2, "Stitched_data/storms/C4_storm2.csv")
+write.csv(C4_storm2_Q, "Stitched_data/storms/C4_storm2_Q.csv")
+write.csv(C4_storm2_SpCond, "Stitched_data/storms/C4_storm2_SpCond.csv")
+write.csv(C4_storm2_fDOM, "Stitched_data/storms/C4_storm2_fDOM.csv")
+write.csv(C4_storm2_turb, "Stitched_data/storms/C4_storm2_turb.csv")
+
+C4_storm3_Q = subset(C4_storm3, select = c("date_timeAK","Discharge_Lsec"))
+names(C4_storm3_Q) = c("valuedatetime","datavalue")
+C4_storm3_SpCond = subset(C4_storm3, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C4_storm3_SpCond) = c("valuedatetime","datavalue")
+C4_storm3_fDOM = subset(C4_storm3, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C4_storm3_fDOM) = c("valuedatetime","datavalue")
+C4_storm3_turb = subset(C4_storm3, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C4_storm3_turb) = c("valuedatetime","datavalue")
+write.csv(C4_storm3, "Stitched_data/storms/C4_storm3.csv")
+write.csv(C4_storm3_Q, "Stitched_data/storms/C4_storm3_Q.csv")
+write.csv(C4_storm3_SpCond, "Stitched_data/storms/C4_storm3_SpCond.csv")
+write.csv(C4_storm3_fDOM, "Stitched_data/storms/C4_storm3_fDOM.csv")
+write.csv(C4_storm3_turb, "Stitched_data/storms/C4_storm3_turb.csv")
+
+C4_storm4_Q = subset(C4_storm4, select = c("date_timeAK","Discharge_Lsec"))
+names(C4_storm4_Q) = c("valuedatetime","datavalue")
+C4_storm4_SpCond = subset(C4_storm4, select = c("date_timeAK","SpCond_uScm_filled"))
+names(C4_storm4_SpCond) = c("valuedatetime","datavalue")
+C4_storm4_fDOM = subset(C4_storm4, select = c("date_timeAK","fDOM_Tc_TURBc_filled"))
+names(C4_storm4_fDOM) = c("valuedatetime","datavalue")
+C4_storm4_turb = subset(C4_storm4, select = c("date_timeAK","Turbidity_FNU_filled"))
+names(C4_storm4_turb) = c("valuedatetime","datavalue")
+write.csv(C4_storm4, "Stitched_data/storms/C4_storm4.csv")
+write.csv(C4_storm4_Q, "Stitched_data/storms/C4_storm4_Q.csv")
+write.csv(C4_storm4_SpCond, "Stitched_data/storms/C4_storm4_SpCond.csv")
+write.csv(C4_storm4_fDOM, "Stitched_data/storms/C4_storm4_fDOM.csv")
+write.csv(C4_storm4_turb, "Stitched_data/storms/C4_storm4_turb.csv")
+######################################## add burst data to storm data ####
+
+#### load storm data ####
+
+storm_file_list <- list.files(path="Stitched_data/storms/", 
+                          recursive=F, 
+                          pattern=".csv", 
+                          full.names=TRUE)
+
+storm_list<-do.call("list", lapply(storm_file_list, 
+                                read.csv, 
+                                stringsAsFactors=FALSE, 
+                                header=T, row.names=1))
+
+storm_file_list = sub("Stitched_data/storms//", storm_file_list, replacement = "")
+storm_file_list = sub(".csv", storm_file_list, replacement = "")
+names(storm_list) = storm_file_list
+
+for(i in 1:length(storm_list)){
+  storm_list[[i]][["valuedatetime"]] = as.POSIXct(storm_list[[i]][["valuedatetime"]],
+                                             "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+}
+
+
+
+
+#### organize storm data by site and solute ####
+
+C2_storm_list = storm_list[c(1:25)]
+C3_storm_list = storm_list[c(26:50)]
+C4_storm_list = storm_list[c(51:66)]
+P6_storm_list = storm_list[c(67:82)]
+
+C2_NO3_storm_list = C2_storm_list[c(grep("NO3", names(C2_storm_list)))]
+C2_fDOM_storm_list = C2_storm_list[c(grep("fDOM", names(C2_storm_list)))]
+C2_SpCond_storm_list = C2_storm_list[c(grep("SpCond", names(C2_storm_list)))]
+C2_turb_storm_list = C2_storm_list[c(grep("turb", names(C2_storm_list)))]
+
+C3_NO3_storm_list = C3_storm_list[c(grep("NO3", names(C3_storm_list)))]
+C3_fDOM_storm_list = C3_storm_list[c(grep("fDOM", names(C3_storm_list)))]
+C3_SpCond_storm_list = C3_storm_list[c(grep("SpCond", names(C3_storm_list)))]
+C3_turb_storm_list = C3_storm_list[c(grep("turb", names(C3_storm_list)))]
+
+C4_fDOM_storm_list = C4_storm_list[c(grep("fDOM", names(C4_storm_list)))]
+C4_SpCond_storm_list = C4_storm_list[c(grep("SpCond", names(C4_storm_list)))]
+C4_turb_storm_list = C4_storm_list[c(grep("turb", names(C4_storm_list)))]
+
+P6_fDOM_storm_list = P6_storm_list[c(grep("fDOM", names(P6_storm_list)))]
+P6_SpCond_storm_list = P6_storm_list[c(grep("SpCond", names(P6_storm_list)))]
+P6_turb_storm_list = P6_storm_list[c(grep("turb", names(P6_storm_list)))]
+
+
+#### load burst SUNA data ####
+
+
+C2file_list <- list.files(path="SUNA_raw/C2/", 
+                          recursive=F, 
+                          pattern=".CSV", 
+                          full.names=TRUE)
+
+C3file_list <- list.files(path="SUNA_raw/C3/", 
+                          recursive=F, 
+                          pattern=".CSV", 
+                          full.names=TRUE)
+
+### Merge all data files for sensor ###
+#correct header=14
+
+SUNA.C2<-do.call("rbind", lapply(C2file_list, 
+                                 read.csv, 
+                                 stringsAsFactors=FALSE, 
+                                 skip=14, header=FALSE))
+
+SUNA.C3<-do.call("rbind", lapply(C3file_list, 
+                                 read.csv, 
+                                 stringsAsFactors=FALSE, 
+                                 skip=14, header=FALSE))
+
+### Variable names for SUNA output file ###
+pre<-"ch"
+suff<-seq(12:267)
+ch<-paste(pre, suff)
+SUNAnames<-c("ID", "date_yearday", "time_fhoursUTC", "nitrateuM", "nitratemgL", "abs254", 
+             "abs350", "brtrace", "specave", "darkvaluefit", "inttimefac", ch, "int_TC", 
+             "spec_TC", "lamp_TC", "lamptimecum", "relhum", "mainV", "lampV", "intV", 
+             "mainmA", "fit1", "fit2", "fitbase1", "fitbase2", "fitRMSE", "CTDtime", 
+             "CTDsal", "CTDT", "CTDdBar", "checksum")
+names(SUNA.C2)<-SUNAnames
+names(SUNA.C3)<-SUNAnames
+
+### Remove unneeded columns ###
+
+#remove raw channel data
+SUNA.C2r<-SUNA.C2[,c(1:11,268:286)]
+SUNA.C3r<-SUNA.C3[,c(1:11,268:286)]
+
+#remove dark frames. 
+### <<Note: Change date below>> ###
+sum(SUNA.C2r$ID == 'DF')
+SUNA.C2r %>% group_by(ID) %>% tally()
+SUNA.C2rlf<-SUNA.C2r[!grepl("DF", SUNA.C2r$ID),]
+
+SUNA.C3r %>% group_by(ID) %>% tally()
+SUNA.C3rlf<-SUNA.C3r[!grepl("DF", SUNA.C3r$ID),]
+
+
+### Date and time reformatting ###
+## C2 ##
+# create separate year and day columns
+year_day <- t(sapply(SUNA.C2rlf$date_yearday, function(x) substring(x, first=c(1,5), last=c(4,7))))
+year_day<-as.data.frame(year_day)
+names(year_day)<-c("year", "day")
+year_day$day<-as.numeric(levels(year_day$day))[year_day$day]
+year_day$year<-as.numeric(levels(year_day$year))[year_day$year]
+SUNA.C2rlf<-cbind(SUNA.C2rlf, year_day)
+# combine hours and julian day into fractional days
+SUNA.C2rlf$day_timeUTC<-SUNA.C2rlf$day+(SUNA.C2rlf$time_fhoursUTC/24)
+# assign year to 2017 data
+origin17 <- as.POSIXct("2016-12-31 00:00:00", tz="GMT")
+SUNA.C2rlf$date_timeUTC<-origin17 + SUNA.C2rlf$day_timeUTC * 3600 * 24
+# convert from UTC to AKDT
+SUNA.C2rlf$date_timeAK<-as.POSIXct(format(SUNA.C2rlf$date_timeUTC, tz="America/Anchorage", usetz=TRUE))
+summary(SUNA.C2rlf$date_timeAK)
+class(SUNA.C2rlf$date_timeAK)
+tz(SUNA.C2rlf$date_timeAK) = "America/Anchorage"
+
+## C3 ##
+# create separate year and day columns
+year_day <- t(sapply(SUNA.C3rlf$date_yearday, function(x) substring(x, first=c(1,5), last=c(4,7))))
+year_day<-as.data.frame(year_day)
+names(year_day)<-c("year", "day")
+year_day$day<-as.numeric(levels(year_day$day))[year_day$day]
+year_day$year<-as.numeric(levels(year_day$year))[year_day$year]
+SUNA.C3rlf<-cbind(SUNA.C3rlf, year_day)
+# combine hours and julian day into fractional days
+SUNA.C3rlf$day_timeUTC<-SUNA.C3rlf$day+(SUNA.C3rlf$time_fhoursUTC/24)
+# assign year to 2017 data
+origin17 <- as.POSIXct("2016-12-31 00:00:00", tz="GMT")
+SUNA.C3rlf$date_timeUTC<-origin17 + SUNA.C3rlf$day_timeUTC * 3600 * 24
+# convert from UTC to AKDT
+SUNA.C3rlf$date_timeAK<-as.POSIXct(format(SUNA.C3rlf$date_timeUTC, tz="America/Anchorage", usetz=TRUE))
+summary(SUNA.C3rlf$date_timeAK)
+tz(SUNA.C3rlf$date_timeAK) = "America/Anchorage"
+
+### reduce columns ###
+
+SUNA.C2.burst = subset(SUNA.C2rlf, select = c("date_timeAK", "nitrateuM"))
+SUNA.C3.burst = subset(SUNA.C3rlf, select = c("date_timeAK", "nitrateuM"))
+
+### round to nearest 15 min ###
+
+SUNA.C2.burst$date_timeAK = lubridate::round_date(SUNA.C2.burst$date_timeAK, "15 minutes") 
+SUNA.C3.burst$date_timeAK = lubridate::round_date(SUNA.C3.burst$date_timeAK, "15 minutes") 
+
+
+#### load burst EXO data ####
+
+### load and stitch EXO data ###
+
+# C2 #
+C2file_list <- list.files(path="EXO_raw/C2/", 
+                          recursive=F, 
+                          pattern=".csv", 
+                          full.names=TRUE)
+
+EXO.C2<-do.call("rbind", lapply(C2file_list, 
+                                read.csv, 
+                                stringsAsFactors=FALSE, 
+                                header=T))
+
+# C3 #
+C3file_list <- list.files(path="EXO_raw/C3/", 
+                          recursive=F, 
+                          pattern=".csv", 
+                          full.names=TRUE)
+
+EXO.C3<-do.call("rbind", lapply(C3file_list, 
+                                read.csv, 
+                                stringsAsFactors=FALSE, 
+                                header=T))
+
+# C4 #
+C4file_list <- list.files(path="EXO_raw/C4/", 
+                          recursive=F, 
+                          pattern=".csv", 
+                          full.names=TRUE)
+
+EXO.C4<-do.call("rbind", lapply(C4file_list, 
+                                read.csv, 
+                                stringsAsFactors=FALSE, 
+                                header=T))
+
+
+# P6 #
+P6file_list <- list.files(path="EXO_raw/P6/", 
+                          recursive=F, 
+                          pattern=".csv", 
+                          full.names=TRUE)
+
+EXO.P6<-do.call("rbind", lapply(P6file_list, 
+                                read.csv, 
+                                stringsAsFactors=FALSE, 
+                                header=T))
+
+### format dates ###
+
+## C2 ##
+# put date and time in same column
+EXO.C2$date_time = paste(EXO.C2$Date..MM.DD.YYYY., EXO.C2$Time..HH.MM.SS., sep = " ")
+# convert to POIXct and set timezone
+EXO.C2$date_timeET<-as.POSIXct(EXO.C2$date_time, "%m/%d/%y %H:%M:%S", tz="America/New_York")
+# convert to Alaska Time
+EXO.C2$date_timeAK<-with_tz(EXO.C2$date_timeET, tz="America/Anchorage")
+head(EXO.C2)
+class(EXO.C2$date_timeAK)
+tz(EXO.C2$date_timeAK)
+
+## C3 ##
+# put date and time in same column
+EXO.C3$date_time = paste(EXO.C3$Date..MM.DD.YYYY., EXO.C3$Time..HH.MM.SS., sep = " ")
+# convert to POIXct and set timezone
+EXO.C3$date_timeET<-as.POSIXct(EXO.C3$date_time, "%m/%d/%y %H:%M:%S", tz="America/New_York")
+# convert to Alaska Time
+EXO.C3$date_timeAK<-with_tz(EXO.C3$date_timeET, tz="America/Anchorage")
+head(EXO.C3)
+tail(EXO.C3)
+class(EXO.C3$date_timeAK)
+
+
+## C4 ##
+# put date and time in same column
+EXO.C4$date_time = paste(EXO.C4$Date..MM.DD.YYYY., EXO.C4$Time..HH.MM.SS., sep = " ")
+# convert to POIXct and set timezone
+EXO.C4$date_timeET<-as.POSIXct(EXO.C4$date_time, "%m/%d/%y %H:%M:%S", tz="America/New_York")
+# convert to Alaska Time
+EXO.C4$date_timeAK<-with_tz(EXO.C4$date_timeET, tz="America/Anchorage")
+head(EXO.C4)
+class(EXO.C4$date_timeAK)
+
+
+## P6 ##
+# put date and time in same column
+EXO.P6$date_time = paste(EXO.P6$Date..MM.DD.YYYY., EXO.P6$Time..HH.MM.SS., sep = " ")
+# convert to POIXct and set timezone
+EXO.P6$date_timeET<-as.POSIXct(EXO.P6$date_time, "%m/%d/%y %H:%M:%S", tz="America/New_York")
+# convert to Alaska Time
+EXO.P6$date_timeAK<-with_tz(EXO.P6$date_timeET, tz="America/Anchorage")
+head(EXO.P6)
+class(EXO.P6$date_timeAK)
+
+
+
+
+### Variable names ###
+names(EXO.C2)
+names(EXO.C2)<-(c("Date", "Time", "Time_s", "Site", "FaultCode", 
+                  "BatteryV", "CablePwrV", "fDOMRFU", "fDOMQSU", "ODOsat",
+                  "ODOmgL", "pH", "pHmV", "TempC","ConduScm", 
+                  "SpConduScm","Salpsu","nLFConduScm","TDSmgL", "TurbidityFNU",
+                  "TSSmgL", "date_time", "date_timeET", "date_timeAK"))
+
+
+names(EXO.C3)
+names(EXO.C3)<-(c("Date", "Time", "Time_s", "Site", "FaultCode", 
+                  "BatteryV", "CablePwrV", "fDOMRFU", "fDOMQSU", "TempC",
+                  "ConduScm", "SpConduScm", "Salpsu", "nLFConduScm","TDSmgL", 
+                  "TurbidityFNU","TSSmgL","pH","pHmV", "ODOsat",
+                  "ODOmgL", "PressPSI", "Depthm", "date_time", "date_timeET", 
+                  "date_timeAK"))
+
+names(EXO.C4)
+names(EXO.C4)<-(c("Date", "Time", "Time_s", "Site", "FaultCode", 
+                  "BatteryV", "CablePwrV", "TurbidityFNU", "TSSmgL", "TempC",
+                  "ConduScm", "SpConduScm", "Salpsu", "nLFConduScm","TDSmgL", 
+                  "fDOMRFU","fDOMQSU","PressPSI","Depthm", "date_time", 
+                  "date_timeET", "date_timeAK"))
+
+names(EXO.P6)
+names(EXO.P6)<-(c("Date", "Time", "Time_s", "Site", "FaultCode", 
+                  "BatteryV", "CablePwrV", "fDOMRFU", "fDOMQSU", "TempC",
+                  "ConduScm", "SpConduScm", "Salpsu", "nLFConduScm","TDSmgL", 
+                  "TurbidityFNU","TSSmgL", "date_time", "date_timeET", "date_timeAK"))
+
+
+### reduce columns ###
+
+EXO.C2.burst = subset(EXO.C2, select=c("date_timeAK", "fDOMQSU", "SpConduScm", "TurbidityFNU"))
+EXO.C3.burst = subset(EXO.C3, select=c("date_timeAK", "fDOMQSU", "SpConduScm", "TurbidityFNU"))
+EXO.C4.burst = subset(EXO.C4, select=c("date_timeAK", "fDOMQSU", "SpConduScm", "TurbidityFNU"))
+EXO.P6.burst = subset(EXO.P6, select=c("date_timeAK", "fDOMQSU", "SpConduScm", "TurbidityFNU"))
+
+### round to nearest 15 min ###
+
+EXO.C2.burst$date_timeAK = lubridate::round_date(EXO.C2.burst$date_timeAK, "15 minutes") 
+EXO.C3.burst$date_timeAK = lubridate::round_date(EXO.C3.burst$date_timeAK, "15 minutes") 
+EXO.C4.burst$date_timeAK = lubridate::round_date(EXO.C4.burst$date_timeAK, "15 minutes") 
+EXO.P6.burst$date_timeAK = lubridate::round_date(EXO.P6.burst$date_timeAK, "15 minutes") 
+
+
+
+#### fDOM outlier removal and baseline corrections ####
+
+
+### plot ###
+
+par(mfrow=c(2,2))
+plot(EXO.C2.burst$fDOMQSU~ EXO.C2.burst$date_timeAK)
+plot(EXO.C3.burst$fDOMQSU~ EXO.C3.burst$date_timeAK)
+plot(EXO.C4.burst$fDOMQSU~ EXO.C4.burst$date_timeAK)
+plot(EXO.P6.burst$fDOMQSU~ EXO.P6.burst$date_timeAK)
+
+### outlier removal ###
+
+# C2 #
+EXO.C2.burst$fDOMQSU[EXO.C2.burst$fDOMQSU<10] <- NA
+EXO.C2.burst$fDOMQSU[EXO.C2.burst$fDOMQSU < 20 &
+                            EXO.C2.burst$date_timeAK > as.POSIXct("2017-06-14") &
+                           EXO.C2.burst$date_timeAK < as.POSIXct("2017-06-16")] <- NA 
+
+# C3 #
+EXO.C3.burst$fDOMQSU[EXO.C3.burst$fDOMQSU<10] <- NA 
+par(mfrow=c(1,1))
+EXO.C3.burst$fDOMQSU[EXO.C3.burst$fDOMQSU < 32 &
+                       EXO.C3.burst$date_timeAK > as.POSIXct("2017-07-01") &
+                       EXO.C3.burst$date_timeAK < as.POSIXct("2017-07-05")] <- NA 
+EXO.C3.burst$fDOMQSU[EXO.C3.burst$fDOMQSU < 40 &
+                       EXO.C3.burst$date_timeAK > as.POSIXct("2017-06-20") &
+                       EXO.C3.burst$date_timeAK < as.POSIXct("2017-06-22")] <- NA 
+
+# C4 #
+EXO.C4.burst$fDOMQSU[EXO.C4.burst$fDOMQSU<3] <- NA 
+EXO.C4.burst$fDOMQSU[EXO.C4.burst$fDOMQSU < 15 &
+                       EXO.C4.burst$date_timeAK > as.POSIXct("2017-05-22") &
+                       EXO.C4.burst$date_timeAK < as.POSIXct("2017-06-10")] <- NA 
+
+# P6 #
+EXO.P6.burst$fDOMQSU[EXO.P6.burst$fDOMQSU>150] <- NA 
+EXO.P6.burst$fDOMQSU[EXO.P6.burst$fDOMQSU<30] <- NA 
+EXO.P6.burst$fDOMQSU[EXO.P6.burst$fDOMQSU < 90 &
+                       EXO.P6.burst$date_timeAK > as.POSIXct("2017-08-21") &
+                       EXO.P6.burst$date_timeAK < as.POSIXct("2017-08-24")] <- NA 
+
+### baseline corrections ###
+
+# C2 #
+C2.fDOM.baseline.correction = 
+  (17.69333) - # last reading before sensor switch
+  (20.42833) # first reading after sensor switch
+EXO.C2.burst$fDOMQSU = 
+  ifelse((EXO.C2.burst$date_timeAK <= as.POSIXct("2017-06-08 10:30:00")),
+         (EXO.C2.burst$fDOMQSU = EXO.C2.burst$fDOMQSU),
+         (EXO.C2.burst$fDOMQSU = EXO.C2.burst$fDOMQSU + C2.fDOM.baseline.correction))
+
+# C4 #
+EXO.C4.burst$fDOMQSU = 
+  ifelse((EXO.C4.burst$date_timeAK >= as.POSIXct("2017-06-08 10:30:00")), 
+         (EXO.C4.burst$fDOMQSU <- EXO.C4.burst$fDOMQSU),
+         (EXO.C4.burst$fDOMQSU = EXO.C4.burst$fDOMQSU + C2.fDOM.baseline.correction))
+
+
+#### turb outlier removal and baseline corrections ####
+
+
+par(mfrow=c(2,2))
+plot(EXO.C2.burst$TurbidityFNU~ EXO.C2.burst$date_timeAK)
+plot(EXO.C3.burst$TurbidityFNU~ EXO.C3.burst$date_timeAK)
+plot(EXO.C4.burst$TurbidityFNU~ EXO.C4.burst$date_timeAK)
+plot(EXO.P6.burst$TurbidityFNU~ EXO.P6.burst$date_timeAK)
+
+# C2 #
+plot(EXO.C2.burst$TurbidityFNU ~ EXO.C2.burst$date_timeAK)
+C2.turb.baseline.correction = 
+  (1.288333333) - # minimum before calibration
+  (-6.448333) # minimum after calibration
+EXO.C2.burst$TurbidityFNU = 
+  ifelse((EXO.C2.burst$date_timeAK <= as.POSIXct("2017-07-19 11:30:00")),
+         (EXO.C2.burst$TurbidityFNU <- EXO.C2.burst$TurbidityFNU),
+         (EXO.C2.burst$TurbidityFNU = EXO.C2.burst$TurbidityFNU + C2.turb.baseline.correction))
+
+EXO.C2.burst$TurbidityFNU[EXO.C2.burst$TurbidityFNU > 100] <- NA 
+EXO.C2.burst$TurbidityFNU[EXO.C2.burst$TurbidityFNU <= 0] <- NA 
+EXO.C2.burst$TurbidityFNU[EXO.C2.burst$TurbidityFNU > 6 & 
+                                  EXO.C2.burst$date_timeAK > as.POSIXct("2017-06-25") & 
+                                  EXO.C2.burst$date_timeAK < as.POSIXct("2017-06-28")] <- NA 
+
+# C3 #
+plot(EXO.C3.burst$TurbidityFNU ~ EXO.C3.burst$date_timeAK)
+C3.turb.baseline.correction = 
+  mean(0.89666667) - # minimum before calibration
+  mean(-13.84500) # minimum after calibration
+EXO.C3.burst$TurbidityFNU = 
+  ifelse((EXO.C3.burst$date_timeAK <= as.POSIXct("2017-07-26 12:15:00")),
+         (EXO.C3.burst$TurbidityFNU <- EXO.C3.burst$TurbidityFNU),
+         (EXO.C3.burst$TurbidityFNU = EXO.C3.burst$TurbidityFNU + C3.turb.baseline.correction))
+
+EXO.C3.burst$TurbidityFNU[EXO.C3.burst$TurbidityFNU > 500] <- NA 
+EXO.C3.burst$TurbidityFNU[EXO.C3.burst$TurbidityFNU <= 0] <- NA 
+
+# C4 #
+plot(EXO.C4.burst$TurbidityFNU ~ EXO.C4.burst$date_timeAK)
+C4.turb.baseline.correction = 
+  mean(1.540000000) - # minimum before calibration
+  mean(-9.146667) # minimum after calibration
+EXO.C4.burst$TurbidityFNU = 
+  ifelse((EXO.C4.burst$date_timeAK <= as.POSIXct("2017-07-26 13:30:00")),
+         (EXO.C4.burst$TurbidityFNU <- EXO.C4.burst$TurbidityFNU),
+         (EXO.C4.burst$TurbidityFNU = EXO.C4.burst$TurbidityFNU + C4.turb.baseline.correction))
+
+# P6 #
+plot(EXO.P6.burst$TurbidityFNU ~ EXO.P6.burst$date_timeAK)
+EXO.P6.burst$TurbidityFNU[EXO.P6.burst$TurbidityFNU > 400] <- NA 
+EXO.P6.burst$TurbidityFNU[EXO.P6.burst$TurbidityFNU <= 0] <- NA 
+EXO.P6.burst$TurbidityFNU[EXO.P6.burst$TurbidityFNU > 75 & 
+                                 EXO.P6.burst$date_timeAK > as.POSIXct("2017-07-10")] <- NA 
+EXO.P6.burst$TurbidityFNU[(EXO.P6.burst$TurbidityFNU > 8) &
+                                  EXO.P6.burst$date_timeAK < as.POSIXct("2017-06-15 01:00:00") &
+                                  EXO.P6.burst$date_timeAK > as.POSIXct("2017-06-05 01:00:00") ] <- 3.52
+
+
+
+
+#### match NAs in CPCRW.2017 to bursts ####
+
+CPCRW.2017 = read.csv("Stitched_data/CPCRW.2017_may22.00.00.00_sept01.00.00.00.csv", row.names = 1)
+CPCRW.2017$date_timeAK = as.POSIXct(CPCRW.2017$date_timeAK, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+C2 = subset(CPCRW.2017, site.ID == "C2")
+C3 = subset(CPCRW.2017, site.ID == "C3")
+C4 = subset(CPCRW.2017, site.ID == "C4")
+P6 = subset(CPCRW.2017, site.ID == "P6")
+
+## NO3 ##
+temp= inner_join(SUNA.C2.burst, subset(C2, select=c("date_timeAK", "nitrate_uM")), by= "date_timeAK")
+temp$nitrateuM = ifelse(is.na(temp$nitrate_uM), NA, temp$nitrateuM)
+SUNA.C2.burst$nitrateuM = temp$nitrateuM
+
+temp= inner_join(SUNA.C3.burst, subset(C3, select=c("date_timeAK", "nitrate_uM")), by= "date_timeAK")
+temp$nitrateuM = ifelse(is.na(temp$nitrate_uM), NA, temp$nitrateuM)
+SUNA.C3.burst$nitrateuM = temp$nitrateuM
+
+## fDOMQSU ##
+temp= inner_join(subset(EXO.C2.burst, select=c("date_timeAK", "fDOMQSU")), 
+                 subset(C2, select=c("date_timeAK", "fDOM_Tc_TURBc")), 
+                 by= "date_timeAK")
+temp$fDOMQSU = ifelse(is.na(temp$fDOM_Tc_TURBc), NA, temp$fDOMQSU)
+EXO.C2.burst$fDOMQSU = temp$fDOMQSU
+
+temp= inner_join(subset(EXO.C3.burst, select=c("date_timeAK", "fDOMQSU")), 
+                 subset(C3, select=c("date_timeAK", "fDOM_Tc_TURBc")), 
+                 by= "date_timeAK")
+temp$fDOMQSU = ifelse(is.na(temp$fDOM_Tc_TURBc), NA, temp$fDOMQSU)
+EXO.C3.burst$fDOMQSU = temp$fDOMQSU
+
+temp= inner_join(subset(EXO.C4.burst, select=c("date_timeAK", "fDOMQSU")), 
+                 subset(C4, select=c("date_timeAK", "fDOM_Tc_TURBc")), 
+                 by= "date_timeAK")
+temp$fDOMQSU = ifelse(is.na(temp$fDOM_Tc_TURBc), NA, temp$fDOMQSU)
+EXO.C4.burst$fDOMQSU = temp$fDOMQSU
+
+temp= inner_join(subset(EXO.P6.burst, select=c("date_timeAK", "fDOMQSU")), 
+                 subset(P6, select=c("date_timeAK", "fDOM_Tc_TURBc")), 
+                 by= "date_timeAK")
+temp$fDOMQSU = ifelse(is.na(temp$fDOM_Tc_TURBc), NA, temp$fDOMQSU)
+EXO.P6.burst$fDOMQSU = temp$fDOMQSU
+
+
+## SpConduScm ##
+temp= inner_join(subset(EXO.C2.burst, select=c("date_timeAK", "SpConduScm")), 
+                 subset(C2, select=c("date_timeAK", "SpCond_uScm")), 
+                 by= "date_timeAK")
+temp$SpConduScm = ifelse(is.na(temp$SpCond_uScm), NA, temp$SpConduScm)
+EXO.C2.burst$SpConduScm = temp$SpConduScm
+
+temp= inner_join(subset(EXO.C3.burst, select=c("date_timeAK", "SpConduScm")), 
+                 subset(C3, select=c("date_timeAK", "SpCond_uScm")), 
+                 by= "date_timeAK")
+temp$SpConduScm = ifelse(is.na(temp$SpCond_uScm), NA, temp$SpConduScm)
+EXO.C3.burst$SpConduScm = temp$SpConduScm
+
+temp= inner_join(subset(EXO.C4.burst, select=c("date_timeAK", "SpConduScm")), 
+                 subset(C4, select=c("date_timeAK", "SpCond_uScm")), 
+                 by= "date_timeAK")
+temp$SpConduScm = ifelse(is.na(temp$SpCond_uScm), NA, temp$SpConduScm)
+EXO.C4.burst$SpConduScm = temp$SpConduScm
+
+temp= inner_join(subset(EXO.P6.burst, select=c("date_timeAK", "SpConduScm")), 
+                 subset(P6, select=c("date_timeAK", "SpCond_uScm")), 
+                 by= "date_timeAK")
+temp$SpConduScm = ifelse(is.na(temp$SpCond_uScm), NA, temp$SpConduScm)
+EXO.P6.burst$SpConduScm = temp$SpConduScm
+
+
+## TurbidityFNU ##
+temp= inner_join(subset(EXO.C2.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                 subset(C2, select=c("date_timeAK", "Turbidity_FNU")), 
+                 by= "date_timeAK")
+temp$TurbidityFNU = ifelse(is.na(temp$Turbidity_FNU), NA, temp$TurbidityFNU)
+EXO.C2.burst$TurbidityFNU = temp$TurbidityFNU
+table(is.na(temp$TurbidityFNU))
+table(is.na(temp$Turbidity_FNU))
+
+temp= inner_join(subset(EXO.C3.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                 subset(C3, select=c("date_timeAK", "Turbidity_FNU")), 
+                 by= "date_timeAK")
+temp$TurbidityFNU = ifelse(is.na(temp$Turbidity_FNU), NA, temp$TurbidityFNU)
+EXO.C3.burst$TurbidityFNU = temp$TurbidityFNU
+
+temp= inner_join(subset(EXO.C4.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                 subset(C4, select=c("date_timeAK", "Turbidity_FNU")), 
+                 by= "date_timeAK")
+temp$TurbidityFNU = ifelse(is.na(temp$Turbidity_FNU), NA, temp$TurbidityFNU)
+EXO.C4.burst$TurbidityFNU = temp$TurbidityFNU
+
+temp= inner_join(subset(EXO.P6.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                 subset(P6, select=c("date_timeAK", "Turbidity_FNU")), 
+                 by= "date_timeAK")
+temp$TurbidityFNU = ifelse(is.na(temp$Turbidity_FNU), NA, temp$TurbidityFNU)
+EXO.P6.burst$TurbidityFNU = temp$TurbidityFNU
+
+
+
+par(mfrow=c(2,2))
+plot(EXO.C2.burst$SpConduScm~ EXO.C2.burst$date_timeAK)
+plot(EXO.C3.burst$SpConduScm~ EXO.C3.burst$date_timeAK)
+plot(EXO.C4.burst$SpConduScm~ EXO.C4.burst$date_timeAK)
+plot(EXO.P6.burst$SpConduScm~ EXO.P6.burst$date_timeAK)
+
+#### save clean-ish burst data ####
+
+write.csv(EXO.C2.burst, "Stitched_data/EXO.C2.burst.csv")
+write.csv(EXO.C3.burst, "Stitched_data/EXO.C3.burst.csv")
+write.csv(EXO.C4.burst, "Stitched_data/EXO.C4.burst.csv")
+write.csv(EXO.P6.burst, "Stitched_data/EXO.P6.burst.csv")
+
+#### plot burst data vs clean data ####
+
+par(mfrow=c(2,1))
+plot(EXO.C2.burst$TurbidityFNU~ EXO.C2.burst$date_timeAK)
+plot(C2$Turbidity_FNU~ C2$date_timeAK)
+
+#### join burst and storm data ####
+
+### NO3 ###
+
+for(i in 1:length(C2_NO3_storm_list)){
+  C2_NO3_storm_list[[i]] = inner_join(C2_NO3_storm_list[[i]], SUNA.C2.burst, by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C3_NO3_storm_list)){
+  C3_NO3_storm_list[[i]] = inner_join(C3_NO3_storm_list[[i]], SUNA.C3.burst, by=c("valuedatetime" = "date_timeAK"))
+}
+
+### fDOM ###
+
+for(i in 1:length(C2_fDOM_storm_list)){
+  C2_fDOM_storm_list[[i]] = inner_join(C2_fDOM_storm_list[[i]], 
+                                       subset(EXO.C2.burst, select=c("date_timeAK", "fDOMQSU")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C3_fDOM_storm_list)){
+  C3_fDOM_storm_list[[i]] = inner_join(C3_fDOM_storm_list[[i]], 
+                                       subset(EXO.C3.burst, select=c("date_timeAK", "fDOMQSU")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C4_fDOM_storm_list)){
+  C4_fDOM_storm_list[[i]] = inner_join(C4_fDOM_storm_list[[i]], 
+                                       subset(EXO.C4.burst, select=c("date_timeAK", "fDOMQSU")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(P6_fDOM_storm_list)){
+  P6_fDOM_storm_list[[i]] = inner_join(P6_fDOM_storm_list[[i]], 
+                                       subset(EXO.P6.burst, select=c("date_timeAK", "fDOMQSU")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+### SpCond ###
+
+for(i in 1:length(C2_SpCond_storm_list)){
+  C2_SpCond_storm_list[[i]] = inner_join(C2_SpCond_storm_list[[i]], 
+                                       subset(EXO.C2.burst, select=c("date_timeAK", "SpConduScm")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C3_SpCond_storm_list)){
+  C3_SpCond_storm_list[[i]] = inner_join(C3_SpCond_storm_list[[i]], 
+                                       subset(EXO.C3.burst, select=c("date_timeAK", "SpConduScm")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C4_SpCond_storm_list)){
+  C4_SpCond_storm_list[[i]] = inner_join(C4_SpCond_storm_list[[i]], 
+                                       subset(EXO.C4.burst, select=c("date_timeAK", "SpConduScm")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(P6_SpCond_storm_list)){
+  P6_SpCond_storm_list[[i]] = inner_join(P6_SpCond_storm_list[[i]], 
+                                       subset(EXO.P6.burst, select=c("date_timeAK", "SpConduScm")), 
+                                       by=c("valuedatetime" = "date_timeAK"))
+}
+
+### turb ###
+
+for(i in 1:length(C2_turb_storm_list)){
+  C2_turb_storm_list[[i]] = inner_join(C2_turb_storm_list[[i]], 
+                                         subset(EXO.C2.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                                         by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C3_turb_storm_list)){
+  C3_turb_storm_list[[i]] = inner_join(C3_turb_storm_list[[i]], 
+                                         subset(EXO.C3.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                                         by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(C4_turb_storm_list)){
+  C4_turb_storm_list[[i]] = inner_join(C4_turb_storm_list[[i]], 
+                                         subset(EXO.C4.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                                         by=c("valuedatetime" = "date_timeAK"))
+}
+
+for(i in 1:length(P6_turb_storm_list)){
+  P6_turb_storm_list[[i]] = inner_join(P6_turb_storm_list[[i]], 
+                                         subset(EXO.P6.burst, select=c("date_timeAK", "TurbidityFNU")), 
+                                         by=c("valuedatetime" = "date_timeAK"))
+}
+
+
+
+
+
+#### plot burst data vs storm data ####
+
+### NO3 ###
+par(mfrow=c(5,2))
+for(i in 1:length(C2_NO3_storm_list)){
+  plot(C2_NO3_storm_list[[i]][["datavalue"]]~ C2_NO3_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_NO3_storm_list)[i])
+  plot(C2_NO3_storm_list[[i]][["nitrateuM"]]~ C2_NO3_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_NO3_storm_list)[i])
+}
+
+par(mfrow=c(5,2))
+for(i in 1:length(C3_NO3_storm_list)){
+  plot(C3_NO3_storm_list[[i]][["datavalue"]]~ C3_NO3_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_NO3_storm_list)[i])
+  plot(C3_NO3_storm_list[[i]][["nitrateuM"]]~ C3_NO3_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_NO3_storm_list)[i])
+}
+
+### fDOM ###
+par(mfrow=c(5,2))
+for(i in 1:length(C2_fDOM_storm_list)){
+  plot(C2_fDOM_storm_list[[i]][["datavalue"]]~ C2_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_fDOM_storm_list)[i])
+  plot(C2_fDOM_storm_list[[i]][["fDOMQSU"]]~ C2_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_fDOM_storm_list)[i])
+}
+
+par(mfrow=c(5,2))
+for(i in 1:length(C3_fDOM_storm_list)){
+  plot(C3_fDOM_storm_list[[i]][["datavalue"]]~ C3_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_fDOM_storm_list)[i])
+  plot(C3_fDOM_storm_list[[i]][["fDOMQSU"]]~ C3_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_fDOM_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(C4_fDOM_storm_list)){
+  plot(C4_fDOM_storm_list[[i]][["datavalue"]]~ C4_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_fDOM_storm_list)[i])
+  plot(C4_fDOM_storm_list[[i]][["fDOMQSU"]]~ C4_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_fDOM_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(P6_fDOM_storm_list)){
+  plot(P6_fDOM_storm_list[[i]][["datavalue"]]~ P6_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_fDOM_storm_list)[i])
+  plot(P6_fDOM_storm_list[[i]][["fDOMQSU"]]~ P6_fDOM_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_fDOM_storm_list)[i])
+}
+
+
+### SpCond ###
+par(mfrow=c(5,2))
+for(i in 1:length(C2_SpCond_storm_list)){
+  plot(C2_SpCond_storm_list[[i]][["datavalue"]]~ C2_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_SpCond_storm_list)[i])
+  plot(C2_SpCond_storm_list[[i]][["SpConduScm"]]~ C2_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_SpCond_storm_list)[i])
+}
+
+par(mfrow=c(5,2))
+for(i in 1:length(C3_SpCond_storm_list)){
+  plot(C3_SpCond_storm_list[[i]][["datavalue"]]~ C3_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_SpCond_storm_list)[i])
+  plot(C3_SpCond_storm_list[[i]][["SpConduScm"]]~ C3_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_SpCond_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(C4_SpCond_storm_list)){
+  plot(C4_SpCond_storm_list[[i]][["datavalue"]]~ C4_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_SpCond_storm_list)[i])
+  plot(C4_SpCond_storm_list[[i]][["SpConduScm"]]~ C4_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_SpCond_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(P6_SpCond_storm_list)){
+  plot(P6_SpCond_storm_list[[i]][["datavalue"]]~ P6_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_SpCond_storm_list)[i])
+  plot(P6_SpCond_storm_list[[i]][["SpConduScm"]]~ P6_SpCond_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_SpCond_storm_list)[i])
+}
+
+
+
+### Turbidity ###
+par(mfrow=c(5,2))
+for(i in 1:length(C2_turb_storm_list)){
+  plot(C2_turb_storm_list[[i]][["datavalue"]]~ C2_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_turb_storm_list)[i])
+  plot(C2_turb_storm_list[[i]][["TurbidityFNU"]]~ C2_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C2_turb_storm_list)[i])
+}
+
+par(mfrow=c(5,2))
+for(i in 1:length(C3_turb_storm_list)){
+  plot(C3_turb_storm_list[[i]][["datavalue"]]~ C3_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_turb_storm_list)[i])
+  plot(C3_turb_storm_list[[i]][["TurbidityFNU"]]~ C3_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C3_turb_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(C4_turb_storm_list)){
+  plot(C4_turb_storm_list[[i]][["datavalue"]]~ C4_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_turb_storm_list)[i])
+  plot(C4_turb_storm_list[[i]][["TurbidityFNU"]]~ C4_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(C4_turb_storm_list)[i])
+}
+
+par(mfrow=c(4,2))
+for(i in 1:length(P6_turb_storm_list)){
+  plot(P6_turb_storm_list[[i]][["datavalue"]]~ P6_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_turb_storm_list)[i])
+  plot(P6_turb_storm_list[[i]][["TurbidityFNU"]]~ P6_turb_storm_list[[i]][["valuedatetime"]], ylab = "", xlab=""); title(main=names(P6_turb_storm_list)[i])
+}
+
+
+#### save storm with burst data ####
+
+saveRDS(C2_NO3_storm_list, file="Stitched_data/storms/with bursts/C2_NO3_storm_list.RData")
+saveRDS(C3_NO3_storm_list, file="Stitched_data/storms/with bursts/C3_NO3_storm_list.RData")
+
+saveRDS(C2_fDOM_storm_list, file="Stitched_data/storms/with bursts/C2_fDOM_storm_list.RData")
+saveRDS(C3_fDOM_storm_list, file="Stitched_data/storms/with bursts/C3_fDOM_storm_list.RData")
+saveRDS(C4_fDOM_storm_list, file="Stitched_data/storms/with bursts/C4_fDOM_storm_list.RData")
+saveRDS(P6_fDOM_storm_list, file="Stitched_data/storms/with bursts/P6_fDOM_storm_list.RData")
+
+saveRDS(C2_SpCond_storm_list, file="Stitched_data/storms/with bursts/C2_SpCond_storm_list.RData")
+saveRDS(C3_SpCond_storm_list, file="Stitched_data/storms/with bursts/C3_SpCond_storm_list.RData")
+saveRDS(C4_SpCond_storm_list, file="Stitched_data/storms/with bursts/C4_SpCond_storm_list.RData")
+saveRDS(P6_SpCond_storm_list, file="Stitched_data/storms/with bursts/P6_SpCond_storm_list.RData")
+
+saveRDS(C2_turb_storm_list, file="Stitched_data/storms/with bursts/C2_turb_storm_list.RData")
+saveRDS(C3_turb_storm_list, file="Stitched_data/storms/with bursts/C3_turb_storm_list.RData")
+saveRDS(C4_turb_storm_list, file="Stitched_data/storms/with bursts/C4_turb_storm_list.RData")
+saveRDS(P6_turb_storm_list, file="Stitched_data/storms/with bursts/P6_turb_storm_list.RData")

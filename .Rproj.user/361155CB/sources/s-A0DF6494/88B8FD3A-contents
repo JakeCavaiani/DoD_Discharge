@@ -1,0 +1,2076 @@
+---
+title: "24_CPCRW_2017"
+author: "Alex Webster"
+date: "6/7/2019"
+output: html_document
+---
+
+# READ ME #
+**The purpose of this script is to run CPCRW storm data through the hysteresisMetrics function to get a hysteresis index and flushing index for each storm.**
+
+# R setup
+```{r setup, include=F}
+library(reticulate)
+Sys.which("python")
+use_python("/usr/bin/python")
+library(tidyverse)
+options(tz="America/Anchorage")
+library(ggplot2)
+library(gridExtra)
+library(boot)
+```
+
+# Python setup
+```{python}
+import pickle
+import pandas as pd
+from hysteresis_metrics import hysteresisMetrics
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+quit()
+```
+
+# load data to pandas
+```{python}
+C3_storm1_Q = pd.read_csv("Stitched_data/storms/C3_storm1_Q.csv", usecols = (1,2)) 
+C3_storm1_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1_NO3.csv", usecols = (1,2)) 
+C3_storm1_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1_SpCond.csv", usecols = (1,2)) 
+C3_storm1_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1_fDOM.csv", usecols = (1,2)) 
+C3_storm1_turb = pd.read_csv("Stitched_data/storms/C3_storm1_turb.csv", usecols = (1,2)) 
+
+C3_storm1a_Q = pd.read_csv("Stitched_data/storms/C3_storm1a_Q.csv", usecols = (1,2)) 
+C3_storm1a_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1a_NO3.csv", usecols = (1,2)) 
+C3_storm1a_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1a_SpCond.csv", usecols = (1,2)) 
+C3_storm1a_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1a_fDOM.csv", usecols = (1,2)) 
+C3_storm1a_turb = pd.read_csv("Stitched_data/storms/C3_storm1a_turb.csv", usecols = (1,2)) 
+
+C3_storm1b_Q = pd.read_csv("Stitched_data/storms/C3_storm1b_Q.csv", usecols = (1,2)) 
+C3_storm1b_NO3 = pd.read_csv("Stitched_data/storms/C3_storm1b_NO3.csv", usecols = (1,2)) 
+C3_storm1b_SpCond = pd.read_csv("Stitched_data/storms/C3_storm1b_SpCond.csv", usecols = (1,2)) 
+C3_storm1b_fDOM = pd.read_csv("Stitched_data/storms/C3_storm1b_fDOM.csv", usecols = (1,2)) 
+C3_storm1b_turb = pd.read_csv("Stitched_data/storms/C3_storm1b_turb.csv", usecols = (1,2)) 
+
+C3_storm2_Q = pd.read_csv("Stitched_data/storms/C3_storm2_Q.csv", usecols = (1,2)) 
+C3_storm2_NO3 = pd.read_csv("Stitched_data/storms/C3_storm2_NO3.csv", usecols = (1,2)) 
+C3_storm2_SpCond = pd.read_csv("Stitched_data/storms/C3_storm2_SpCond.csv", usecols = (1,2)) 
+C3_storm2_fDOM = pd.read_csv("Stitched_data/storms/C3_storm2_fDOM.csv", usecols = (1,2)) 
+C3_storm2_turb = pd.read_csv("Stitched_data/storms/C3_storm2_turb.csv", usecols = (1,2)) 
+
+C3_storm3_Q = pd.read_csv("Stitched_data/storms/C3_storm3_Q.csv", usecols = (1,2)) 
+C3_storm3_NO3 = pd.read_csv("Stitched_data/storms/C3_storm3_NO3.csv", usecols = (1,2)) 
+C3_storm3_SpCond = pd.read_csv("Stitched_data/storms/C3_storm3_SpCond.csv", usecols = (1,2)) 
+C3_storm3_fDOM = pd.read_csv("Stitched_data/storms/C3_storm3_fDOM.csv", usecols = (1,2)) 
+C3_storm3_turb = pd.read_csv("Stitched_data/storms/C3_storm3_turb.csv", usecols = (1,2)) 
+
+C3_storm4_Q = pd.read_csv("Stitched_data/storms/C3_storm4_Q.csv", usecols = (1,2)) 
+C3_storm4_NO3 = pd.read_csv("Stitched_data/storms/C3_storm4_NO3.csv", usecols = (1,2)) 
+C3_storm4_SpCond = pd.read_csv("Stitched_data/storms/C3_storm4_SpCond.csv", usecols = (1,2)) 
+C3_storm4_fDOM = pd.read_csv("Stitched_data/storms/C3_storm4_fDOM.csv", usecols = (1,2)) 
+C3_storm4_turb = pd.read_csv("Stitched_data/storms/C3_storm4_turb.csv", usecols = (1,2)) 
+
+C3_storm5_Q = pd.read_csv("Stitched_data/storms/C3_storm5_Q.csv", usecols = (1,2)) 
+C3_storm5_NO3 = pd.read_csv("Stitched_data/storms/C3_storm5_NO3.csv", usecols = (1,2)) 
+C3_storm5_SpCond = pd.read_csv("Stitched_data/storms/C3_storm5_SpCond.csv", usecols = (1,2)) 
+C3_storm5_fDOM = pd.read_csv("Stitched_data/storms/C3_storm5_fDOM.csv", usecols = (1,2)) 
+C3_storm5_turb = pd.read_csv("Stitched_data/storms/C3_storm5_turb.csv", usecols = (1,2)) 
+
+##
+
+P6_storm1_Q = pd.read_csv("Stitched_data/storms/P6_storm1_Q.csv", usecols = (1,2)) 
+P6_storm1_SpCond = pd.read_csv("Stitched_data/storms/P6_storm1_SpCond.csv", usecols = (1,2)) 
+P6_storm1_fDOM = pd.read_csv("Stitched_data/storms/P6_storm1_fDOM.csv", usecols = (1,2)) 
+P6_storm1_turb = pd.read_csv("Stitched_data/storms/P6_storm1_turb.csv", usecols = (1,2)) 
+
+P6_storm2_Q = pd.read_csv("Stitched_data/storms/P6_storm2_Q.csv", usecols = (1,2)) 
+P6_storm2_SpCond = pd.read_csv("Stitched_data/storms/P6_storm2_SpCond.csv", usecols = (1,2)) 
+P6_storm2_fDOM = pd.read_csv("Stitched_data/storms/P6_storm2_fDOM.csv", usecols = (1,2)) 
+P6_storm2_turb = pd.read_csv("Stitched_data/storms/P6_storm2_turb.csv", usecols = (1,2)) 
+
+P6_storm3_Q = pd.read_csv("Stitched_data/storms/P6_storm3_Q.csv", usecols = (1,2)) 
+P6_storm3_SpCond = pd.read_csv("Stitched_data/storms/P6_storm3_SpCond.csv", usecols = (1,2)) 
+P6_storm3_fDOM = pd.read_csv("Stitched_data/storms/P6_storm3_fDOM.csv", usecols = (1,2)) 
+P6_storm3_turb = pd.read_csv("Stitched_data/storms/P6_storm3_turb.csv", usecols = (1,2)) 
+
+P6_storm4_Q = pd.read_csv("Stitched_data/storms/P6_storm4_Q.csv", usecols = (1,2)) 
+P6_storm4_SpCond = pd.read_csv("Stitched_data/storms/P6_storm4_SpCond.csv", usecols = (1,2)) 
+P6_storm4_fDOM = pd.read_csv("Stitched_data/storms/P6_storm4_fDOM.csv", usecols = (1,2)) 
+P6_storm4_turb = pd.read_csv("Stitched_data/storms/P6_storm4_turb.csv", usecols = (1,2)) 
+
+## 
+
+C2_storm1_Q = pd.read_csv("Stitched_data/storms/C2_storm1_Q.csv", usecols = (1,2)) 
+C2_storm1_NO3 = pd.read_csv("Stitched_data/storms/C2_storm1_NO3.csv", usecols = (1,2)) 
+C2_storm1_SpCond = pd.read_csv("Stitched_data/storms/C2_storm1_SpCond.csv", usecols = (1,2)) 
+C2_storm1_fDOM = pd.read_csv("Stitched_data/storms/C2_storm1_fDOM.csv", usecols = (1,2)) 
+C2_storm1_turb = pd.read_csv("Stitched_data/storms/C2_storm1_turb.csv", usecols = (1,2)) 
+
+C2_storm1a_Q = pd.read_csv("Stitched_data/storms/C2_storm1a_Q.csv", usecols = (1,2)) 
+C2_storm1a_NO3 = pd.read_csv("Stitched_data/storms/C2_storm1a_NO3.csv", usecols = (1,2)) 
+C2_storm1a_SpCond = pd.read_csv("Stitched_data/storms/C2_storm1a_SpCond.csv", usecols = (1,2)) 
+C2_storm1a_fDOM = pd.read_csv("Stitched_data/storms/C2_storm1a_fDOM.csv", usecols = (1,2)) 
+C2_storm1a_turb = pd.read_csv("Stitched_data/storms/C2_storm1a_turb.csv", usecols = (1,2)) 
+
+C2_storm1b_Q = pd.read_csv("Stitched_data/storms/C2_storm1b_Q.csv", usecols = (1,2)) 
+C2_storm1b_NO3 = pd.read_csv("Stitched_data/storms/C2_storm1b_NO3.csv", usecols = (1,2)) 
+C2_storm1b_SpCond = pd.read_csv("Stitched_data/storms/C2_storm1b_SpCond.csv", usecols = (1,2)) 
+C2_storm1b_fDOM = pd.read_csv("Stitched_data/storms/C2_storm1b_fDOM.csv", usecols = (1,2)) 
+C2_storm1b_turb = pd.read_csv("Stitched_data/storms/C2_storm1b_turb.csv", usecols = (1,2)) 
+
+C2_storm2_Q = pd.read_csv("Stitched_data/storms/C2_storm2_Q.csv", usecols = (1,2)) 
+C2_storm2_NO3 = pd.read_csv("Stitched_data/storms/C2_storm2_NO3.csv", usecols = (1,2)) 
+C2_storm2_SpCond = pd.read_csv("Stitched_data/storms/C2_storm2_SpCond.csv", usecols = (1,2)) 
+C2_storm2_fDOM = pd.read_csv("Stitched_data/storms/C2_storm2_fDOM.csv", usecols = (1,2)) 
+C2_storm2_turb = pd.read_csv("Stitched_data/storms/C2_storm2_turb.csv", usecols = (1,2)) 
+
+C2_storm3_Q = pd.read_csv("Stitched_data/storms/C2_storm3_Q.csv", usecols = (1,2)) 
+C2_storm3_NO3 = pd.read_csv("Stitched_data/storms/C2_storm3_NO3.csv", usecols = (1,2)) 
+C2_storm3_SpCond = pd.read_csv("Stitched_data/storms/C2_storm3_SpCond.csv", usecols = (1,2)) 
+C2_storm3_fDOM = pd.read_csv("Stitched_data/storms/C2_storm3_fDOM.csv", usecols = (1,2)) 
+C2_storm3_turb = pd.read_csv("Stitched_data/storms/C2_storm3_turb.csv", usecols = (1,2)) 
+
+C2_storm4_Q = pd.read_csv("Stitched_data/storms/C2_storm4_Q.csv", usecols = (1,2)) 
+C2_storm4_NO3 = pd.read_csv("Stitched_data/storms/C2_storm4_NO3.csv", usecols = (1,2)) 
+C2_storm4_SpCond = pd.read_csv("Stitched_data/storms/C2_storm4_SpCond.csv", usecols = (1,2)) 
+C2_storm4_fDOM = pd.read_csv("Stitched_data/storms/C2_storm4_fDOM.csv", usecols = (1,2)) 
+C2_storm4_turb = pd.read_csv("Stitched_data/storms/C2_storm4_turb.csv", usecols = (1,2)) 
+
+C2_storm5_Q = pd.read_csv("Stitched_data/storms/C2_storm5_Q.csv", usecols = (1,2)) 
+C2_storm5_NO3 = pd.read_csv("Stitched_data/storms/C2_storm5_NO3.csv", usecols = (1,2)) 
+C2_storm5_SpCond = pd.read_csv("Stitched_data/storms/C2_storm5_SpCond.csv", usecols = (1,2)) 
+C2_storm5_fDOM = pd.read_csv("Stitched_data/storms/C2_storm5_fDOM.csv", usecols = (1,2)) 
+C2_storm5_turb = pd.read_csv("Stitched_data/storms/C2_storm5_turb.csv", usecols = (1,2)) 
+
+##
+
+C4_storm1_Q = pd.read_csv("Stitched_data/storms/C4_storm1_Q.csv", usecols = (1,2)) 
+C4_storm1_SpCond = pd.read_csv("Stitched_data/storms/C4_storm1_SpCond.csv", usecols = (1,2)) 
+C4_storm1_fDOM = pd.read_csv("Stitched_data/storms/C4_storm1_fDOM.csv", usecols = (1,2)) 
+C4_storm1_turb = pd.read_csv("Stitched_data/storms/C4_storm1_turb.csv", usecols = (1,2)) 
+
+C4_storm2_Q = pd.read_csv("Stitched_data/storms/C4_storm2_Q.csv", usecols = (1,2)) 
+C4_storm2_SpCond = pd.read_csv("Stitched_data/storms/C4_storm2_SpCond.csv", usecols = (1,2)) 
+C4_storm2_fDOM = pd.read_csv("Stitched_data/storms/C4_storm2_fDOM.csv", usecols = (1,2)) 
+C4_storm2_turb = pd.read_csv("Stitched_data/storms/C4_storm2_turb.csv", usecols = (1,2)) 
+
+C4_storm3_Q = pd.read_csv("Stitched_data/storms/C4_storm3_Q.csv", usecols = (1,2)) 
+C4_storm3_SpCond = pd.read_csv("Stitched_data/storms/C4_storm3_SpCond.csv", usecols = (1,2)) 
+C4_storm3_fDOM = pd.read_csv("Stitched_data/storms/C4_storm3_fDOM.csv", usecols = (1,2)) 
+C4_storm3_turb = pd.read_csv("Stitched_data/storms/C4_storm3_turb.csv", usecols = (1,2)) 
+
+C4_storm4_Q = pd.read_csv("Stitched_data/storms/C4_storm4_Q.csv", usecols = (1,2)) 
+C4_storm4_SpCond = pd.read_csv("Stitched_data/storms/C4_storm4_SpCond.csv", usecols = (1,2)) 
+C4_storm4_fDOM = pd.read_csv("Stitched_data/storms/C4_storm4_fDOM.csv", usecols = (1,2)) 
+C4_storm4_turb = pd.read_csv("Stitched_data/storms/C4_storm4_turb.csv", usecols = (1,2)) 
+
+
+
+quit()
+```
+
+
+# C3_storms
+```{python}
+
+## NO3 ##
+C3_storm1_Q['valuedatetime'] =  pd.to_datetime(C3_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1_NO3['valuedatetime'] =  pd.to_datetime(C3_storm1_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1_NO3 = hysteresisMetrics(C3_storm1_Q, C3_storm1_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1a_Q['valuedatetime'] =  pd.to_datetime(C3_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1a_NO3['valuedatetime'] =  pd.to_datetime(C3_storm1a_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1a_NO3 = hysteresisMetrics(C3_storm1a_Q, C3_storm1a_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1b_Q['valuedatetime'] =  pd.to_datetime(C3_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1b_NO3['valuedatetime'] =  pd.to_datetime(C3_storm1b_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1b_NO3 = hysteresisMetrics(C3_storm1b_Q, C3_storm1b_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm2_Q['valuedatetime'] =  pd.to_datetime(C3_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm2_NO3['valuedatetime'] =  pd.to_datetime(C3_storm2_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm2_NO3 = hysteresisMetrics(C3_storm2_Q, C3_storm2_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm3_Q['valuedatetime'] =  pd.to_datetime(C3_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm3_NO3['valuedatetime'] =  pd.to_datetime(C3_storm3_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm3_NO3 = hysteresisMetrics(C3_storm3_Q, C3_storm3_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm4_Q['valuedatetime'] =  pd.to_datetime(C3_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm4_NO3['valuedatetime'] =  pd.to_datetime(C3_storm4_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm4_NO3 = hysteresisMetrics(C3_storm4_Q, C3_storm4_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm5_Q['valuedatetime'] =  pd.to_datetime(C3_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm5_NO3['valuedatetime'] =  pd.to_datetime(C3_storm5_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm5_NO3 = hysteresisMetrics(C3_storm5_Q, C3_storm5_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+
+## fDOM ##
+C3_storm1_Q['valuedatetime'] =  pd.to_datetime(C3_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm1_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1_fDOM = hysteresisMetrics(C3_storm1_Q, C3_storm1_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1a_Q['valuedatetime'] =  pd.to_datetime(C3_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1a_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm1a_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1a_fDOM = hysteresisMetrics(C3_storm1a_Q, C3_storm1a_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1b_Q['valuedatetime'] =  pd.to_datetime(C3_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1b_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm1b_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1b_fDOM = hysteresisMetrics(C3_storm1b_Q, C3_storm1b_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm2_Q['valuedatetime'] =  pd.to_datetime(C3_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm2_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm2_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm2_fDOM = hysteresisMetrics(C3_storm2_Q, C3_storm2_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm3_Q['valuedatetime'] =  pd.to_datetime(C3_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm3_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm3_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm3_fDOM = hysteresisMetrics(C3_storm3_Q, C3_storm3_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm4_Q['valuedatetime'] =  pd.to_datetime(C3_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm4_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm4_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm4_fDOM = hysteresisMetrics(C3_storm4_Q, C3_storm4_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm5_Q['valuedatetime'] =  pd.to_datetime(C3_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm5_fDOM['valuedatetime'] =  pd.to_datetime(C3_storm5_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm5_fDOM = hysteresisMetrics(C3_storm5_Q, C3_storm5_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## SpCond ##
+C3_storm1_Q['valuedatetime'] =  pd.to_datetime(C3_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm1_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1_SpCond = hysteresisMetrics(C3_storm1_Q, C3_storm1_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1a_Q['valuedatetime'] =  pd.to_datetime(C3_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1a_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm1a_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1a_SpCond = hysteresisMetrics(C3_storm1a_Q, C3_storm1a_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1b_Q['valuedatetime'] =  pd.to_datetime(C3_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1b_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm1b_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1b_SpCond = hysteresisMetrics(C3_storm1b_Q, C3_storm1b_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm2_Q['valuedatetime'] =  pd.to_datetime(C3_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm2_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm2_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm2_SpCond = hysteresisMetrics(C3_storm2_Q, C3_storm2_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm3_Q['valuedatetime'] =  pd.to_datetime(C3_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm3_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm3_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm3_SpCond = hysteresisMetrics(C3_storm3_Q, C3_storm3_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm4_Q['valuedatetime'] =  pd.to_datetime(C3_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm4_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm4_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm4_SpCond = hysteresisMetrics(C3_storm4_Q, C3_storm4_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm5_Q['valuedatetime'] =  pd.to_datetime(C3_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm5_SpCond['valuedatetime'] =  pd.to_datetime(C3_storm5_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm5_SpCond = hysteresisMetrics(C3_storm5_Q, C3_storm5_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+
+## turb ##
+C3_storm1_Q['valuedatetime'] =  pd.to_datetime(C3_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1_turb['valuedatetime'] =  pd.to_datetime(C3_storm1_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1_turb = hysteresisMetrics(C3_storm1_Q, C3_storm1_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1a_Q['valuedatetime'] =  pd.to_datetime(C3_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1a_turb['valuedatetime'] =  pd.to_datetime(C3_storm1a_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1a_turb = hysteresisMetrics(C3_storm1a_Q, C3_storm1a_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm1b_Q['valuedatetime'] =  pd.to_datetime(C3_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm1b_turb['valuedatetime'] =  pd.to_datetime(C3_storm1b_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm1b_turb = hysteresisMetrics(C3_storm1b_Q, C3_storm1b_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm2_Q['valuedatetime'] =  pd.to_datetime(C3_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm2_turb['valuedatetime'] =  pd.to_datetime(C3_storm2_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm2_turb = hysteresisMetrics(C3_storm2_Q, C3_storm2_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm3_Q['valuedatetime'] =  pd.to_datetime(C3_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm3_turb['valuedatetime'] =  pd.to_datetime(C3_storm3_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm3_turb = hysteresisMetrics(C3_storm3_Q, C3_storm3_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm4_Q['valuedatetime'] =  pd.to_datetime(C3_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm4_turb['valuedatetime'] =  pd.to_datetime(C3_storm4_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm4_turb = hysteresisMetrics(C3_storm4_Q, C3_storm4_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C3_storm5_Q['valuedatetime'] =  pd.to_datetime(C3_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C3_storm5_turb['valuedatetime'] =  pd.to_datetime(C3_storm5_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C3_storm5_turb = hysteresisMetrics(C3_storm5_Q, C3_storm5_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+quit()
+```
+
+# C3 results
+```{r}
+
+C3.hyst.results.list = list(py$hysdict_C3_storm1_NO3,
+                         py$hysdict_C3_storm1a_NO3,
+                         py$hysdict_C3_storm1b_NO3,
+                         py$hysdict_C3_storm2_NO3,
+                         py$hysdict_C3_storm3_NO3,
+                         py$hysdict_C3_storm4_NO3,
+                         py$hysdict_C3_storm5_NO3,
+                         py$hysdict_C3_storm1_fDOM,
+                         py$hysdict_C3_storm1a_fDOM,
+                         py$hysdict_C3_storm1b_fDOM,
+                         py$hysdict_C3_storm2_fDOM,
+                         py$hysdict_C3_storm3_fDOM,
+                         py$hysdict_C3_storm4_fDOM,
+                         py$hysdict_C3_storm5_fDOM,
+                         py$hysdict_C3_storm1_SpCond,
+                         py$hysdict_C3_storm1a_SpCond,
+                         py$hysdict_C3_storm1b_SpCond,
+                         py$hysdict_C3_storm2_SpCond,
+                         py$hysdict_C3_storm3_SpCond,
+                         py$hysdict_C3_storm4_SpCond,
+                         py$hysdict_C3_storm5_SpCond,
+                         py$hysdict_C3_storm1_turb,
+                         py$hysdict_C3_storm1a_turb,
+                         py$hysdict_C3_storm1b_turb,
+                         py$hysdict_C3_storm2_turb,
+                         py$hysdict_C3_storm3_turb,
+                         py$hysdict_C3_storm4_turb,
+                         py$hysdict_C3_storm5_turb)
+
+C3.hyst.results.list.2 = list()
+for (i in 1:length(C3.hyst.results.list)){
+C3.hyst.results.list.2[[i]] = as.data.frame(t(as.numeric(c(
+C3.hyst.results.list[[i]][["HI_mean_with_Interp"]],
+C3.hyst.results.list[[i]][["HI_standard_deviation_with_Interp"]],
+C3.hyst.results.list[[i]][["Normalized slope of response"]],
+C3.hyst.results.list[[i]][["interpolated Max width of response"]],
+C3.hyst.results.list[[i]][["Min response"]],
+C3.hyst.results.list[[i]][["Max response"]],
+C3.hyst.results.list[[i]][["Peak Q"]]
+))))
+names(C3.hyst.results.list.2[[i]]) = c("HI_mean_Interp", "HI_sd_with_Interp", "N.S.", "Max_width_Interp", "Min_response", "Max_response", "Peak_Q")
+}
+
+HIs.list = list()
+HIs.tests = list()
+for (i in 1:length(C3.hyst.results.list)){
+  HIs.list[[i]] = unlist(C3.hyst.results.list[[i]][["Hysteresis_Index"]],recursive=FALSE)
+  HIs.tests[[i]] = as.data.frame(t(round(as.numeric(c(shapiro.test(HIs.list[[i]])$statistic, shapiro.test(HIs.list[[i]])$p.value,
+                     t.test(HIs.list[[i]], mu=0)$statistic, t.test(HIs.list[[i]], mu=0)$p.value, 
+                     t.test(HIs.list[[i]], mu=0)$conf.int[1],t.test(HIs.list[[i]], mu=0)$conf.int[2],
+                     wilcox.test(HIs.list[[i]], mu=0)$statistic, wilcox.test(HIs.list[[i]], mu=0)$p.value)), 4)))
+  names(HIs.tests[[i]]) = c("ShapiroTest.W", "ShapiroTest.p", "t.test.stat", "t.test.p", "t.test.CIlow", "t.test.CIhigh",
+                            "wilcox.test.stat", "wilcox.test.p")
+}
+
+C3.hyst.results.list.3 =list()
+for (i in 1:length(C3.hyst.results.list)){
+  C3.hyst.results.list.3[[i]] = cbind(C3.hyst.results.list.2[[i]], HIs.tests[[i]])
+}
+
+C3.hyst.results.df = bind_rows(C3.hyst.results.list.3, .id = "column_label")
+
+C3.hyst.results.df$storm.ID = c("C3_storm1_NO3",
+                         "C3_storm1a_NO3",
+                         "C3_storm1b_NO3",
+                         "C3_storm2_NO3",
+                         "C3_storm3_NO3",
+                         "C3_storm4_NO3",
+                         "C3_storm5_NO3",
+                         "C3_storm1_fDOM",
+                         "C3_storm1a_fDOM",
+                         "C3_storm1b_fDOM",
+                         "C3_storm2_fDOM",
+                         "C3_storm3_fDOM",
+                         "C3_storm4_fDOM",
+                         "C3_storm5_fDOM",
+                         "C3_storm1_SpCond",
+                         "C3_storm1a_SpCond",
+                         "C3_storm1b_SpCond",
+                         "C3_storm2_SpCond",
+                         "C3_storm3_SpCond",
+                         "C3_storm4_SpCond",
+                         "C3_storm5_SpCond",
+                         "C3_storm1_turb",
+                         "C3_storm1a_turb",
+                         "C3_storm1b_turb",
+                         "C3_storm2_turb",
+                         "C3_storm3_turb",
+                         "C3_storm4_turb",
+                         "C3_storm5_turb")
+
+C3.hyst.results.df$site.ID = "C3"
+
+write.csv(C3.hyst.results.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.hyst.results.csv")
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.hyst.HI_Q.plots.pdf", width = 25, height =15, onefile=FALSE)
+par(mfrow=c(4,7))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+plot(HIs.df.list[[i]][["V1"]] ~ HIs.df.list[[i]][["V2"]], type="l",
+     ylab="norm.response", xlab="Q intervals", main= C3.hyst.results.df$storm.ID[i])
+abline(h=0, lty=2)
+}
+dev.off()
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.hyst.HI_boxplots.pdf", width = 25, height =15, onefile=FALSE)
+par(mfrow=c(4,7))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  boxplot(HIs.df.list[[i]][["V1"]], xlab="HIs", main= C3.hyst.results.df$storm.ID[i])
+  abline(h=0, lty=2)
+}
+dev.off()
+
+## plot HI with bootstrapped 95% CIs around the median ##
+HIs.Q.list =list()
+HIs.df.list = list()
+par(mfrow=c(1,1))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  names(HIs.df.list[[i]]) = c("HI", "Q_interval")
+}
+
+C3.HI.df = bind_rows(HIs.df.list, .id = "column_label")
+C3.HI.df$storm.ID = c(rep("C3_storm1_NO3", 50),
+                         rep("C3_storm1a_NO3", 50),
+                         rep("C3_storm1b_NO3", 50),
+                         rep("C3_storm2_NO3",50),
+                         rep("C3_storm3_NO3",50),
+                         rep("C3_storm4_NO3",50),
+                         rep("C3_storm5_NO3",50),
+                         rep("C3_storm1_fDOM",50),
+                         rep("C3_storm1a_fDOM",50),
+                         rep("C3_storm1b_fDOM",50),
+                         rep("C3_storm2_fDOM",50),
+                         rep("C3_storm3_fDOM",50),
+                         rep("C3_storm4_fDOM",50),
+                         rep("C3_storm5_fDOM",50),
+                         rep("C3_storm1_SpCond",50),
+                         rep("C3_storm1a_SpCond",50),
+                         rep("C3_storm1b_SpCond",50),
+                         rep("C3_storm2_SpCond",50),
+                         rep("C3_storm3_SpCond",50),
+                         rep("C3_storm4_SpCond",50),
+                         rep("C3_storm5_SpCond",50),
+                         rep("C3_storm1_turb",50),
+                         rep("C3_storm1a_turb",50),
+                         rep("C3_storm1b_turb",50),
+                         rep("C3_storm2_turb",50),
+                         rep("C3_storm3_turb",50),
+                         rep("C3_storm4_turb", 50),
+                         rep("C3_storm5_turb", 50))
+C3.HI.df$storm.ID = as.factor(C3.HI.df$storm.ID)
+C3.HI.df = separate(data=C3.HI.df, col=storm.ID, into=c("site.ID","storm.num", "response"), sep = "_", remove = F)
+
+par(mfrow=c(1,1))
+median_cl_boot <- function(x, conf = 0.95) {
+  lconf <- (1 - conf)/2
+  uconf <- 1 - lconf
+  require(boot)
+  bmedian <- function(x, ind) median(x[ind])
+  bt <- boot(x, bmedian, 10000)
+  bb <- boot.ci(bt, conf = 0.95, type = "perc")
+  data.frame(y = median(x), ymin = quantile(bt$t, lconf), ymax = quantile(bt$t, 
+                                                                          uconf))
+}
+g0 <- ggplot(C3.HI.df, aes(x = storm.num, y = HI, label=storm.num, fill=response))
+g1 = g0 + geom_jitter(width = 0.1, fill = "grey", colour = "#0571B0", alpha=0.25, size=3) + 
+  theme(axis.text.x = element_text(angle = 0))+  labs(x="") + facet_wrap(~ response, scales = "free_x") +
+  theme_bw() +geom_hline(yintercept=0) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(legend.position = "none")
+g2 <- g1 + 
+  stat_summary(fun.data = median_cl_boot, geom = "errorbar",
+               colour = "black", width = 0.2, size=1) + 
+  stat_summary(fun.y = median, geom = "point", 
+               colour = "black", size = 3)
+ggsave("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.HI.median.boot.pdf", plot=g2, width = 8, height = 6, units ="in")
+write.csv(C3.HI.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.HI.df.csv")
+
+```
+
+
+
+
+# C2_storms
+```{python}
+
+## NO3 ##
+C2_storm1_Q['valuedatetime'] =  pd.to_datetime(C2_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1_NO3['valuedatetime'] =  pd.to_datetime(C2_storm1_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1_NO3 = hysteresisMetrics(C2_storm1_Q, C2_storm1_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1a_Q['valuedatetime'] =  pd.to_datetime(C2_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1a_NO3['valuedatetime'] =  pd.to_datetime(C2_storm1a_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1a_NO3 = hysteresisMetrics(C2_storm1a_Q, C2_storm1a_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1b_Q['valuedatetime'] =  pd.to_datetime(C2_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1b_NO3['valuedatetime'] =  pd.to_datetime(C2_storm1b_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1b_NO3 = hysteresisMetrics(C2_storm1b_Q, C2_storm1b_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm2_Q['valuedatetime'] =  pd.to_datetime(C2_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm2_NO3['valuedatetime'] =  pd.to_datetime(C2_storm2_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm2_NO3 = hysteresisMetrics(C2_storm2_Q, C2_storm2_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm3_Q['valuedatetime'] =  pd.to_datetime(C2_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm3_NO3['valuedatetime'] =  pd.to_datetime(C2_storm3_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm3_NO3 = hysteresisMetrics(C2_storm3_Q, C2_storm3_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm4_Q['valuedatetime'] =  pd.to_datetime(C2_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm4_NO3['valuedatetime'] =  pd.to_datetime(C2_storm4_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm4_NO3 = hysteresisMetrics(C2_storm4_Q, C2_storm4_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm5_Q['valuedatetime'] =  pd.to_datetime(C2_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm5_NO3['valuedatetime'] =  pd.to_datetime(C2_storm5_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm5_NO3 = hysteresisMetrics(C2_storm5_Q, C2_storm5_NO3, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+
+## fDOM ##
+C2_storm1_Q['valuedatetime'] =  pd.to_datetime(C2_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm1_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1_fDOM = hysteresisMetrics(C2_storm1_Q, C2_storm1_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1a_Q['valuedatetime'] =  pd.to_datetime(C2_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1a_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm1a_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1a_fDOM = hysteresisMetrics(C2_storm1a_Q, C2_storm1a_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1b_Q['valuedatetime'] =  pd.to_datetime(C2_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1b_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm1b_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1b_fDOM = hysteresisMetrics(C2_storm1b_Q, C2_storm1b_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm2_Q['valuedatetime'] =  pd.to_datetime(C2_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm2_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm2_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm2_fDOM = hysteresisMetrics(C2_storm2_Q, C2_storm2_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm3_Q['valuedatetime'] =  pd.to_datetime(C2_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm3_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm3_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm3_fDOM = hysteresisMetrics(C2_storm3_Q, C2_storm3_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm4_Q['valuedatetime'] =  pd.to_datetime(C2_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm4_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm4_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm4_fDOM = hysteresisMetrics(C2_storm4_Q, C2_storm4_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm5_Q['valuedatetime'] =  pd.to_datetime(C2_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm5_fDOM['valuedatetime'] =  pd.to_datetime(C2_storm5_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm5_fDOM = hysteresisMetrics(C2_storm5_Q, C2_storm5_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## SpCond ##
+C2_storm1_Q['valuedatetime'] =  pd.to_datetime(C2_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm1_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1_SpCond = hysteresisMetrics(C2_storm1_Q, C2_storm1_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1a_Q['valuedatetime'] =  pd.to_datetime(C2_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1a_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm1a_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1a_SpCond = hysteresisMetrics(C2_storm1a_Q, C2_storm1a_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1b_Q['valuedatetime'] =  pd.to_datetime(C2_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1b_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm1b_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1b_SpCond = hysteresisMetrics(C2_storm1b_Q, C2_storm1b_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm2_Q['valuedatetime'] =  pd.to_datetime(C2_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm2_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm2_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm2_SpCond = hysteresisMetrics(C2_storm2_Q, C2_storm2_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm3_Q['valuedatetime'] =  pd.to_datetime(C2_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm3_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm3_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm3_SpCond = hysteresisMetrics(C2_storm3_Q, C2_storm3_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm4_Q['valuedatetime'] =  pd.to_datetime(C2_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm4_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm4_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm4_SpCond = hysteresisMetrics(C2_storm4_Q, C2_storm4_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm5_Q['valuedatetime'] =  pd.to_datetime(C2_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm5_SpCond['valuedatetime'] =  pd.to_datetime(C2_storm5_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm5_SpCond = hysteresisMetrics(C2_storm5_Q, C2_storm5_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+
+## turb ##
+C2_storm1_Q['valuedatetime'] =  pd.to_datetime(C2_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1_turb['valuedatetime'] =  pd.to_datetime(C2_storm1_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1_turb = hysteresisMetrics(C2_storm1_Q, C2_storm1_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1a_Q['valuedatetime'] =  pd.to_datetime(C2_storm1a_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1a_turb['valuedatetime'] =  pd.to_datetime(C2_storm1a_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1a_turb = hysteresisMetrics(C2_storm1a_Q, C2_storm1a_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm1b_Q['valuedatetime'] =  pd.to_datetime(C2_storm1b_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm1b_turb['valuedatetime'] =  pd.to_datetime(C2_storm1b_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm1b_turb = hysteresisMetrics(C2_storm1b_Q, C2_storm1b_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm2_Q['valuedatetime'] =  pd.to_datetime(C2_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm2_turb['valuedatetime'] =  pd.to_datetime(C2_storm2_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm2_turb = hysteresisMetrics(C2_storm2_Q, C2_storm2_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm3_Q['valuedatetime'] =  pd.to_datetime(C2_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm3_turb['valuedatetime'] =  pd.to_datetime(C2_storm3_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm3_turb = hysteresisMetrics(C2_storm3_Q, C2_storm3_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm4_Q['valuedatetime'] =  pd.to_datetime(C2_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm4_turb['valuedatetime'] =  pd.to_datetime(C2_storm4_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm4_turb = hysteresisMetrics(C2_storm4_Q, C2_storm4_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C2_storm5_Q['valuedatetime'] =  pd.to_datetime(C2_storm5_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C2_storm5_turb['valuedatetime'] =  pd.to_datetime(C2_storm5_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C2_storm5_turb = hysteresisMetrics(C2_storm5_Q, C2_storm5_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+quit()
+```
+
+# C2 results
+```{r}
+
+C2.hyst.results.list = list(py$hysdict_C2_storm1_NO3,
+                         py$hysdict_C2_storm1a_NO3,
+                         py$hysdict_C2_storm1b_NO3,
+                         py$hysdict_C2_storm2_NO3,
+                         py$hysdict_C2_storm3_NO3,
+                         py$hysdict_C2_storm4_NO3,
+                         #py$hysdict_C2_storm5_NO3,
+                         py$hysdict_C2_storm1_fDOM,
+                         py$hysdict_C2_storm1a_fDOM,
+                         py$hysdict_C2_storm1b_fDOM,
+                         py$hysdict_C2_storm2_fDOM,
+                         py$hysdict_C2_storm3_fDOM,
+                         py$hysdict_C2_storm4_fDOM,
+                         py$hysdict_C2_storm5_fDOM,
+                         py$hysdict_C2_storm1_SpCond,
+                         py$hysdict_C2_storm1a_SpCond,
+                         py$hysdict_C2_storm1b_SpCond,
+                         py$hysdict_C2_storm2_SpCond,
+                         py$hysdict_C2_storm3_SpCond,
+                         py$hysdict_C2_storm4_SpCond,
+                         py$hysdict_C2_storm5_SpCond,
+                         py$hysdict_C2_storm1_turb,
+                         py$hysdict_C2_storm1a_turb,
+                         py$hysdict_C2_storm1b_turb,
+                         py$hysdict_C2_storm2_turb,
+                         py$hysdict_C2_storm3_turb,
+                         py$hysdict_C2_storm4_turb,
+                         py$hysdict_C2_storm5_turb)
+
+C2.hyst.results.list.2 = list()
+for (i in 1:length(C2.hyst.results.list)){
+C2.hyst.results.list.2[[i]] = as.data.frame(t(as.numeric(c(
+C2.hyst.results.list[[i]][["HI_mean_with_Interp"]],
+C2.hyst.results.list[[i]][["HI_standard_deviation_with_Interp"]],
+C2.hyst.results.list[[i]][["Normalized slope of response"]],
+C2.hyst.results.list[[i]][["interpolated Max width of response"]],
+C2.hyst.results.list[[i]][["Min response"]],
+C2.hyst.results.list[[i]][["Max response"]],
+C2.hyst.results.list[[i]][["Peak Q"]]
+))))
+names(C2.hyst.results.list.2[[i]]) = c("HI_mean_Interp", "HI_sd_with_Interp", "N.S.", "Max_width_Interp", "Min_response", "Max_response", "Peak_Q")
+}
+
+HIs.list = list()
+HIs.tests = list()
+for (i in 1:length(C2.hyst.results.list)){
+  HIs.list[[i]] = unlist(C2.hyst.results.list[[i]][["Hysteresis_Index"]],recursive=FALSE)
+  HIs.tests[[i]] = as.data.frame(t(round(as.numeric(c(shapiro.test(HIs.list[[i]])$statistic, shapiro.test(HIs.list[[i]])$p.value,
+                     t.test(HIs.list[[i]], mu=0)$statistic, t.test(HIs.list[[i]], mu=0)$p.value, 
+                     t.test(HIs.list[[i]], mu=0)$conf.int[1],t.test(HIs.list[[i]], mu=0)$conf.int[2],
+                     wilcox.test(HIs.list[[i]], mu=0)$statistic, wilcox.test(HIs.list[[i]], mu=0)$p.value)), 4)))
+  names(HIs.tests[[i]]) = c("ShapiroTest.W", "ShapiroTest.p", "t.test.stat", "t.test.p", "t.test.CIlow", "t.test.CIhigh",
+                            "wilcox.test.stat", "wilcox.test.p")
+}
+
+C2.hyst.results.list.3 =list()
+for (i in 1:length(C2.hyst.results.list)){
+  C2.hyst.results.list.3[[i]] = cbind(C2.hyst.results.list.2[[i]], HIs.tests[[i]])
+}
+
+C2.hyst.results.df = bind_rows(C2.hyst.results.list.3, .id = "column_label")
+
+C2.hyst.results.df$storm.ID = c("C2_storm1_NO3",
+                         "C2_storm1a_NO3",
+                         "C2_storm1b_NO3",
+                         "C2_storm2_NO3",
+                         "C2_storm3_NO3",
+                         "C2_storm4_NO3",
+                         "C2_storm1_fDOM",
+                         "C2_storm1a_fDOM",
+                         "C2_storm1b_fDOM",
+                         "C2_storm2_fDOM",
+                         "C2_storm3_fDOM",
+                         "C2_storm4_fDOM",
+                         "C2_storm5_fDOM",
+                         "C2_storm1_SpCond",
+                         "C2_storm1a_SpCond",
+                         "C2_storm1b_SpCond",
+                         "C2_storm2_SpCond",
+                         "C2_storm3_SpCond",
+                         "C2_storm4_SpCond",
+                         "C2_storm5_SpCond",
+                         "C2_storm1_turb",
+                         "C2_storm1a_turb",
+                         "C2_storm1b_turb",
+                         "C2_storm2_turb",
+                         "C2_storm3_turb",
+                         "C2_storm4_turb",
+                         "C2_storm5_turb")
+
+C2.hyst.results.df$site.ID = "C2"
+
+write.csv(C2.hyst.results.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.hyst.results.csv")
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.hyst.HI_Q.plots.pdf", width = 25, height =15, onefile=FALSE)
+layout.matrix <- matrix(c(1,7,14,21,
+                          2,8,15,22,
+                          3,9,16,23,
+                          4,10,17,24,
+                          5,11,18,25,
+                          6,12,19,26,
+                          0,13,20,27 ), nrow = 4, ncol = 7)
+layout(layout.matrix)
+#par(mfrow=c(4,7))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+plot(HIs.df.list[[i]][["V1"]] ~ HIs.df.list[[i]][["V2"]], type="l",
+     ylab="norm.response", xlab="Q intervals", main= C2.hyst.results.df$storm.ID[i])
+abline(h=0, lty=2)
+}
+dev.off()
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.hyst.HI_boxplots.pdf", width = 25, height =15, onefile=FALSE)
+layout.matrix <- matrix(c(1,7,14,21,
+                          2,8,15,22,
+                          3,9,16,23,
+                          4,10,17,24,
+                          5,11,18,25,
+                          6,12,19,26,
+                          0,13,20,27 ), nrow = 4, ncol = 7)
+layout(layout.matrix)
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  boxplot(HIs.df.list[[i]][["V1"]], xlab="HIs", main= C2.hyst.results.df$storm.ID[i])
+  abline(h=0, lty=2)
+}
+dev.off()
+
+## plot HI with bootstrapped 95% CIs around the median ##
+HIs.Q.list =list()
+HIs.df.list = list()
+par(mfrow=c(1,1))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  names(HIs.df.list[[i]]) = c("HI", "Q_interval")
+}
+
+C2.HI.df = bind_rows(HIs.df.list, .id = "column_label")
+C2.HI.df$storm.ID = c(rep("C2_storm1_NO3", 50),
+                         rep("C2_storm1a_NO3", 50),
+                         rep("C2_storm1b_NO3", 50),
+                         rep("C2_storm2_NO3",50),
+                         rep("C2_storm3_NO3",50),
+                         rep("C2_storm4_NO3",50),
+                         #rep("C2_storm5_NO3",50),
+                         rep("C2_storm1_fDOM",50),
+                         rep("C2_storm1a_fDOM",50),
+                         rep("C2_storm1b_fDOM",50),
+                         rep("C2_storm2_fDOM",50),
+                         rep("C2_storm3_fDOM",50),
+                         rep("C2_storm4_fDOM",50),
+                         rep("C2_storm5_fDOM",50),
+                         rep("C2_storm1_SpCond",50),
+                         rep("C2_storm1a_SpCond",50),
+                         rep("C2_storm1b_SpCond",50),
+                         rep("C2_storm2_SpCond",50),
+                         rep("C2_storm3_SpCond",50),
+                         rep("C2_storm4_SpCond",50),
+                         rep("C2_storm5_SpCond",50),
+                         rep("C2_storm1_turb",50),
+                         rep("C2_storm1a_turb",50),
+                         rep("C2_storm1b_turb",50),
+                         rep("C2_storm2_turb",50),
+                         rep("C2_storm3_turb",50),
+                         rep("C2_storm4_turb", 50),
+                         rep("C2_storm5_turb", 50))
+C2.HI.df$storm.ID = as.factor(C2.HI.df$storm.ID)
+C2.HI.df = separate(data=C2.HI.df, col=storm.ID, into=c("site.ID","storm.num", "response"), sep = "_", remove = F)
+
+par(mfrow=c(1,1))
+median_cl_boot <- function(x, conf = 0.95) {
+  lconf <- (1 - conf)/2
+  uconf <- 1 - lconf
+  require(boot)
+  bmedian <- function(x, ind) median(x[ind])
+  bt <- boot(x, bmedian, 10000)
+  bb <- boot.ci(bt, conf = 0.95, type = "perc")
+  data.frame(y = median(x), ymin = quantile(bt$t, lconf), ymax = quantile(bt$t, 
+                                                                          uconf))
+}
+g0 <- ggplot(C2.HI.df, aes(x = storm.num, y = HI, label=storm.num, fill=response))
+g1 = g0 + geom_jitter(width = 0.1, fill = "grey", colour = "#CA0020", alpha=0.25, size=3) + 
+  theme(axis.text.x = element_text(angle = 0))+  labs(x="") + facet_wrap(~ response, scales = "free_x") +
+  theme_bw() +geom_hline(yintercept=0) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(legend.position = "none")
+g2 <- g1 + 
+  stat_summary(fun.data = median_cl_boot, geom = "errorbar",
+               colour = "black", width = 0.2, size=1) + 
+  stat_summary(fun.y = median, geom = "point", 
+               colour = "black", size = 3)
+ggsave("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.HI.median.boot.pdf", plot=g2, width = 8, height = 6, units ="in")
+write.csv(C2.HI.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.HI.df.csv")
+
+```
+
+
+
+
+# P6_storms
+```{python}
+
+## fDOM ##
+P6_storm1_Q['valuedatetime'] =  pd.to_datetime(P6_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm1_fDOM['valuedatetime'] =  pd.to_datetime(P6_storm1_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm1_fDOM = hysteresisMetrics(P6_storm1_Q, P6_storm1_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm2_Q['valuedatetime'] =  pd.to_datetime(P6_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm2_fDOM['valuedatetime'] =  pd.to_datetime(P6_storm2_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm2_fDOM = hysteresisMetrics(P6_storm2_Q, P6_storm2_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm3_Q['valuedatetime'] =  pd.to_datetime(P6_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm3_fDOM['valuedatetime'] =  pd.to_datetime(P6_storm3_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm3_fDOM = hysteresisMetrics(P6_storm3_Q, P6_storm3_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm4_Q['valuedatetime'] =  pd.to_datetime(P6_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm4_fDOM['valuedatetime'] =  pd.to_datetime(P6_storm4_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm4_fDOM = hysteresisMetrics(P6_storm4_Q, P6_storm4_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## SpCond ##
+P6_storm1_Q['valuedatetime'] =  pd.to_datetime(P6_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm1_SpCond['valuedatetime'] =  pd.to_datetime(P6_storm1_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm1_SpCond = hysteresisMetrics(P6_storm1_Q, P6_storm1_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm2_Q['valuedatetime'] =  pd.to_datetime(P6_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm2_SpCond['valuedatetime'] =  pd.to_datetime(P6_storm2_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm2_SpCond = hysteresisMetrics(P6_storm2_Q, P6_storm2_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm3_Q['valuedatetime'] =  pd.to_datetime(P6_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm3_SpCond['valuedatetime'] =  pd.to_datetime(P6_storm3_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm3_SpCond = hysteresisMetrics(P6_storm3_Q, P6_storm3_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm4_Q['valuedatetime'] =  pd.to_datetime(P6_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm4_SpCond['valuedatetime'] =  pd.to_datetime(P6_storm4_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm4_SpCond = hysteresisMetrics(P6_storm4_Q, P6_storm4_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## turb ##
+P6_storm1_Q['valuedatetime'] =  pd.to_datetime(P6_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm1_turb['valuedatetime'] =  pd.to_datetime(P6_storm1_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm1_turb = hysteresisMetrics(P6_storm1_Q, P6_storm1_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm2_Q['valuedatetime'] =  pd.to_datetime(P6_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm2_turb['valuedatetime'] =  pd.to_datetime(P6_storm2_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm2_turb = hysteresisMetrics(P6_storm2_Q, P6_storm2_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm3_Q['valuedatetime'] =  pd.to_datetime(P6_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm3_turb['valuedatetime'] =  pd.to_datetime(P6_storm3_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm3_turb = hysteresisMetrics(P6_storm3_Q, P6_storm3_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+P6_storm4_Q['valuedatetime'] =  pd.to_datetime(P6_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+P6_storm4_turb['valuedatetime'] =  pd.to_datetime(P6_storm4_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_P6_storm4_turb = hysteresisMetrics(P6_storm4_Q, P6_storm4_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+quit()
+```
+
+# P6 results
+```{r}
+
+P6.hyst.results.list = list(
+                         py$hysdict_P6_storm1_fDOM,
+                         py$hysdict_P6_storm2_fDOM,
+                         py$hysdict_P6_storm3_fDOM,
+                         py$hysdict_P6_storm4_fDOM,
+                         py$hysdict_P6_storm1_SpCond,
+                         py$hysdict_P6_storm2_SpCond,
+                         py$hysdict_P6_storm3_SpCond,
+                         py$hysdict_P6_storm4_SpCond,
+                         py$hysdict_P6_storm1_turb,
+                         py$hysdict_P6_storm2_turb,
+                         py$hysdict_P6_storm3_turb,
+                         py$hysdict_P6_storm4_turb)
+
+P6.hyst.results.list.2 = list()
+for (i in 1:length(P6.hyst.results.list)){
+P6.hyst.results.list.2[[i]] = as.data.frame(t(as.numeric(c(
+P6.hyst.results.list[[i]][["HI_mean_with_Interp"]],
+P6.hyst.results.list[[i]][["HI_standard_deviation_with_Interp"]],
+P6.hyst.results.list[[i]][["Normalized slope of response"]],
+P6.hyst.results.list[[i]][["interpolated Max width of response"]],
+P6.hyst.results.list[[i]][["Min response"]],
+P6.hyst.results.list[[i]][["Max response"]],
+P6.hyst.results.list[[i]][["Peak Q"]]
+))))
+names(P6.hyst.results.list.2[[i]]) = c("HI_mean_Interp", "HI_sd_with_Interp", "N.S.", "Max_width_Interp", "Min_response", "Max_response", "Peak_Q")
+}
+
+HIs.list = list()
+HIs.tests = list()
+for (i in 1:length(P6.hyst.results.list)){
+  HIs.list[[i]] = unlist(P6.hyst.results.list[[i]][["Hysteresis_Index"]],recursive=FALSE)
+  HIs.tests[[i]] = as.data.frame(t(round(as.numeric(c(shapiro.test(HIs.list[[i]])$statistic, shapiro.test(HIs.list[[i]])$p.value,
+                     t.test(HIs.list[[i]], mu=0)$statistic, t.test(HIs.list[[i]], mu=0)$p.value, 
+                     t.test(HIs.list[[i]], mu=0)$conf.int[1],t.test(HIs.list[[i]], mu=0)$conf.int[2],
+                     wilcox.test(HIs.list[[i]], mu=0)$statistic, wilcox.test(HIs.list[[i]], mu=0)$p.value)), 4)))
+  names(HIs.tests[[i]]) = c("ShapiroTest.W", "ShapiroTest.p", "t.test.stat", "t.test.p", "t.test.CIlow", "t.test.CIhigh",
+                            "wilcox.test.stat", "wilcox.test.p")
+}
+
+P6.hyst.results.list.3 =list()
+for (i in 1:length(P6.hyst.results.list)){
+  P6.hyst.results.list.3[[i]] = cbind(P6.hyst.results.list.2[[i]], HIs.tests[[i]])
+}
+
+P6.hyst.results.df = bind_rows(P6.hyst.results.list.3, .id = "column_label")
+
+P6.hyst.results.df$storm.ID = c(
+                         "P6_storm1_fDOM",
+                         "P6_storm2_fDOM",
+                         "P6_storm3_fDOM",
+                         "P6_storm4_fDOM",
+                         "P6_storm1_SpCond",
+                         "P6_storm2_SpCond",
+                         "P6_storm3_SpCond",
+                         "P6_storm4_SpCond",
+                         "P6_storm1_turb",
+                         "P6_storm2_turb",
+                         "P6_storm3_turb",
+                         "P6_storm4_turb")
+
+P6.hyst.results.df$site.ID = "P6"
+
+write.csv(P6.hyst.results.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.hyst.results.csv")
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.hyst.HI_Q.plots.pdf", width = 20, height =10, onefile=FALSE)
+par(mfrow=c(3,4))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+plot(HIs.df.list[[i]][["V1"]] ~ HIs.df.list[[i]][["V2"]], type="l",
+     ylab="norm.response", xlab="Q intervals", main= P6.hyst.results.df$storm.ID[i])
+abline(h=0, lty=2)
+}
+dev.off()
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.hyst.HI_boxplots.pdf", width = 20, height =10, onefile=FALSE)
+par(mfrow=c(3,4))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  boxplot(HIs.df.list[[i]][["V1"]], xlab="HIs", main= P6.hyst.results.df$storm.ID[i])
+  abline(h=0, lty=2)
+}
+dev.off()
+
+
+## plot HI with bootstrapped 95% CIs around the median ##
+HIs.Q.list =list()
+HIs.df.list = list()
+par(mfrow=c(1,1))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  names(HIs.df.list[[i]]) = c("HI", "Q_interval")
+}
+
+P6.HI.df = bind_rows(HIs.df.list, .id = "column_label")
+P6.HI.df$storm.ID = c(rep("P6_storm1_fDOM",50),
+                         rep("P6_storm2_fDOM",50),
+                         rep("P6_storm3_fDOM",50),
+                         rep("P6_storm4_fDOM",50),
+                         rep("P6_storm1_SpCond",50),
+                         rep("P6_storm2_SpCond",50),
+                         rep("P6_storm3_SpCond",50),
+                         rep("P6_storm4_SpCond",50),
+                         rep("P6_storm1_turb",50),
+                         rep("P6_storm2_turb",50),
+                         rep("P6_storm3_turb",50),
+                         rep("P6_storm4_turb", 50))
+P6.HI.df$storm.ID = as.factor(P6.HI.df$storm.ID)
+P6.HI.df = separate(data=P6.HI.df, col=storm.ID, into=c("site.ID","storm.num", "response"), sep = "_", remove = F)
+
+par(mfrow=c(1,1))
+median_cl_boot <- function(x, conf = 0.95) {
+  lconf <- (1 - conf)/2
+  uconf <- 1 - lconf
+  require(boot)
+  bmedian <- function(x, ind) median(x[ind])
+  bt <- boot(x, bmedian, 10000)
+  bb <- boot.ci(bt, conf = 0.95, type = "perc")
+  data.frame(y = median(x), ymin = quantile(bt$t, lconf), ymax = quantile(bt$t, 
+                                                                          uconf))
+}
+g0 <- ggplot(P6.HI.df, aes(x = storm.num, y = HI, label=storm.num, fill=response))
+g1 = g0 + geom_jitter(width = 0.1, fill = "grey", colour = "#92C5DE", alpha=0.25, size=3) + 
+  theme(axis.text.x = element_text(angle = 0))+  labs(x="") + facet_wrap(~ response, scales = "free_x") +
+  theme_bw() +geom_hline(yintercept=0) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(legend.position = "none")
+g2 <- g1 + 
+  stat_summary(fun.data = median_cl_boot, geom = "errorbar",
+               colour = "black", width = 0.2, size=1) + 
+  stat_summary(fun.y = median, geom = "point", 
+               colour = "black", size = 3)
+ggsave("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.HI.median.boot.pdf", plot=g2, width = 8, height = 4, units ="in")
+write.csv(P6.HI.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.HI.df.csv")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+# C4_storms
+```{python}
+
+## fDOM ##
+C4_storm1_Q['valuedatetime'] =  pd.to_datetime(C4_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm1_fDOM['valuedatetime'] =  pd.to_datetime(C4_storm1_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm1_fDOM = hysteresisMetrics(C4_storm1_Q, C4_storm1_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm2_Q['valuedatetime'] =  pd.to_datetime(C4_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm2_fDOM['valuedatetime'] =  pd.to_datetime(C4_storm2_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm2_fDOM = hysteresisMetrics(C4_storm2_Q, C4_storm2_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm3_Q['valuedatetime'] =  pd.to_datetime(C4_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm3_fDOM['valuedatetime'] =  pd.to_datetime(C4_storm3_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm3_fDOM = hysteresisMetrics(C4_storm3_Q, C4_storm3_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm4_Q['valuedatetime'] =  pd.to_datetime(C4_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm4_fDOM['valuedatetime'] =  pd.to_datetime(C4_storm4_fDOM['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm4_fDOM = hysteresisMetrics(C4_storm4_Q, C4_storm4_fDOM, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## SpCond ##
+C4_storm1_Q['valuedatetime'] =  pd.to_datetime(C4_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm1_SpCond['valuedatetime'] =  pd.to_datetime(C4_storm1_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm1_SpCond = hysteresisMetrics(C4_storm1_Q, C4_storm1_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm2_Q['valuedatetime'] =  pd.to_datetime(C4_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm2_SpCond['valuedatetime'] =  pd.to_datetime(C4_storm2_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm2_SpCond = hysteresisMetrics(C4_storm2_Q, C4_storm2_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm3_Q['valuedatetime'] =  pd.to_datetime(C4_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm3_SpCond['valuedatetime'] =  pd.to_datetime(C4_storm3_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm3_SpCond = hysteresisMetrics(C4_storm3_Q, C4_storm3_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm4_Q['valuedatetime'] =  pd.to_datetime(C4_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm4_SpCond['valuedatetime'] =  pd.to_datetime(C4_storm4_SpCond['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm4_SpCond = hysteresisMetrics(C4_storm4_Q, C4_storm4_SpCond, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+## turb ##
+C4_storm1_Q['valuedatetime'] =  pd.to_datetime(C4_storm1_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm1_turb['valuedatetime'] =  pd.to_datetime(C4_storm1_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm1_turb = hysteresisMetrics(C4_storm1_Q, C4_storm1_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm2_Q['valuedatetime'] =  pd.to_datetime(C4_storm2_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm2_turb['valuedatetime'] =  pd.to_datetime(C4_storm2_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm2_turb = hysteresisMetrics(C4_storm2_Q, C4_storm2_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm3_Q['valuedatetime'] =  pd.to_datetime(C4_storm3_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm3_turb['valuedatetime'] =  pd.to_datetime(C4_storm3_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm3_turb = hysteresisMetrics(C4_storm3_Q, C4_storm3_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+C4_storm4_Q['valuedatetime'] =  pd.to_datetime(C4_storm4_Q['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+C4_storm4_turb['valuedatetime'] =  pd.to_datetime(C4_storm4_turb['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+timespacing = 15 # 15 minutes between records
+hysdict_C4_storm4_turb = hysteresisMetrics(C4_storm4_Q, C4_storm4_turb, timespacing, timespacing, debug=False, interpall=True, discharge_time_spacing_units='minutes', response_time_spacing_units='minutes', discharge_units='Lsec')
+
+
+quit()
+```
+
+# C4 results
+```{r}
+
+C4.hyst.results.list = list(
+                         py$hysdict_C4_storm1_fDOM,
+                         py$hysdict_C4_storm2_fDOM,
+                         py$hysdict_C4_storm3_fDOM,
+                         py$hysdict_C4_storm4_fDOM,
+                         py$hysdict_C4_storm1_SpCond,
+                         py$hysdict_C4_storm2_SpCond,
+                         py$hysdict_C4_storm3_SpCond,
+                         py$hysdict_C4_storm4_SpCond,
+                         py$hysdict_C4_storm1_turb,
+                         py$hysdict_C4_storm2_turb,
+                         py$hysdict_C4_storm3_turb,
+                         py$hysdict_C4_storm4_turb)
+
+C4.hyst.results.list.2 = list()
+for (i in 1:length(C4.hyst.results.list)){
+C4.hyst.results.list.2[[i]] = as.data.frame(t(as.numeric(c(
+C4.hyst.results.list[[i]][["HI_mean_with_Interp"]],
+C4.hyst.results.list[[i]][["HI_standard_deviation_with_Interp"]],
+C4.hyst.results.list[[i]][["Normalized slope of response"]],
+C4.hyst.results.list[[i]][["interpolated Max width of response"]],
+C4.hyst.results.list[[i]][["Min response"]],
+C4.hyst.results.list[[i]][["Max response"]],
+C4.hyst.results.list[[i]][["Peak Q"]]
+))))
+names(C4.hyst.results.list.2[[i]]) = c("HI_mean_Interp", "HI_sd_with_Interp", "N.S.", "Max_width_Interp", "Min_response", "Max_response", "Peak_Q")
+}
+
+HIs.list = list()
+HIs.tests = list()
+for (i in 1:length(C4.hyst.results.list)){
+  HIs.list[[i]] = unlist(C4.hyst.results.list[[i]][["Hysteresis_Index"]],recursive=FALSE)
+  HIs.tests[[i]] = as.data.frame(t(round(as.numeric(c(shapiro.test(HIs.list[[i]])$statistic, shapiro.test(HIs.list[[i]])$p.value,
+                     t.test(HIs.list[[i]], mu=0)$statistic, t.test(HIs.list[[i]], mu=0)$p.value, 
+                     t.test(HIs.list[[i]], mu=0)$conf.int[1],t.test(HIs.list[[i]], mu=0)$conf.int[2],
+                     wilcox.test(HIs.list[[i]], mu=0)$statistic, wilcox.test(HIs.list[[i]], mu=0)$p.value)), 4)))
+  names(HIs.tests[[i]]) = c("ShapiroTest.W", "ShapiroTest.p", "t.test.stat", "t.test.p", "t.test.CIlow", "t.test.CIhigh",
+                            "wilcox.test.stat", "wilcox.test.p")
+}
+
+C4.hyst.results.list.3 =list()
+for (i in 1:length(C4.hyst.results.list)){
+  C4.hyst.results.list.3[[i]] = cbind(C4.hyst.results.list.2[[i]], HIs.tests[[i]])
+}
+
+C4.hyst.results.df = bind_rows(C4.hyst.results.list.3, .id = "column_label")
+
+C4.hyst.results.df$storm.ID = c(
+                         "C4_storm1_fDOM",
+                         "C4_storm2_fDOM",
+                         "C4_storm3_fDOM",
+                         "C4_storm4_fDOM",
+                         "C4_storm1_SpCond",
+                         "C4_storm2_SpCond",
+                         "C4_storm3_SpCond",
+                         "C4_storm4_SpCond",
+                         "C4_storm1_turb",
+                         "C4_storm2_turb",
+                         "C4_storm3_turb",
+                         "C4_storm4_turb")
+
+C4.hyst.results.df$site.ID = "C4"
+
+write.csv(C4.hyst.results.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.hyst.results.csv")
+
+# plot HI by normalized discharge
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.hyst.HI_Q.plots.pdf", width = 20, height =10, onefile=FALSE)
+par(mfrow=c(3,4))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+plot(HIs.df.list[[i]][["V1"]] ~ HIs.df.list[[i]][["V2"]], type="l",
+     ylab="norm.response", xlab="Q intervals", main= C4.hyst.results.df$storm.ID[i])
+abline(h=0, lty=2)
+}
+dev.off()
+
+# plot HI boxplots
+HIs.Q.list =list()
+HIs.df.list = list()
+pdf("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.hyst.HI_boxplots.pdf", width = 20, height =10, onefile=FALSE)
+par(mfrow=c(3,4))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  boxplot(HIs.df.list[[i]][["V1"]], xlab="HIs", main= C4.hyst.results.df$storm.ID[i])
+  abline(h=0, lty=2)
+}
+dev.off()
+
+
+## plot HI with bootstrapped 95% CIs around the median ##
+HIs.Q.list =list()
+HIs.df.list = list()
+par(mfrow=c(1,1))
+for (i in 1:length(HIs.list)) {
+  HIs.Q.list[[i]] = names(HIs.list[[i]])
+  HIs.Q.list[[i]] = (sapply(strsplit(HIs.Q.list[[i]], " "), "[[", 4))
+  HIs.Q.list[[i]] = as.numeric(gsub("%", "", HIs.Q.list[[i]]))
+  HIs.df.list[[i]] = as.data.frame(cbind(HIs.list[[i]], HIs.Q.list[[i]]))
+  HIs.df.list[[i]]= HIs.df.list[[i]][order(HIs.df.list[[i]][["V2"]]),]
+  names(HIs.df.list[[i]]) = c("HI", "Q_interval")
+}
+
+C4.HI.df = bind_rows(HIs.df.list, .id = "column_label")
+C4.HI.df$storm.ID = c(rep("C4_storm1_fDOM",50),
+                         rep("C4_storm2_fDOM",50),
+                         rep("C4_storm3_fDOM",50),
+                         rep("C4_storm4_fDOM",50),
+                         rep("C4_storm1_SpCond",50),
+                         rep("C4_storm2_SpCond",50),
+                         rep("C4_storm3_SpCond",50),
+                         rep("C4_storm4_SpCond",49),
+                         rep("C4_storm1_turb",50),
+                         rep("C4_storm2_turb",50),
+                         rep("C4_storm3_turb",50),
+                         rep("C4_storm4_turb", 50))
+C4.HI.df$storm.ID = as.factor(C4.HI.df$storm.ID)
+C4.HI.df = separate(data=C4.HI.df, col=storm.ID, into=c("site.ID","storm.num", "response"), sep = "_", remove = F)
+
+par(mfrow=c(1,1))
+median_cl_boot <- function(x, conf = 0.95) {
+  lconf <- (1 - conf)/2
+  uconf <- 1 - lconf
+  require(boot)
+  bmedian <- function(x, ind) median(x[ind])
+  bt <- boot(x, bmedian, 10000)
+  bb <- boot.ci(bt, conf = 0.95, type = "perc")
+  data.frame(y = median(x), ymin = quantile(bt$t, lconf), ymax = quantile(bt$t, 
+                                                                          uconf))
+}
+g0 <- ggplot(C4.HI.df, aes(x = storm.num, y = HI, label=storm.num, fill=response))
+g1 = g0 + geom_jitter(width = 0.1, fill = "grey", colour = "#F4A582", alpha=0.25, size=3) + 
+  theme(axis.text.x = element_text(angle = 0))+  labs(x="") + facet_wrap(~ response, scales = "free_x") +
+  theme_bw() +geom_hline(yintercept=0) + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(legend.position = "none")
+g2 <- g1 + 
+  stat_summary(fun.data = median_cl_boot, geom = "errorbar",
+               colour = "black", width = 0.2, size=1) + 
+  stat_summary(fun.y = median, geom = "point", 
+               colour = "black", size = 3)
+ggsave("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.HI.median.boot.pdf", plot=g2, width = 8, height = 4, units ="in")
+write.csv(C4.HI.df, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.HI.df.csv")
+
+
+```
+
+
+
+# ALL results
+Note: this data is from a CSV that I manually edited to include all sites and all storms
+```{r}
+all.results = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/ALL.hyst.results.csv", header = T)
+
+all.results$storm.ID = as.factor(all.results$storm.ID)
+all.results = separate(data=all.results, col=storm.ID, into=c("site.ID","storm.num", "response"), sep = "_", remove = F)
+
+all.results.sig = filter(all.results, all.results$wilcox.test.p<0.01)
+
+all.results.sig$site.ID <- factor(all.results.sig$site.ID, levels = c('C3','P6','C4','C2'))
+all.results$site.ID <- factor(all.results$site.ID, levels = c('C3','P6','C4','C2'))
+
+show_col(brewer_pal(palette="RdBu",-1)(4))
+ggplot(all.results.sig) +
+  geom_boxplot(aes(site.ID, HI_mean_Interp, colour=site.ID)) +
+  #scale_color_brewer(palette="RdBu", direction = -1, name="site.ID") +
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#F4A582", "#CA0020"))+
+  facet_wrap(~ response) +
+  theme_bw()
+
+
+ggplot(all.results.sig) +
+  geom_point(aes(storm.ID, HI_mean_Interp, colour=site.ID)) +
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#F4A582", "#CA0020"))+
+  facet_wrap(~ response) +
+  theme_bw() +
+  geom_errorbar(aes(x=storm.ID, 
+                    ymin=HI_mean_Interp-(HI_sd_with_Interp*2), 
+                    ymax=HI_mean_Interp+(HI_sd_with_Interp*2)), colour="black", alpha=0.5, size=.5) +
+  geom_hline(yintercept=0)
+
+all.HI.p = ggplot(all.results) +
+  geom_point(aes(storm.ID, HI_mean_Interp, colour=site.ID)) +
+  scale_color_manual(values = c("#0571B0", "#92C5DE", "#F4A582", "#CA0020"))+
+  facet_wrap(~ response, scales = "free_x") +
+  theme_bw() +
+  geom_errorbar(aes(x=storm.ID, 
+                    ymin=HI_mean_Interp-(HI_sd_with_Interp*2), 
+                    ymax=HI_mean_Interp+(HI_sd_with_Interp*2)), colour="black", alpha=0.5, size=.5) +
+  geom_hline(yintercept=0) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggsave("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/all.HI.p.pdf", plot=all.HI.p, width = 10, height = 7, units ="in")
+```
+
+
+
+# Flushing Index difference R analysis
+```{r}
+
+#### load storm data to R ####
+
+### Q dat ###
+C3_storm1_Q = read.csv("Stitched_data/storms/C3_storm1_Q.csv", header=T, row.names = 1) 
+C3_storm2_Q = read.csv("Stitched_data/storms/C3_storm2_Q.csv", header=T, row.names=1) 
+C3_storm3_Q = read.csv("Stitched_data/storms/C3_storm3_Q.csv", header=T, row.names=1) 
+C3_storm4_Q = read.csv("Stitched_data/storms/C3_storm4_Q.csv", header=T, row.names=1) 
+C3_storm5_Q = read.csv("Stitched_data/storms/C3_storm5_Q.csv", header=T, row.names=1) 
+##
+P6_storm1_Q = read.csv("Stitched_data/storms/P6_storm1_Q.csv", header=T, row.names=1) 
+P6_storm2_Q = read.csv("Stitched_data/storms/P6_storm2_Q.csv", header=T, row.names=1) 
+P6_storm3_Q = read.csv("Stitched_data/storms/P6_storm3_Q.csv", header=T, row.names=1) 
+P6_storm4_Q = read.csv("Stitched_data/storms/P6_storm4_Q.csv", header=T, row.names=1) 
+## 
+C2_storm1a_Q = read.csv("Stitched_data/storms/C2_storm1a_Q.csv", header=T, row.names=1) 
+C2_storm2_Q = read.csv("Stitched_data/storms/C2_storm2_Q.csv", header=T, row.names=1) 
+C2_storm3_Q = read.csv("Stitched_data/storms/C2_storm3_Q.csv", header=T, row.names=1) 
+C2_storm4_Q = read.csv("Stitched_data/storms/C2_storm4_Q.csv", header=T, row.names=1) 
+C2_storm5_Q = read.csv("Stitched_data/storms/C2_storm5_Q.csv", header=T, row.names=1) 
+##
+C4_storm1_Q = read.csv("Stitched_data/storms/C4_storm1_Q.csv", header=T, row.names=1) 
+C4_storm2_Q = read.csv("Stitched_data/storms/C4_storm2_Q.csv", header=T, row.names=1) 
+C4_storm3_Q = read.csv("Stitched_data/storms/C4_storm3_Q.csv", header=T, row.names=1) 
+C4_storm4_Q = read.csv("Stitched_data/storms/C4_storm4_Q.csv", header=T, row.names=1) 
+
+### solute data with bursts ###
+C2_NO3_storm_list = readRDS("Stitched_data/storms/with bursts/C2_NO3_storm_list.RData")
+C3_NO3_storm_list = readRDS("Stitched_data/storms/with bursts/C3_NO3_storm_list.RData")
+
+C2_fDOM_storm_list = readRDS("Stitched_data/storms/with bursts/C2_fDOM_storm_list.RData")
+C3_fDOM_storm_list = readRDS("Stitched_data/storms/with bursts/C3_fDOM_storm_list.RData")
+C4_fDOM_storm_list = readRDS("Stitched_data/storms/with bursts/C4_fDOM_storm_list.RData")
+P6_fDOM_storm_list = readRDS("Stitched_data/storms/with bursts/P6_fDOM_storm_list.RData")
+
+C2_SpCond_storm_list = readRDS("Stitched_data/storms/with bursts/C2_SpCond_storm_list.RData")
+C3_SpCond_storm_list = readRDS("Stitched_data/storms/with bursts/C3_SpCond_storm_list.RData")
+C4_SpCond_storm_list = readRDS("Stitched_data/storms/with bursts/C4_SpCond_storm_list.RData")
+P6_SpCond_storm_list = readRDS("Stitched_data/storms/with bursts/P6_SpCond_storm_list.RData")
+
+C2_turb_storm_list = readRDS("Stitched_data/storms/with bursts/C2_turb_storm_list.RData")
+C3_turb_storm_list = readRDS("Stitched_data/storms/with bursts/C3_turb_storm_list.RData")
+C4_turb_storm_list = readRDS("Stitched_data/storms/with bursts/C4_turb_storm_list.RData")
+P6_turb_storm_list = readRDS("Stitched_data/storms/with bursts/P6_turb_storm_list.RData")
+
+
+
+
+#### normalize Q data ####
+
+C2_storm1a_Q$datavalue.norm = 
+  (C2_storm1a_Q$datavalue - min(C2_storm1a_Q$datavalue, na.rm=T)) / 
+  (max(C2_storm1a_Q$datavalue, na.rm=T) - min(C2_storm1a_Q$datavalue, na.rm=T))
+C2_storm2_Q$datavalue.norm = 
+  (C2_storm2_Q$datavalue - min(C2_storm2_Q$datavalue, na.rm=T)) / 
+  (max(C2_storm2_Q$datavalue, na.rm=T) - min(C2_storm2_Q$datavalue, na.rm=T))
+C2_storm3_Q$datavalue.norm = 
+  (C2_storm3_Q$datavalue - min(C2_storm3_Q$datavalue, na.rm=T)) / 
+  (max(C2_storm3_Q$datavalue, na.rm=T) - min(C2_storm3_Q$datavalue, na.rm=T))
+C2_storm4_Q$datavalue.norm = 
+  (C2_storm4_Q$datavalue - min(C2_storm4_Q$datavalue, na.rm=T)) / 
+  (max(C2_storm4_Q$datavalue, na.rm=T) - min(C2_storm4_Q$datavalue, na.rm=T))
+C2_storm5_Q$datavalue.norm = 
+  (C2_storm5_Q$datavalue - min(C2_storm5_Q$datavalue, na.rm=T)) / 
+  (max(C2_storm5_Q$datavalue, na.rm=T) - min(C2_storm5_Q$datavalue, na.rm=T))
+
+C3_storm1_Q$datavalue.norm = 
+  (C3_storm1_Q$datavalue - min(C3_storm1_Q$datavalue, na.rm=T)) / 
+  (max(C3_storm1_Q$datavalue, na.rm=T) - min(C3_storm1_Q$datavalue, na.rm=T))
+C3_storm2_Q$datavalue.norm = 
+  (C3_storm2_Q$datavalue - min(C3_storm2_Q$datavalue, na.rm=T)) / 
+  (max(C3_storm2_Q$datavalue, na.rm=T) - min(C3_storm2_Q$datavalue, na.rm=T))
+C3_storm3_Q$datavalue.norm = 
+  (C3_storm3_Q$datavalue - min(C3_storm3_Q$datavalue, na.rm=T)) / 
+  (max(C3_storm3_Q$datavalue, na.rm=T) - min(C3_storm3_Q$datavalue, na.rm=T))
+C3_storm4_Q$datavalue.norm = 
+  (C3_storm4_Q$datavalue - min(C3_storm4_Q$datavalue, na.rm=T)) / 
+  (max(C3_storm4_Q$datavalue, na.rm=T) - min(C3_storm4_Q$datavalue, na.rm=T))
+C3_storm5_Q$datavalue.norm = 
+  (C3_storm5_Q$datavalue - min(C3_storm5_Q$datavalue, na.rm=T)) / 
+  (max(C3_storm5_Q$datavalue, na.rm=T) - min(C3_storm5_Q$datavalue, na.rm=T))
+
+C4_storm1_Q$datavalue.norm = 
+  (C4_storm1_Q$datavalue - min(C4_storm1_Q$datavalue, na.rm=T)) / 
+  (max(C4_storm1_Q$datavalue, na.rm=T) - min(C4_storm1_Q$datavalue, na.rm=T))
+C4_storm2_Q$datavalue.norm = 
+  (C4_storm2_Q$datavalue - min(C4_storm2_Q$datavalue, na.rm=T)) / 
+  (max(C4_storm2_Q$datavalue, na.rm=T) - min(C4_storm2_Q$datavalue, na.rm=T))
+C4_storm3_Q$datavalue.norm = 
+  (C4_storm3_Q$datavalue - min(C4_storm3_Q$datavalue, na.rm=T)) / 
+  (max(C4_storm3_Q$datavalue, na.rm=T) - min(C4_storm3_Q$datavalue, na.rm=T))
+C4_storm4_Q$datavalue.norm = 
+  (C4_storm4_Q$datavalue - min(C4_storm4_Q$datavalue, na.rm=T)) / 
+  (max(C4_storm4_Q$datavalue, na.rm=T) - min(C4_storm4_Q$datavalue, na.rm=T))
+
+P6_storm1_Q$datavalue.norm = 
+  (P6_storm1_Q$datavalue - min(P6_storm1_Q$datavalue, na.rm=T)) / 
+  (max(P6_storm1_Q$datavalue, na.rm=T) - min(P6_storm1_Q$datavalue, na.rm=T))
+P6_storm2_Q$datavalue.norm = 
+  (P6_storm2_Q$datavalue - min(P6_storm2_Q$datavalue, na.rm=T)) / 
+  (max(P6_storm2_Q$datavalue, na.rm=T) - min(P6_storm2_Q$datavalue, na.rm=T))
+P6_storm3_Q$datavalue.norm = 
+  (P6_storm3_Q$datavalue - min(P6_storm3_Q$datavalue, na.rm=T)) / 
+  (max(P6_storm3_Q$datavalue, na.rm=T) - min(P6_storm3_Q$datavalue, na.rm=T))
+P6_storm4_Q$datavalue.norm = 
+  (P6_storm4_Q$datavalue - min(P6_storm4_Q$datavalue, na.rm=T)) / 
+  (max(P6_storm4_Q$datavalue, na.rm=T) - min(P6_storm4_Q$datavalue, na.rm=T))
+
+#### normalize solute data ####
+
+### remove burst-complied data ###
+
+for(i in 1:length(C2_NO3_storm_list)){
+  C2_NO3_storm_list[[i]][["datavalue"]] = C2_NO3_storm_list[[i]][["nitrateuM"]]
+  C2_NO3_storm_list[[i]][["nitrateuM"]] = NULL
+}
+for(i in 1:length(C3_NO3_storm_list)){
+  C3_NO3_storm_list[[i]][["datavalue"]] = C3_NO3_storm_list[[i]][["nitrateuM"]]
+  C3_NO3_storm_list[[i]][["nitrateuM"]] = NULL
+}
+
+for(i in 1:length(C2_fDOM_storm_list)){
+  C2_fDOM_storm_list[[i]][["datavalue"]] = C2_fDOM_storm_list[[i]][["fDOMQSU"]]
+  C2_fDOM_storm_list[[i]][["fDOMQSU"]] = NULL
+}
+for(i in 1:length(C3_fDOM_storm_list)){
+  C3_fDOM_storm_list[[i]][["datavalue"]] = C3_fDOM_storm_list[[i]][["fDOMQSU"]]
+  C3_fDOM_storm_list[[i]][["fDOMQSU"]] = NULL
+}
+for(i in 1:length(C4_fDOM_storm_list)){
+  C4_fDOM_storm_list[[i]][["datavalue"]] = C4_fDOM_storm_list[[i]][["fDOMQSU"]]
+  C4_fDOM_storm_list[[i]][["fDOMQSU"]] = NULL
+}
+for(i in 1:length(P6_fDOM_storm_list)){
+  P6_fDOM_storm_list[[i]][["datavalue"]] = P6_fDOM_storm_list[[i]][["fDOMQSU"]]
+  P6_fDOM_storm_list[[i]][["fDOMQSU"]] = NULL
+}
+
+for(i in 1:length(C2_SpCond_storm_list)){
+  C2_SpCond_storm_list[[i]][["datavalue"]] = C2_SpCond_storm_list[[i]][["SpConduScm"]]
+  C2_SpCond_storm_list[[i]][["SpConduScm"]] = NULL
+}
+for(i in 1:length(C3_SpCond_storm_list)){
+  C3_SpCond_storm_list[[i]][["datavalue"]] = C3_SpCond_storm_list[[i]][["SpConduScm"]]
+  C3_SpCond_storm_list[[i]][["SpConduScm"]] = NULL
+}
+for(i in 1:length(C4_SpCond_storm_list)){
+  C4_SpCond_storm_list[[i]][["datavalue"]] = C4_SpCond_storm_list[[i]][["SpConduScm"]]
+  C4_SpCond_storm_list[[i]][["SpConduScm"]] = NULL
+}
+for(i in 1:length(P6_SpCond_storm_list)){
+  P6_SpCond_storm_list[[i]][["datavalue"]] = P6_SpCond_storm_list[[i]][["SpConduScm"]]
+  P6_SpCond_storm_list[[i]][["SpConduScm"]] = NULL
+}
+
+for(i in 1:length(C2_turb_storm_list)){
+  C2_turb_storm_list[[i]][["datavalue"]] = C2_turb_storm_list[[i]][["TurbidityFNU"]]
+  C2_turb_storm_list[[i]][["TurbidityFNU"]] = NULL
+}
+for(i in 1:length(C3_turb_storm_list)){
+  C3_turb_storm_list[[i]][["datavalue"]] = C3_turb_storm_list[[i]][["TurbidityFNU"]]
+  C3_turb_storm_list[[i]][["TurbidityFNU"]] = NULL
+}
+for(i in 1:length(C4_turb_storm_list)){
+  C4_turb_storm_list[[i]][["datavalue"]] = C4_turb_storm_list[[i]][["TurbidityFNU"]]
+  C4_turb_storm_list[[i]][["TurbidityFNU"]] = NULL
+}
+for(i in 1:length(P6_turb_storm_list)){
+  P6_turb_storm_list[[i]][["datavalue"]] = P6_turb_storm_list[[i]][["TurbidityFNU"]]
+  P6_turb_storm_list[[i]][["TurbidityFNU"]] = NULL
+}
+
+### normalize burst data ###
+
+for(i in 1:length(C2_NO3_storm_list)){
+  C2_NO3_storm_list[[i]][["datavalue.norm"]] = 
+  (C2_NO3_storm_list[[i]][["datavalue"]]-min(C2_NO3_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C2_NO3_storm_list[[i]][["datavalue"]], na.rm=T)-min(C2_NO3_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C3_NO3_storm_list)){
+  C3_NO3_storm_list[[i]][["datavalue.norm"]] = 
+  (C3_NO3_storm_list[[i]][["datavalue"]]-min(C3_NO3_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C3_NO3_storm_list[[i]][["datavalue"]], na.rm=T)-min(C3_NO3_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+
+for(i in 1:length(C2_fDOM_storm_list)){
+  C2_fDOM_storm_list[[i]][["datavalue.norm"]] = 
+  (C2_fDOM_storm_list[[i]][["datavalue"]]-min(C2_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C2_fDOM_storm_list[[i]][["datavalue"]], na.rm=T)-min(C2_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C3_fDOM_storm_list)){
+  C3_fDOM_storm_list[[i]][["datavalue.norm"]] = 
+  (C3_fDOM_storm_list[[i]][["datavalue"]]-min(C3_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C3_fDOM_storm_list[[i]][["datavalue"]], na.rm=T)-min(C3_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C4_fDOM_storm_list)){
+  C4_fDOM_storm_list[[i]][["datavalue.norm"]] = 
+  (C4_fDOM_storm_list[[i]][["datavalue"]]-min(C4_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C4_fDOM_storm_list[[i]][["datavalue"]], na.rm=T)-min(C4_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(P6_fDOM_storm_list)){
+  P6_fDOM_storm_list[[i]][["datavalue.norm"]] = 
+  (P6_fDOM_storm_list[[i]][["datavalue"]]-min(P6_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(P6_fDOM_storm_list[[i]][["datavalue"]], na.rm=T)-min(P6_fDOM_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+
+for(i in 1:length(C2_SpCond_storm_list)){
+  C2_SpCond_storm_list[[i]][["datavalue.norm"]] = 
+  (C2_SpCond_storm_list[[i]][["datavalue"]]-min(C2_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C2_SpCond_storm_list[[i]][["datavalue"]], na.rm=T)-min(C2_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C3_SpCond_storm_list)){
+  C3_SpCond_storm_list[[i]][["datavalue.norm"]] = 
+  (C3_SpCond_storm_list[[i]][["datavalue"]]-min(C3_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C3_SpCond_storm_list[[i]][["datavalue"]], na.rm=T)-min(C3_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C4_SpCond_storm_list)){
+  C4_SpCond_storm_list[[i]][["datavalue.norm"]] = 
+  (C4_SpCond_storm_list[[i]][["datavalue"]]-min(C4_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C4_SpCond_storm_list[[i]][["datavalue"]], na.rm=T)-min(C4_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(P6_SpCond_storm_list)){
+  P6_SpCond_storm_list[[i]][["datavalue.norm"]] = 
+  (P6_SpCond_storm_list[[i]][["datavalue"]]-min(P6_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(P6_SpCond_storm_list[[i]][["datavalue"]], na.rm=T)-min(P6_SpCond_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+
+for(i in 1:length(C2_turb_storm_list)){
+  C2_turb_storm_list[[i]][["datavalue.norm"]] = 
+  (C2_turb_storm_list[[i]][["datavalue"]]-min(C2_turb_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C2_turb_storm_list[[i]][["datavalue"]], na.rm=T)-min(C2_turb_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C3_turb_storm_list)){
+  C3_turb_storm_list[[i]][["datavalue.norm"]] = 
+  (C3_turb_storm_list[[i]][["datavalue"]]-min(C3_turb_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C3_turb_storm_list[[i]][["datavalue"]], na.rm=T)-min(C3_turb_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(C4_turb_storm_list)){
+  C4_turb_storm_list[[i]][["datavalue.norm"]] = 
+  (C4_turb_storm_list[[i]][["datavalue"]]-min(C4_turb_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(C4_turb_storm_list[[i]][["datavalue"]], na.rm=T)-min(C4_turb_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+for(i in 1:length(P6_turb_storm_list)){
+  P6_turb_storm_list[[i]][["datavalue.norm"]] = 
+  (P6_turb_storm_list[[i]][["datavalue"]]-min(P6_turb_storm_list[[i]][["datavalue"]], na.rm=T))/
+  (max(P6_turb_storm_list[[i]][["datavalue"]], na.rm=T)-min(P6_turb_storm_list[[i]][["datavalue"]], na.rm=T))
+}
+
+
+# replace missing values in storms missing the first point with the second point
+head(C4_fDOM_storm_list[["C4_storm1_fDOM"]], 20)
+C4_fDOM_storm_list[["C4_storm1_fDOM"]][1:6,2] = C4_fDOM_storm_list[["C4_storm1_fDOM"]][7:12,2] 
+C4_fDOM_storm_list[["C4_storm1_fDOM"]][1:6,3] = C4_fDOM_storm_list[["C4_storm1_fDOM"]][7:12,3] 
+
+head(C4_SpCond_storm_list[["C4_storm1_SpCond"]], 20)
+C4_SpCond_storm_list[["C4_storm1_SpCond"]][1:6,2] = C4_SpCond_storm_list[["C4_storm1_SpCond"]][7:12,2] 
+C4_SpCond_storm_list[["C4_storm1_SpCond"]][1:6,3] = C4_SpCond_storm_list[["C4_storm1_SpCond"]][7:12,3] 
+
+
+
+# #### compile bursts ####
+# 
+# C2_NO3_storm_list.st = list()
+# 
+# for(i in 1:length(C2_NO3_storm_list)){
+# min<-cut(C2_NO3_storm_list[[i]][["valuedatetime"]], breaks="1 min")
+# C2_NO3_storm_list.st[[i]] <- as.data.frame(as.list(aggregate(cbind(datavalue, nitrateuM,
+#                                                                    datavalue.norm, burst.norm)
+#                                                ~ min, data=C2_NO3_storm_list[[i]],
+#                                                na.action=na.pass,
+#                                                FUN=function(x) c(mn=mean(x), SD=sd(x)))))
+# C2_NO3_storm_list.st[[i]][["valuedatetime"]]<-as.POSIXct(C2_NO3_storm_list.st[[i]][["min"]], "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+# }
+
+#### fxn: calculate FI by difference and bootstrap CIs ####
+
+FI_diff = function(dat_Q, dat_response) {
+  FI_dat = rbind(dat_response[as.POSIXct(dat_response$valuedatetime) == min(as.POSIXct(dat_response$valuedatetime)),], 
+                          dat_response[as.POSIXct(dat_response$valuedatetime) == as.POSIXct(dat_Q$valuedatetime[dat_Q$datavalue.norm == max(dat_Q$datavalue.norm)]),])
+
+FI_dat$valuedatetime = as.character(as.POSIXct(FI_dat$valuedatetime))
+
+dat_Q$valuedatetime = as.character(as.POSIXct(dat_Q$valuedatetime))
+
+FI_dat = left_join(FI_dat, 
+                   subset(dat_Q, select=c("valuedatetime", "datavalue.norm")),
+                   by="valuedatetime")
+
+names(FI_dat) = c("valuedatetime", "datavalue", "datavalue.norm", "Q")
+
+FI_dat$datavalue.norm = as.numeric(FI_dat$datavalue.norm)
+FI_dat$Q = as.numeric(FI_dat$Q)
+
+FI = mean(FI_dat$datavalue.norm[FI_dat$valuedatetime == max(FI_dat$valuedatetime)]) - mean(FI_dat$datavalue.norm[FI_dat$valuedatetime == min(FI_dat$valuedatetime)])
+
+meanDiff = function(data, indices) { 
+  d <- data[indices,] # allows boot to select sample
+  m1 = mean(d$datavalue.norm[d$valuedatetime == max(d$valuedatetime)])
+  m2 = mean(d$datavalue.norm[d$valuedatetime == min(d$valuedatetime)])
+  m = m1 - m2
+  return(m)
+}
+
+FI_boot = boot(FI_dat, meanDiff, R = 10000, strata = as.factor(FI_dat[,1]))
+FI_bootCI = boot.ci(FI_boot, type="bca")
+
+FI_bootCI = data.frame(cbind(FI_boot$t0, FI_bootCI[["bca"]][4], FI_bootCI[["bca"]][5]))
+names(FI_bootCI) = c("FI", "lower", "upper")
+
+FI_results = list(FI_dat, FI_bootCI)
+
+return(FI_results)
+}
+
+#### calculate FI by difference and bootstrap CIs ####
+
+C2_storm1a_fDOM_FI = FI_diff(C2_storm1a_Q, C2_fDOM_storm_list[["C2_storm1a_fDOM"]])
+C2_storm2_fDOM_FI = FI_diff(C2_storm2_Q, C2_fDOM_storm_list[["C2_storm2_fDOM"]])
+C2_storm3_fDOM_FI = FI_diff(C2_storm3_Q, C2_fDOM_storm_list[["C2_storm3_fDOM"]])
+C2_storm4_fDOM_FI = FI_diff(C2_storm4_Q, C2_fDOM_storm_list[["C2_storm4_fDOM"]])
+C2_storm5_fDOM_FI = FI_diff(C2_storm5_Q, C2_fDOM_storm_list[["C2_storm5_fDOM"]])
+
+C2_storm1a_NO3_FI = FI_diff(C2_storm1a_Q, C2_NO3_storm_list[["C2_storm1a_NO3"]])
+C2_storm2_NO3_FI = FI_diff(C2_storm2_Q, C2_NO3_storm_list[["C2_storm2_NO3"]])
+C2_storm3_NO3_FI = FI_diff(C2_storm3_Q, C2_NO3_storm_list[["C2_storm3_NO3"]])
+C2_storm4_NO3_FI = FI_diff(C2_storm4_Q, C2_NO3_storm_list[["C2_storm4_NO3"]])
+C2_storm5_NO3_FI = FI_diff(C2_storm5_Q, C2_NO3_storm_list[["C2_storm5_NO3"]])
+
+C2_storm1a_SpCond_FI = FI_diff(C2_storm1a_Q, C2_SpCond_storm_list[["C2_storm1a_SpCond"]])
+C2_storm2_SpCond_FI = FI_diff(C2_storm2_Q, C2_SpCond_storm_list[["C2_storm2_SpCond"]])
+C2_storm3_SpCond_FI = FI_diff(C2_storm3_Q, C2_SpCond_storm_list[["C2_storm3_SpCond"]])
+C2_storm4_SpCond_FI = FI_diff(C2_storm4_Q, C2_SpCond_storm_list[["C2_storm4_SpCond"]])
+C2_storm5_SpCond_FI = FI_diff(C2_storm5_Q, C2_SpCond_storm_list[["C2_storm5_SpCond"]])
+
+C2_storm1a_turb_FI = FI_diff(C2_storm1a_Q, C2_turb_storm_list[["C2_storm1a_turb"]])
+C2_storm2_turb_FI = FI_diff(C2_storm2_Q, C2_turb_storm_list[["C2_storm2_turb"]])
+C2_storm3_turb_FI = FI_diff(C2_storm3_Q, C2_turb_storm_list[["C2_storm3_turb"]])
+C2_storm4_turb_FI = FI_diff(C2_storm4_Q, C2_turb_storm_list[["C2_storm4_turb"]])
+C2_storm5_turb_FI = FI_diff(C2_storm5_Q, C2_turb_storm_list[["C2_storm5_turb"]])
+
+##
+
+C3_storm1_fDOM_FI = FI_diff(C3_storm1_Q, C3_fDOM_storm_list[["C3_storm1_fDOM"]])
+C3_storm2_fDOM_FI = FI_diff(C3_storm2_Q, C3_fDOM_storm_list[["C3_storm2_fDOM"]])
+C3_storm3_fDOM_FI = FI_diff(C3_storm3_Q, C3_fDOM_storm_list[["C3_storm3_fDOM"]])
+C3_storm4_fDOM_FI = FI_diff(C3_storm4_Q, C3_fDOM_storm_list[["C3_storm4_fDOM"]])
+C3_storm5_fDOM_FI = FI_diff(C3_storm5_Q, C3_fDOM_storm_list[["C3_storm5_fDOM"]])
+
+C3_storm1_NO3_FI = FI_diff(C3_storm1_Q, C3_NO3_storm_list[["C3_storm1_NO3"]])
+C3_storm2_NO3_FI = FI_diff(C3_storm2_Q, C3_NO3_storm_list[["C3_storm2_NO3"]])
+C3_storm3_NO3_FI = FI_diff(C3_storm3_Q, C3_NO3_storm_list[["C3_storm3_NO3"]])
+C3_storm4_NO3_FI = FI_diff(C3_storm4_Q, C3_NO3_storm_list[["C3_storm4_NO3"]])
+C3_storm5_NO3_FI = FI_diff(C3_storm5_Q, C3_NO3_storm_list[["C3_storm5_NO3"]])
+
+C3_storm1_SpCond_FI = FI_diff(C3_storm1_Q, C3_SpCond_storm_list[["C3_storm1_SpCond"]])
+C3_storm2_SpCond_FI = FI_diff(C3_storm2_Q, C3_SpCond_storm_list[["C3_storm2_SpCond"]])
+C3_storm3_SpCond_FI = FI_diff(C3_storm3_Q, C3_SpCond_storm_list[["C3_storm3_SpCond"]])
+C3_storm4_SpCond_FI = FI_diff(C3_storm4_Q, C3_SpCond_storm_list[["C3_storm4_SpCond"]])
+C3_storm5_SpCond_FI = FI_diff(C3_storm5_Q, C3_SpCond_storm_list[["C3_storm5_SpCond"]])
+
+C3_storm1_turb_FI = FI_diff(C3_storm1_Q, C3_turb_storm_list[["C3_storm1_turb"]])
+C3_storm2_turb_FI = FI_diff(C3_storm2_Q, C3_turb_storm_list[["C3_storm2_turb"]])
+C3_storm3_turb_FI = FI_diff(C3_storm3_Q, C3_turb_storm_list[["C3_storm3_turb"]])
+C3_storm4_turb_FI = FI_diff(C3_storm4_Q, C3_turb_storm_list[["C3_storm4_turb"]])
+C3_storm5_turb_FI = FI_diff(C3_storm5_Q, C3_turb_storm_list[["C3_storm5_turb"]])
+
+##
+
+C4_storm1_fDOM_FI = FI_diff(C4_storm1_Q, C4_fDOM_storm_list[["C4_storm1_fDOM"]])
+C4_storm2_fDOM_FI = FI_diff(C4_storm2_Q, C4_fDOM_storm_list[["C4_storm2_fDOM"]])
+C4_storm3_fDOM_FI = FI_diff(C4_storm3_Q, C4_fDOM_storm_list[["C4_storm3_fDOM"]])
+C4_storm4_fDOM_FI = FI_diff(C4_storm4_Q, C4_fDOM_storm_list[["C4_storm4_fDOM"]])
+
+C4_storm1_SpCond_FI = FI_diff(C4_storm1_Q, C4_SpCond_storm_list[["C4_storm1_SpCond"]])
+C4_storm2_SpCond_FI = FI_diff(C4_storm2_Q, C4_SpCond_storm_list[["C4_storm2_SpCond"]])
+C4_storm3_SpCond_FI = FI_diff(C4_storm3_Q, C4_SpCond_storm_list[["C4_storm3_SpCond"]])
+C4_storm4_SpCond_FI = FI_diff(C4_storm4_Q, C4_SpCond_storm_list[["C4_storm4_SpCond"]])
+
+C4_storm1_turb_FI = FI_diff(C4_storm1_Q, C4_turb_storm_list[["C4_storm1_turb"]])
+C4_storm2_turb_FI = FI_diff(C4_storm2_Q, C4_turb_storm_list[["C4_storm2_turb"]])
+C4_storm3_turb_FI = FI_diff(C4_storm3_Q, C4_turb_storm_list[["C4_storm3_turb"]])
+C4_storm4_turb_FI = FI_diff(C4_storm4_Q, C4_turb_storm_list[["C4_storm4_turb"]])
+
+##
+
+P6_storm1_fDOM_FI = FI_diff(P6_storm1_Q, P6_fDOM_storm_list[["P6_storm1_fDOM"]])
+P6_storm2_fDOM_FI = FI_diff(P6_storm2_Q, P6_fDOM_storm_list[["P6_storm2_fDOM"]])
+P6_storm3_fDOM_FI = FI_diff(P6_storm3_Q, P6_fDOM_storm_list[["P6_storm3_fDOM"]])
+P6_storm4_fDOM_FI = FI_diff(P6_storm4_Q, P6_fDOM_storm_list[["P6_storm4_fDOM"]])
+
+P6_storm1_SpCond_FI = FI_diff(P6_storm1_Q, P6_SpCond_storm_list[["P6_storm1_SpCond"]])
+P6_storm2_SpCond_FI = FI_diff(P6_storm2_Q, P6_SpCond_storm_list[["P6_storm2_SpCond"]])
+P6_storm3_SpCond_FI = FI_diff(P6_storm3_Q, P6_SpCond_storm_list[["P6_storm3_SpCond"]])
+P6_storm4_SpCond_FI = FI_diff(P6_storm4_Q, P6_SpCond_storm_list[["P6_storm4_SpCond"]])
+
+P6_storm1_turb_FI = FI_diff(P6_storm1_Q, P6_turb_storm_list[["P6_storm1_turb"]])
+P6_storm2_turb_FI = FI_diff(P6_storm2_Q, P6_turb_storm_list[["P6_storm2_turb"]])
+P6_storm3_turb_FI = FI_diff(P6_storm3_Q, P6_turb_storm_list[["P6_storm3_turb"]])
+P6_storm4_turb_FI = FI_diff(P6_storm4_Q, P6_turb_storm_list[["P6_storm4_turb"]])
+
+#### gather results and save ####
+
+
+FI_results = rbind(
+  c("C2_storm1a_fDOM_FI",C2_storm1a_fDOM_FI[[2]]),
+  c("C2_storm2_fDOM_FI",C2_storm2_fDOM_FI[[2]]),
+  c("C2_storm3_fDOM_FI",C2_storm3_fDOM_FI[[2]]),
+  c("C2_storm4_fDOM_FI",C2_storm4_fDOM_FI[[2]]),
+  c("C2_storm5_fDOM_FI",C2_storm5_fDOM_FI[[2]]),
+  
+  c("C2_storm1a_NO3_FI",C2_storm1a_NO3_FI[[2]]),
+  c("C2_storm2_NO3_FI",C2_storm2_NO3_FI[[2]]),
+  c("C2_storm3_NO3_FI",C2_storm3_NO3_FI[[2]]),
+  c("C2_storm4_NO3_FI",C2_storm4_NO3_FI[[2]]),
+  c("C2_storm5_NO3_FI",NA, NA, NA), # no NO3 data for this storm
+  
+  c("C2_storm1a_SpCond_FI", -0.4655172, 0, 0), # burst data had no variation, so fxn failed
+  c("C2_storm2_SpCond_FI",C2_storm2_SpCond_FI[[2]]),
+  c("C2_storm3_SpCond_FI",C2_storm3_SpCond_FI[[2]]),
+  c("C2_storm4_SpCond_FI",C2_storm4_SpCond_FI[[2]]),
+  c("C2_storm5_SpCond_FI",C2_storm5_SpCond_FI[[2]]),
+  
+  c("C2_storm1a_turb_FI",C2_storm1a_turb_FI[[2]]),
+  c("C2_storm2_turb_FI",C2_storm2_turb_FI[[2]]),
+  c("C2_storm3_turb_FI",C2_storm3_turb_FI[[2]]),
+  c("C2_storm4_turb_FI",C2_storm4_turb_FI[[2]]),
+  c("C2_storm5_turb_FI",C2_storm5_turb_FI[[2]]),
+  
+  c("C3_storm1_fDOM_FI",C3_storm1_fDOM_FI[[2]]),
+  c("C3_storm2_fDOM_FI",C3_storm2_fDOM_FI[[2]]),
+  c("C3_storm3_fDOM_FI",C3_storm3_fDOM_FI[[2]]),
+  c("C3_storm4_fDOM_FI",NA,NA,NA),# no fFOM data for this storm
+  c("C3_storm5_fDOM_FI",C3_storm5_fDOM_FI[[2]]),
+  
+  c("C3_storm1_NO3_FI",C3_storm1_NO3_FI[[2]]),
+  c("C3_storm2_NO3_FI",C3_storm2_NO3_FI[[2]]),
+  c("C3_storm3_NO3_FI",C3_storm3_NO3_FI[[2]]),
+  c("C3_storm4_NO3_FI",C3_storm4_NO3_FI[[2]]),
+  c("C3_storm5_NO3_FI",C3_storm5_NO3_FI[[2]]),
+  
+  c("C3_storm1_SpCond_FI",C3_storm1_SpCond_FI[[2]]),
+  c("C3_storm2_SpCond_FI",C3_storm2_SpCond_FI[[2]]),
+  c("C3_storm3_SpCond_FI",C3_storm3_SpCond_FI[[2]]),
+  c("C3_storm4_SpCond_FI",C3_storm4_SpCond_FI[[2]]),
+  c("C3_storm5_SpCond_FI",C3_storm5_SpCond_FI[[2]]),
+  
+  c("C3_storm1_turb_FI",C3_storm1_turb_FI[[2]]),
+  c("C3_storm2_turb_FI",C3_storm2_turb_FI[[2]]),
+  c("C3_storm3_turb_FI",C3_storm3_turb_FI[[2]]),
+  c("C3_storm4_turb_FI",C3_storm4_turb_FI[[2]]),
+  c("C3_storm5_turb_FI",C3_storm5_turb_FI[[2]]),
+  
+  c("C4_storm1_fDOM_FI",C4_storm1_fDOM_FI[[2]]),
+  c("C4_storm2_fDOM_FI",C4_storm2_fDOM_FI[[2]]),
+  c("C4_storm3_fDOM_FI",C4_storm3_fDOM_FI[[2]]),
+  c("C4_storm4_fDOM_FI",C4_storm4_fDOM_FI[[2]]),
+  
+  c("C4_storm1_SpCond_FI",C4_storm1_SpCond_FI[[2]]),
+  c("C4_storm2_SpCond_FI",C4_storm2_SpCond_FI[[2]]),
+  c("C4_storm3_SpCond_FI",C4_storm3_SpCond_FI[[2]]),
+  c("C4_storm4_SpCond_FI",C4_storm4_SpCond_FI[[2]]),
+  
+  c("C4_storm1_turb_FI",C4_storm1_turb_FI[[2]]),
+  c("C4_storm2_turb_FI",C4_storm2_turb_FI[[2]]),
+  c("C4_storm3_turb_FI",C4_storm3_turb_FI[[2]]),
+  c("C4_storm4_turb_FI",C4_storm4_turb_FI[[2]]),
+  
+  c("P6_storm1_fDOM_FI",P6_storm1_fDOM_FI[[2]]),
+  c("P6_storm2_fDOM_FI",P6_storm2_fDOM_FI[[2]]),
+  c("P6_storm3_fDOM_FI",P6_storm3_fDOM_FI[[2]]),
+  c("P6_storm4_fDOM_FI",P6_storm4_fDOM_FI[[2]]),
+  
+  c("P6_storm1_SpCond_FI",P6_storm1_SpCond_FI[[2]]),
+  c("P6_storm2_SpCond_FI",P6_storm2_SpCond_FI[[2]]),
+  c("P6_storm3_SpCond_FI",P6_storm3_SpCond_FI[[2]]),
+  c("P6_storm4_SpCond_FI",P6_storm4_SpCond_FI[[2]]),
+  
+  c("P6_storm1_turb_FI",P6_storm1_turb_FI[[2]]),
+  c("P6_storm2_turb_FI",P6_storm2_turb_FI[[2]]),
+  c("P6_storm3_turb_FI",P6_storm3_turb_FI[[2]]),
+  c("P6_storm4_turb_FI",P6_storm4_turb_FI[[2]]))
+
+
+FI_results = as.data.frame(FI_results)
+
+names(FI_results) = c("ID", "Flushing_index", "percCI_2.5", "percCI_97.5")
+
+FI_results$ID = unlist(FI_results$ID)
+FI_results$Flushing_index = round(as.numeric(as.character(FI_results$Flushing_index)), 4)
+FI_results$`percCI_2.5` = round(as.numeric(as.character(FI_results$`percCI_2.5`)), 4)
+FI_results$`percCI_97.5` = round(as.numeric(as.character(FI_results$`percCI_97.5`)), 4)
+
+write.csv(FI_results, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/all.FI.diff.results.csv")
+
+
+```
+
+##### Plot HI + FI (by difference) results ####
+```{r}
+#### calculate 95% bootstrap around median of Hyst. Indicies for each site and storm ####
+
+median_cl_boot <- function(x, conf = 0.95) {
+  lconf <- (1 - conf)/2
+  uconf <- 1 - lconf
+  require(boot)
+  bmedian <- function(x, ind) median(x[ind])
+  bt <- boot(x, bmedian, 10000)
+  bb <- boot.ci(bt, conf = 0.95, type = "perc")
+  data.frame(y = median(x), ymin = quantile(bt$t, lconf), ymax = quantile(bt$t, 
+                                                                          uconf))
+}
+
+# C2 #
+C2.HI.df = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C2.HI.df.csv", header=T, row.names = 1)
+
+storm.list = unique(C2.HI.df$storm.ID)
+C2.HI.boot <- do.call(rbind.data.frame,
+             lapply(storm.list, function(i){
+                      dat = subset(C2.HI.df, storm.ID == i)
+                      median_cl_boot(dat$HI)
+                      }))
+C2.HI.boot$storm.ID = storm.list
+
+# C3 #
+C3.HI.df = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C3.HI.df.csv", header=T, row.names = 1)
+
+C3.HI.df = subset(C3.HI.df, storm.num == c("storm1", "storm2", "storm3", "storm4", "storm5"))
+
+storm.list = unique(C3.HI.df$storm.ID)
+C3.HI.boot <- do.call(rbind.data.frame,
+             lapply(storm.list, function(i){
+                      dat = subset(C3.HI.df, storm.ID == i)
+                      median_cl_boot(dat$HI)
+                      }))
+C3.HI.boot$storm.ID = storm.list
+
+# C4 #
+C4.HI.df = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/C4.HI.df.csv", header=T, row.names = 1)
+
+storm.list = unique(C4.HI.df$storm.ID)
+C4.HI.boot <- do.call(rbind.data.frame,
+             lapply(storm.list, function(i){
+                      dat = subset(C4.HI.df, storm.ID == i)
+                      median_cl_boot(dat$HI)
+                      }))
+C4.HI.boot$storm.ID = storm.list
+
+# P6 #
+P6.HI.df = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/P6.HI.df.csv", header=T, row.names = 1)
+
+storm.list = unique(P6.HI.df$storm.ID)
+P6.HI.boot <- do.call(rbind.data.frame,
+             lapply(storm.list, function(i){
+                      dat = subset(P6.HI.df, storm.ID == i)
+                      median_cl_boot(dat$HI)
+                      }))
+P6.HI.boot$storm.ID = storm.list
+
+#### join data ####
+
+C2.HI.boot$site.ID = "C2"
+C3.HI.boot$site.ID = "C3"
+C4.HI.boot$site.ID = "C4"
+P6.HI.boot$site.ID = "P6"
+
+HI = rbind(C2.HI.boot, C3.HI.boot, C4.HI.boot, P6.HI.boot)
+
+all.FI.diff.results = read.csv("/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/all.FI.diff.results.csv", header = T, row.names = 1)
+
+FI = subset(all.FI.diff.results, select=c("Flushing_index", "percCI_2.5", "percCI_97.5", "ID"))
+FI$ID = as.character(FI$ID)
+FI = separate(FI, ID, into=c("site.ID", "storm.ID", "response_var", NA), sep = "_")
+names(FI) = c("Flush_index", "FI_ymin", "FI_ymax","site.ID", "storm.ID", "response_var")
+
+HI$site.ID=NULL
+HI = separate(HI, storm.ID, into=c("site.ID", "storm.ID", "response_var"), sep = "_")
+names(HI) = c("Hyst_index", "HI_ymin", "HI_ymax","site.ID", "storm.ID", "response_var")
+
+HI_FI = left_join(HI, FI, by=c("site.ID", "storm.ID", "response_var"))
+write.csv(HI_FI, "/Users/alexwebster/Dropbox/Harms Lab/CPCRW 2017/new tidy files/CPCRW_2017/Output from analyses/24_25_CPCRW_2017/HI_FI.diff_results.csv")
+
+# remove huge flushing index CIs (will later ID these as being non-sig)
+#HI_FI$FI_ymin[HI_FI$FI_ymin < -3] = NA
+#HI_FI$FI_ymax[HI_FI$FI_ymax > 3] = NA
+
+#### plot ####
+
+### NO3 ###
+
+HI_FI_NO3 = subset(HI_FI, response_var == "NO3")
+HI_FI_NO3$site.ID <- factor(HI_FI_NO3$site.ID, levels = c('C3','P6','C4','C2'))
+
+HI_FI_NO3.p = 
+  ggplot(HI_FI_NO3, aes(Flush_index, Hyst_index)) + geom_point(aes(colour=factor(site.ID)), size = 4)+
+  geom_errorbar(aes(ymin=HI_ymin, ymax=HI_ymax), colour="black", alpha=0.5, size=.5, width = 0.1)+ 
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)+
+  geom_errorbarh(aes(xmin=FI_ymin, xmax=FI_ymax), colour="black", alpha=0.5, size=.5, height = 0.1) +
+  scale_color_manual(values = c("#0571B0", "#CA0020"), "Catchment")+theme_bw() +
+  ylim(-1.5, 1.5) + xlim(-1.5, 1.5)+
+  ggtitle("a) NO3-")+ 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20)) 
+
+
+### fDOM ###
+
+HI_FI_fDOM = subset(HI_FI, response_var == "fDOM")
+HI_FI_fDOM$site.ID <- factor(HI_FI_fDOM$site.ID, levels = c('C3','P6','C4','C2'))
+
+HI_FI_fDOM.p=
+  ggplot(HI_FI_fDOM, aes(Flush_index, Hyst_index)) + geom_point(aes(colour=factor(site.ID)), size = 4)+
+  geom_errorbar(aes(ymin=HI_ymin, ymax=HI_ymax), colour="black", alpha=0.5, size=.5, width = 0.1)+ 
+  geom_errorbarh(aes(xmin=FI_ymin, xmax=FI_ymax), colour="black", alpha=0.5, size=.5, height = 0.1)+
+  scale_color_brewer(palette="RdBu", direction = -1, name="Catchment")+
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0) +theme_bw()+
+  ylim(-1.5, 1.5) + xlim(-1.5, 1.5)+
+  ggtitle("b) fDOM")+ 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20)) 
+
+
+### SpCond ###
+
+HI_FI_SpCond = subset(HI_FI, response_var == "SpCond")
+HI_FI_SpCond$site.ID <- factor(HI_FI_SpCond$site.ID, levels = c('C3','P6','C4','C2'))
+
+HI_FI_SpCond.p = 
+  ggplot(HI_FI_SpCond, aes(Flush_index, Hyst_index)) + geom_point(aes(colour=factor(site.ID)), size = 4)+
+  geom_errorbar(aes(ymin=HI_ymin, ymax=HI_ymax), colour="black", alpha=0.5, size=.5, width = 0.1)+ 
+  geom_errorbarh(aes(xmin=FI_ymin, xmax=FI_ymax), colour="black", alpha=0.5, size=.5, height = 0.1) +
+  scale_color_brewer(palette="RdBu", direction = -1, name="Catchment")+
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)+ theme_bw()+
+  ylim(-1.5, 1.5) + xlim(-1.5, 1.5)+
+  ggtitle("c) Specific Conductivity")+ 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20)) 
+
+
+### turb ###
+
+HI_FI_turb = subset(HI_FI, response_var == "turb")
+HI_FI_turb$site.ID <- factor(HI_FI_turb$site.ID, levels = c('C3','P6','C4','C2'))
+
+HI_FI_turb.p = 
+  ggplot(HI_FI_turb, aes(Flush_index, Hyst_index)) + geom_point(aes(colour=factor(site.ID)), size = 4)+
+  geom_errorbar(aes(ymin=HI_ymin, ymax=HI_ymax), colour="black", alpha=0.5, size=.5, width = 0.1)+ 
+  geom_errorbarh(aes(xmin=FI_ymin, xmax=FI_ymax), colour="black", alpha=0.5, size=.5, height = 0.1)+
+  scale_color_brewer(palette="RdBu", direction = -1, name="Catchment")+
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)+theme_bw()+
+  ylim(-1.5, 1.5) + xlim(-1.5, 1.5)+
+  ggtitle("d) Turbidity")+ 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20)) 
+
+
+grid.arrange(HI_FI_NO3.p,HI_FI_fDOM.p,HI_FI_SpCond.p,HI_FI_turb.p)
+```
+
