@@ -1,4 +1,4 @@
-"0","from hysteresis_metrics import hysteresisMetrics
+"0","quit()
 "
-"2","ModuleNotFoundError: No module named 'hysteresis_metrics'
+"2","SystemExit: None
 "
