@@ -1,0 +1,180 @@
+"0","reticulate::repl_python()
+"
+"2","Warning:"
+"2"," Python '/usr/bin/python' was requested but '/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python' was loaded instead (see reticulate::py_config() for more information)
+"
+"2","Python '/usr/bin/python' was requested but '/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python' was loaded instead (see reticulate::py_config() for more information)"
+"2","Python 3.6.13 (/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python)
+Reticulate 1.20 REPL -- A Python interpreter in R.
+"
+"0","VAUL_storm1a_06_19_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1a_06_19_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1a_06_19_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1a_06_19_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1a_06_19_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1a_06_19_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1b_06_20_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1b_06_20_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1b_06_20_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1b_06_20_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1b_06_20_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1b_06_20_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1c_06_22_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1c_06_22_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1c_06_22_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1c_06_22_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1c_06_22_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm1c_06_22_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm1c_06_22_Q = VAUL_storm1c_06_22_Q.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm1c_06_22_Q' is not defined
+"
+"0","VAUL_storm1c_06_22_NO3 = VAUL_storm1c_06_22_NO3.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm1c_06_22_NO3' is not defined
+"
+"0","VAUL_storm1c_06_22_fDOM = VAUL_storm1c_06_22_fDOM.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm1c_06_22_fDOM' is not defined
+"
+"0","VAUL_storm2_06_28_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm2_06_28_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm2_06_28_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm2_06_28_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm2_06_28_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm2_06_28_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm2_06_28_Q = VAUL_storm2_06_28_Q.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm2_06_28_Q' is not defined
+"
+"0","VAUL_storm2_06_28_NO3 = VAUL_storm2_06_28_NO3.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm2_06_28_NO3' is not defined
+"
+"0","VAUL_storm2_06_28_fDOM = VAUL_storm2_06_28_fDOM.dropna(subset=['datavalue'])"
+"2","NameError: name 'VAUL_storm2_06_28_fDOM' is not defined
+"
+"0","VAUL_storm3_07_09_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm3_07_09_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm3_07_09_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm3_07_09_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm3_07_09_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm3_07_09_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm4_07_12_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm4_07_12_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm4_07_12_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm4_07_12_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm4_07_12_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm4_07_12_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm5_07_27_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm5_07_27_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm5_07_27_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm5_07_27_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm5_07_27_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm5_07_27_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6a_08_01_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6a_08_01_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6a_08_01_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6a_08_01_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6a_08_01_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6a_08_01_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6b_08_02_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6b_08_02_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6b_08_02_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6b_08_02_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm6b_08_02_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm6b_08_02_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm7_08_08_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm7_08_08_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm7_08_08_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm7_08_08_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm7_08_08_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm7_08_08_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm8_08_11_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm8_08_11_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm8_08_11_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm8_08_11_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm8_08_11_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm8_08_11_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm9_08_12_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm9_08_12_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm9_08_12_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm9_08_12_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm9_08_12_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm9_08_12_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm10_08_25_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm10_08_25_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm10_08_25_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm10_08_25_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm10_08_25_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm10_08_25_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm11_08_27_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm11_08_27_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm11_08_27_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm11_08_27_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm11_08_27_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm11_08_27_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm12_09_01_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm12_09_01_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm12_09_01_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm12_09_01_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm12_09_01_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm12_09_01_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm13_09_03_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm13_09_03_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm13_09_03_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm13_09_03_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm13_09_03_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm13_09_03_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm14_09_06_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm14_09_06_Q.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm14_09_06_NO3 = pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm14_09_06_NO3.csv"")"
+"2","NameError: name 'pd' is not defined
+"
+"0","VAUL_storm14_09_06_fDOM =pd.read_csv(""~/Documents/DoD_Discharge/Storms/VAUL_storm14_09_06_fDOM.csv"")"
+"2","NameError: name 'pd' is not defined
+"

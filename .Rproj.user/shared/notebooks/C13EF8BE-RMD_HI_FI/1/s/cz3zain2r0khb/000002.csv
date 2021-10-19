@@ -1,0 +1,8 @@
+"0","FRCH_storm12_09_06_NO3['valuedatetime'] =  pd.to_datetime(FRCH_storm12_09_06_NO3['valuedatetime'], format='%Y-%m-%d %H:%M:%S')
+"
+"2","/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python:1: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+"
