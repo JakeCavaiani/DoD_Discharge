@@ -1,0 +1,338 @@
+## DoD 2020 - compile and do initial cleaning of EXO files from internal hard drives ##
+# press Command+Option+O to collapse all sections and get an overview of the workflow! #
+
+#### Read me ####
+# The purpose of this script is to process and plot EXO data that has been downloaded directly off the EXOs' internal hard drives. This data is formatted differently than telemetry data and so must be processed seperately!
+
+# Note that if any sensors are missing or removed from a sonde, the data headings and number of columns will change. This will impact how the data is loaded into this script and code must be edited accordingly. See MOOS import in the "Load and stitch together EXO data" section for an example of how to deal with this (in the case of MOOS, the EXO didn't have a wiper for a while).
+
+# >>>EDIT HERE<<< in section header means some code in that section needs to be manually edited depending on circumstances. Most often, this is IDing or commenting in/out code for sites that you are or aren't processing data for. 
+## TIP! Comment out a section of code by highlighting it and press Command+Shift+C (on macs). Comment it back in the same way. 
+
+#### Load libraries ####
+library(tidyverse)
+library(lubridate)
+library(data.table)
+library(rio)
+library(ggplot2)
+library(scales)
+library(psych)
+library(here)
+library(googledrive)
+library(readxl)
+
+#### Load field dates and times ####
+dir.create(here("EXO_data"))
+dir.create(here("EXO_data", "from_internal_harddrive"))
+dir.create(here("EXO_data", "from_internal_harddrive", "raw"))
+dir.create(here("EXO_data", "from_internal_harddrive", "plots"))
+dir.create(here("EXO_data", "from_internal_harddrive", "processed"))
+
+setwd(here("EXO_data", "from_internal_harddrive", "raw"))
+
+fieldurl <- "https://drive.google.com/drive/folders/14snoMg3FuhLl0SJFh8iPDVgnaP-3ozN1"
+fieldtimes <- drive_get(as_id(fieldurl))
+field_glist <- drive_ls(fieldtimes, pattern = "Field date_time")
+walk(field_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+field_datetime <- read.csv("Field date_time.csv")
+
+field_datetime$DATE = as.Date(as.character(field_datetime$DATE), "%y%m%d")
+# format time cols
+field_datetime$TIME.Last.good.sonde.measurements = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Last.good.sonde.measurements), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.First.returned.good.sonde.measurements = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.First.returned.good.sonde.measurements), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Water.samples = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Water.samples), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Q.Salt.Slug = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Q.Salt.Slug), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Q.Flowmeter = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Q.Flowmeter), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+#
+field_datetime$TIME.Other = as.POSIXct(paste(field_datetime$DATE, field_datetime$TIME.Other), "%Y-%m-%d %H:%M", tz="America/Anchorage")
+
+#### Load and stitch together EXO data ####
+
+
+
+### Download data from Google Drive
+FRCHurl <- "https://drive.google.com/drive/folders/1EBQHO4kdOrEUyjmNM_CO_ZOIlpqsiTTw"
+MOOSurl <- "https://drive.google.com/drive/u/1/folders/1EB0PpUQzWwODqBqDBWdxzN6pKLZDZ6Gt"
+POKEurl <- "https://drive.google.com/drive/folders/1FAgF_0ro9SrJ6a9BHm3s13qNScuwf7g5"
+STRTurl <- "https://drive.google.com/drive/folders/1F1dis0oovQDpPyBiAyTLv_ZGY2wXj1X9"
+VAULurl <- "https://drive.google.com/drive/folders/1F778vcwAt9LS8B6CC0EiVJoZXfo2GItk"
+
+
+# First time this will ask to cache OAuth credentials. Open browser. Run the drive_get commands below. Enter "1" to allow cache. Go to browser, log in to Google, and allow API access. 
+FRCH_new <- drive_get(as_id(FRCHurl))
+MOOS_new <- drive_get(as_id(MOOSurl))
+POKE_new <- drive_get(as_id(POKEurl))
+STRT_new <- drive_get(as_id(STRTurl))
+VAUL_new <- drive_get(as_id(VAULurl))
+
+
+FRCH_glist <- drive_ls(FRCH_new, type = "csv")
+MOOS_glist <- drive_ls(MOOS_new, type = "csv")
+POKE_glist <- drive_ls(POKE_new, type = "csv")
+STRT_glist <- drive_ls(STRT_new, type = "csv")
+VAUL_glist <- drive_ls(VAUL_new, type = "csv")
+
+
+#I know this is hinky with the switching of working directory. The drive_download command does not currently allow downloading into subdirectories (see issue #250 on github tidyverse/googledrive).
+setwd(here("EXO_data", "from_internal_harddrive", "raw"))
+walk(FRCH_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+walk(MOOS_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+walk(POKE_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+walk(STRT_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+walk(VAUL_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
+
+
+# Merge individual EXO files
+### MOOS ###
+MOOSfile_list <- list.files(path=".", 
+                            recursive=F, 
+                            pattern="MOOS", 
+                            full.names=TRUE)
+EXO.MOOS<-lapply(MOOSfile_list, read.csv, 
+                 stringsAsFactors=FALSE, 
+                 skip=9, header=F, blank.lines.skip = TRUE, fill=TRUE)
+
+colNames <- c("Date..MM.DD.YYYY.", "Time..HH.mm.ss.", "Time..Fract..Sec.", "Site.Name" , "Cond.µS.cm" ,
+              "fDOM.QSU","fDOM.RFU","nLF.Cond.µS.cm", "ODO...sat", "ODO...local",
+              "ODO.mg.L", "Sal.psu","SpCond.µS.cm",  "TDS.mg.L", "Turbidity.FNU" ,
+              "TSS.mg.L", "Wiper.Position.volt", "Temp..C", "Battery.V", "Cable.Pwr.V")
+
+EXO.MOOS <- lapply(EXO.MOOS, setNames, colNames)
+# NOTE: MOOS EXO data import is different from the others because the sonde had a wiper blade on it when first delopyed, then had it removed, then will get one added when it is recieved from AZ. This gives the files where there was no wiper blade one less column than an EXO with all the "normal" sensors + wiper blade installed (19 instead of 20)
+# add a Wiper.Position.volt column to any dataframes that don't have one
+for(i in 1:length(EXO.MOOS)){
+  if (length(EXO.MOOS[[i]])==19){
+    EXO.MOOS[[i]] = cbind(EXO.MOOS[[i]][1:17], Wiper.Position.volt=NA, EXO.MOOS[[i]][18:19])
+  } else {
+    EXO.MOOS[[i]] = EXO.MOOS[[i]]
+  }
+}
+EXO.MOOS<-do.call("rbind", EXO.MOOS)
+# remove breaks in data:
+EXO.MOOS = EXO.MOOS[EXO.MOOS$Site.Name != "MEAN VALUE:" &
+                      EXO.MOOS$Site.Name != "STANDARD DEVIATION:" &
+                      EXO.MOOS$Site.Name != "SENSOR SERIAL NUMBER:" &
+                      EXO.MOOS$Date..MM.DD.YYYY. != "Date (MM/DD/YYYY)",]
+# remove any possible accidental imports from other sites
+EXO.MOOS = EXO.MOOS[EXO.MOOS$Site.Name=="MOOS",]
+
+### FRCH, STRT, VAUL, POKE ###
+
+### FRCH ###
+FRCHfile_list <- list.files(path=".", 
+                            recursive=F, 
+                            pattern="FRCH", 
+                            full.names=TRUE)
+EXO.FRCH<-do.call("rbind", lapply(FRCHfile_list, 
+                                  read.csv, 
+                                  check.names = FALSE,
+                                  stringsAsFactors=FALSE, 
+                                  skip=8, header=T, blank.lines.skip = TRUE, fill=TRUE))
+# remove breaks in data:
+EXO.FRCH = EXO.FRCH[EXO.FRCH$`Site Name` != "MEAN VALUE:" &
+                      EXO.FRCH$`Site Name` != "STANDARD DEVIATION:" &
+                      EXO.FRCH$`Site Name` != "SENSOR SERIAL NUMBER:" &
+                      EXO.FRCH$`Date (MM/DD/YYYY)` != "Date (MM/DD/YYYY)",]
+# remove any possible accidental imports from other sites
+EXO.FRCH = EXO.FRCH[EXO.FRCH$`Site Name`=="FRCH",]
+
+### STRT ###
+STRTfile_list <- list.files(path=".", 
+                            recursive=F, 
+                            pattern="STRT", 
+                            full.names=TRUE)
+EXO.STRT<-do.call("rbind", lapply(STRTfile_list, 
+                                  read.csv, 
+                                  stringsAsFactors=FALSE, 
+                                  skip=8, header=T, blank.lines.skip = TRUE, fill=TRUE))
+# remove breaks in data:
+EXO.STRT = EXO.STRT[EXO.STRT$Site.Name != "MEAN VALUE:" &
+                      EXO.STRT$Site.Name != "STANDARD DEVIATION:" &
+                      EXO.STRT$Site.Name != "SENSOR SERIAL NUMBER:" &
+                      EXO.STRT$Date..MM.DD.YYYY. != "Date (MM/DD/YYYY)",]
+# remove any possible accidental imports from other sites
+EXO.STRT = EXO.STRT[EXO.STRT$Site.Name=="STRT",]
+
+### VAUL ###
+VAULfile_list <- list.files(path=".", 
+                            recursive=F, 
+                            pattern="VAUL", 
+                            full.names=TRUE)
+EXO.VAUL<-do.call("rbind", lapply(VAULfile_list, 
+                                  read.csv, 
+                                  stringsAsFactors=FALSE, 
+                                  skip=8, header=T, blank.lines.skip = TRUE, fill=TRUE))
+# remove breaks in data:
+EXO.VAUL = EXO.VAUL[EXO.VAUL$Site.Name != "MEAN VALUE:" &
+                      EXO.VAUL$Site.Name != "STANDARD DEVIATION:" &
+                      EXO.VAUL$Site.Name != "SENSOR SERIAL NUMBER:" &
+                      EXO.VAUL$Date..MM.DD.YYYY. != "Date (MM/DD/YYYY)",]
+# remove any possible accidental imports from other sites
+EXO.VAUL = EXO.VAUL[EXO.VAUL$Site.Name=="VAUL",]
+
+### POKE ###
+POKEfile_list <- list.files(path=".", 
+                            recursive=F, 
+                            pattern="POKE", 
+                            full.names=TRUE)
+EXO.POKE<-do.call("rbind", lapply(POKEfile_list, 
+                                  read.csv, 
+                                  stringsAsFactors=FALSE, 
+                                  skip=8, header=T, blank.lines.skip = TRUE, fill=TRUE))
+# remove breaks in data:
+EXO.POKE = EXO.POKE[EXO.POKE$Site.Name != "MEAN VALUE:" &
+                      EXO.POKE$Site.Name != "STANDARD DEVIATION:" &
+                      EXO.POKE$Site.Name != "SENSOR SERIAL NUMBER:" &
+                      EXO.POKE$Date..MM.DD.YYYY. != "Date (MM/DD/YYYY)",]
+# remove any possible accidental imports from other sites
+EXO.POKE = EXO.POKE[EXO.POKE$Site.Name=="POKE",]
+
+
+#### ID sites you are processing data for >>>EDIT HERE<<< ####
+
+# sitedataz = list(EXO.MOOS, EXO.FRCH, EXO.STRT, EXO.VAUL, EXO.POKE)
+
+sitedataz = list(EXO.POKE, EXO.VAUL)
+
+# IMPORTANT: name sites below in the same order as they are listed above! Note that they are read into the list as EXO.SITECODE (no quotes) above and just "SITECODE" (with quotes) below
+#names(sitedataz) = c("MOOS", "FRCH", "STRT", "VAUL", "POKE")
+#sitenamez = c("MOOS", "FRCH", "STRT", "VAUL", "POKE")
+
+names(sitedataz) = c("POKE", "VAUL")
+sitenamez = c("POKE", "VAUL")
+
+#### format column headers and data/time ####
+
+## check that all headers match ##
+# If there are any FALSEs, check the variable order for each sensor and edit names if necessary
+names(sitedataz[["MOOS"]]) == names(sitedataz[["FRCH"]])
+names(sitedataz[["MOOS"]]) == names(sitedataz[["STRT"]])
+names(sitedataz[["MOOS"]]) == names(sitedataz[["VAUL"]])
+names(sitedataz[["MOOS"]]) == names(sitedataz[["POKE"]])
+
+for(i in sitenamez){
+  names(sitedataz[[i]])<-(c("Date", "Time", "Time.s", "site.ID", "Cond.uScm", 
+                            "fDOM.QSU","fDOM.RFU","nLFCond.uScm", "ODO.Psat", "ODO.Ploc", 
+                            "ODO.mgL", "Sal.psu","SpCond.uScm", "TDS.mgL", "Turbidity.FNU", 
+                            "TSS.mgL", "Wipe.V", "Temp.C", "Battery.V", "CablePwr.V"))
+  sitedataz[[i]]$notes = NA
+}
+
+for(i in sitenamez){
+  sitedataz[[i]]$Date<-parse_date_time(x = sitedataz[[i]]$Date,
+                                 orders = c("mdy"),
+                                 tz="America/Anchorage")
+  sitedataz[[i]]$datetimeAK<-with(sitedataz[[i]], as.POSIXct(paste(Date, Time), "%Y-%m-%d %H:%M:%S", tz="America/Anchorage"))
+}
+
+#### Remove all data from site setup & replace chem data from sonde servicing with NAs ####
+
+# remove all data rows from site setup
+setuptimez = list()
+for(i in sitenamez){
+  setuptimez[[i]] = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE==i & field_datetime$Notes=="setup"]
+  sitedataz[[i]] = sitedataz[[i]][sitedataz[[i]]$datetimeAK > setuptimez[[i]],]
+}
+
+# replace data during sonde servicing times with NA:
+## 1) ID and store all servicing times in a list
+serviceSTARTz = list()
+serviceENDz = list()
+for(i in sitenamez){
+  serviceSTARTz[[i]] = field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==i & field_datetime$Notes!="setup"]
+  serviceENDz[[i]] = field_datetime$TIME.First.returned.good.sonde.measurements[field_datetime$SITE.CODE==i & field_datetime$Notes!="setup"]
+}
+servicez = list()
+for(i in sitenamez){
+  for(z in 1:length(serviceSTARTz[[i]])){
+    servicez[[i]][[z]] = seq.POSIXt(from = serviceSTARTz[[i]][z], to = serviceENDz[[i]][z], by = 1)
+  }
+  servicez[[i]] = do.call("c",servicez[[i]])
+}
+## 2) replace data from servicing times with NA and ID these rows with "servicing" in notes column
+### Note that this code replaces all chemistry data with NAs but maintains instrument specs such as wiper voltage, battery, etc. 
+###########****** TKH needs to fix this
+for(i in sitenamez){
+  sitedataz[[i]][sitedataz[[i]]$datetimeAK %in% servicez[[i]],][c(5:16, 18)] = NA
+  sitedataz[[i]][sitedataz[[i]]$datetimeAK %in% servicez[[i]],]$notes = "servicing"
+}
+
+## Remove errant datapoints ##
+sitedataz <- lapply(sitedataz, function(x) filter(x, datetimeAK <= as.POSIXct("2021-12-01")))
+
+#### Compile burst measurements for plotting ####
+
+# Compiled burst data is for plotting only at this stage! Uncompiled data should be saved and cleaned with all burst measurements intact so that bursts can be cleaned later
+
+# convert columns to numeric
+for(i in sitenamez){
+  sitedataz[[i]][c(3,5:20)] <- sapply(sitedataz[[i]][c(3,5:20)],as.numeric)
+  sapply(sitedataz[[i]], class)
+}
+
+sitedataz.st = sitedataz
+
+for(i in sitenamez){
+  min<-cut(sitedataz.st[[i]]$datetimeAK, breaks="3 min")
+  sitedataz.st[[i]] <- as.data.frame(as.list(aggregate(cbind(fDOM.QSU,
+                                                             ODO.Psat,SpCond.uScm,
+                                                             Turbidity.FNU,Temp.C,
+                                                             Battery.V,CablePwr.V) 
+                                                       ~ min, data=sitedataz.st[[i]], FUN=function(x) 
+                                                         c(mn=mean(x, na.rm=T), SD=sd(x, na.rm=T)))))
+  sitedataz.st[[i]]$datetimeAK<-as.POSIXct(sitedataz.st[[i]]$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+}
+
+#### Plot burst-compiled data and save plots ####
+
+# reset working directory to Rproj/repo root
+setwd(here())
+# check: should be at DoD_2021
+
+makePlotEXO <- function(data, SITECODE){
+  plot.new()
+  par(mfrow=c(3,2), mar=c(5,4,2,1.5))
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$CablePwr.V.mn,pch=20,col="black", xlab="", ylab="Battery voltage")
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$Temp.C.mn,pch=20,col="gray45", xlab="", ylab="Temp C")
+  arrows(as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$Temp.C.mn-data$Temp.C.SD, 
+         as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$Temp.C.mn+data$Temp.C.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$SpCond.uScm.mn,pch=20,col="darkslateblue", xlab="", ylab="SpCond uScm")
+  arrows(as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$SpCond.uScm.mn-data$SpCond.uScm.SD, 
+         as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$SpCond.uScm.mn+data$SpCond.uScm.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$fDOM.QSU.mn,pch=20,col="darkorange4", xlab="", ylab="fDOM QSU")
+  arrows(as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$fDOM.QSU.mn-data$fDOM.QSU.SD, 
+         as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$fDOM.QSU.mn+data$fDOM.QSU.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$Turbidity.FNU.mn,pch=20,col="firebrick4", xlab="", ylab="Turbidity FNU")
+  arrows(as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$Turbidity.FNU.mn-data$Turbidity.FNU.SD, 
+         as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$Turbidity.FNU.mn+data$Turbidity.FNU.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+  plot(as.POSIXct(data$datetimeAK, tz="America/Anchorage"),data$ODO.Psat.mn,pch=20,col="blue", xlab="", ylab="DO % sat")
+  arrows(as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$ODO.Psat.mn-data$ODO.Psat.SD, 
+         as.POSIXct(data$datetimeAK, tz="America/Anchorage"), data$ODO.Psat.mn+data$ODO.Psat.SD,
+         length=.01, angle=90, code=3, col="grey", lwd=.5)
+  abline(v=field_datetime$TIME.Last.good.sonde.measurements[field_datetime$SITE.CODE==SITECODE], col="red", lty=3)
+}
+
+
+for( i in sitenamez){
+  pdf(paste("EXO_data/from_internal_harddrive/plots/", i, ".EXO.st.pdf", sep=""), width = 12, height =8, onefile=FALSE)
+  makePlotEXO(sitedataz.st[[i]], i)
+  dev.off()
+}
+
+#### Save burst un-compiled data ####
+
+EXO.processed = bind_rows(sitedataz)
+write.csv(EXO.processed, "EXO_data/from_internal_harddrive/processed/EXO.processed.csv")
