@@ -1,6 +1,0 @@
-"0","reticulate::repl_python()
-"
-"2","Python 3.6.13 (/Users/jakecavaiani/Library/r-miniconda/envs/r-reticulate/bin/python)
-Reticulate 1.20 REPL -- A Python interpreter in R.
-"
-"0","MOOS_storm9_09_09_Q = pd.read_csv(""~/Documents/DoD_Discharge/Storms/MOOS_storm9_09_09_Q.csv"")"

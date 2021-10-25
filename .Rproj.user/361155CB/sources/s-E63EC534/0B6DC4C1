@@ -1,0 +1,26 @@
+{
+    "id": "0B6DC4C1",
+    "path": "~/Documents/DoD_Discharge/R_Scripts/01_PT_data.R",
+    "project_path": "R_Scripts/01_PT_data.R",
+    "type": "r_source",
+    "hash": "453641304",
+    "contents": "",
+    "dirty": false,
+    "created": 1634249256463.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "119,0",
+        "scrollLine": "95"
+    },
+    "folds": "300|53|634|0|\n635|53|853|0|\n",
+    "lastKnownWriteTime": 1635199060,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1635199060224,
+    "read_only": false,
+    "read_only_alternatives": []
+}

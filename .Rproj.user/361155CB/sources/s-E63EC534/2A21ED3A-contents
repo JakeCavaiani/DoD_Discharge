@@ -1,0 +1,227 @@
+Sys.setenv(TZ='America/Anchorage')
+setwd("~/Google Drive/All sensors/2018 sensors French Moose/Q/Qprocessing")
+
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(RColorBrewer)
+library(gridExtra)
+
+# Import processed Q data
+French1 <- read_csv("~/Google Drive/DoD project/2018 sensors French Moose/Q/Qprocessing/French_stream_PT_may-oct2018_20005933.csv")
+French2 <- read_csv("~/Google Drive/DoD project/2018 sensors French Moose/Q/Qprocessing/French_stream2_PT_may-oct2018_20005935.csv")
+Moose1 <- read_csv("~/Google Drive/DoD Project/2018 sensors French Moose/Q/Qprocessing/Moose_stream_PT_may-oct2018_10766894.csv")
+Moose2 <- read_csv("~/Google Drive/DoD Project/2018 sensors French Moose/Q/Qprocessing/Moose_stream2_PT_may-oct2018_20005938.csv")
+# Import summary notes from field book
+Qsummary <- read_csv("~/Google Drive/DoD project/2018 sensors French Moose/Q/Qprocessing/FrenchMooseSummaryQ.csv", 
+                     col_types = cols(Notes = col_skip()))
+
+# Convert time and put in AK time 
+French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="GMT") #convert date format.
+attributes(French1$DateTime)$tzone <-'America/Anchorage'
+French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="GMT") #convert date format.
+attributes(French2$DateTime)$tzone <-'America/Anchorage'
+Moose1$DateTime <- mdy_hm(Moose1$DateTimeGMT, tz="GMT") #convert date format.
+attributes(Moose1$DateTime)$tzone <-'America/Anchorage'
+Moose2$DateTime <- mdy_hm(Moose2$DateTimeGMT, tz="GMT") #convert date format.
+attributes(Moose2$DateTime)$tzone <-'America/Anchorage'
+Qsummary$Date <- mdy(Qsummary$Date)
+Qsummary$DateTime <- with(Qsummary, ymd(Date) + hms(Time)) # Make combined date/time column
+Qsummary$DateTime <- ymd_hms(Qsummary$DateTime)
+
+# format data, combine all french, combine all moose, combine french and moose
+French2 <- French2[1:nrow(French1),] # French 2 has a few extra rows on it from when stopping logger. Stripping them.
+French1$name <- "French1" #add column identifier
+French2$name <- "French2"
+allfrench <- bind_rows(French1, French2) # combine 1&2 into one dataframe French
+Moose1$name <- "Moose1" #add column indentifier
+Moose2$name <- "Moose2"
+allmoose <- bind_rows(Moose1, Moose2) # combine 1&2 into one dataframe Moose
+frenchmoose <- bind_rows(allfrench, allmoose) # combine all french and all moose
+
+# check closeness between two HOBOs at each station
+plot(x= French1$WaterLevelmeters[100:nrow(French1)], y=French2$WaterLevelmeters[100:nrow(French2)], 
+     main = "French PT comparison", xlab = "French1 PT", ylab = "French2 PT")
+
+plot(x= Moose1$WaterLevelmeters[100:nrow(Moose1)-15], y=Moose2$WaterLevelmeters[100:nrow(Moose2)-15], 
+     main = "Moose PT comparison", xlab = "Moose1 PT", ylab = "Moose2 PT")
+
+# French Plots
+allfrench %>% 
+  filter(WaterLevelmeters > 184) %>% 
+  ggplot() + 
+  geom_point(aes(x=DateTime, y=WaterLevelmeters, color=name)) +
+  theme_classic() +
+  ggtitle("French") +
+  scale_color_brewer(palette = "Paired")
+
+# Moose Plots
+allmoose %>% 
+  filter(WaterLevelmeters > 166) %>% 
+  ggplot() + 
+  geom_point(aes(x=DateTime, y=WaterLevelmeters, color=name)) +
+  theme_classic() +
+  ggtitle("Moose") +
+  scale_color_brewer(palette = "Paired")
+
+# French Measured Q
+Qsummary %>% filter(Site == "French") %>% 
+  ggplot() +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Method), size=3) +
+  theme_classic() +
+  ggtitle("French")
+
+# Moose Measured Q
+Qsummary %>% filter(Site == "Moose") %>% 
+  ggplot() +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose")
+
+#French Moose Measured Q combined
+ggplot(Qsummary) +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Site, shape=Method), size=3) +
+  theme_classic() +
+  scale_color_brewer(palette = "Paired")
+
+# Moose 2 PT with all measured Q values
+Qsummary.MO <- Qsummary  %>% 
+  filter(Site == "Moose") 
+moose2comb <- full_join(Moose2, Qsummary.MO) %>% 
+  filter(WaterLevelmeters > 166)
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose2comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose2 all measured Q") 
+Moose2.lm <- lm(moose2comb$MeasuredQ_Ls ~ moose2comb$WaterLevelmeters)
+summary(Moose2.lm)
+
+# Calculate Q from rating curve, Moose 2 PT with all measured Q values
+moose2comb$pred.moose2.Q <- coef(Moose2.lm)[2] * moose2comb$WaterLevelmeters + coef(Moose2.lm)[1]
+ggplot(aes(x=DateTime, y=pred.moose2.Q), data=moose2comb) +
+  geom_line(color="#1F78B4") +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose2 predicted all measured Q") 
+
+
+
+# Moose2 PT with JUST flowmeter measurements
+#Moose2.flowonly <- moose2comb %>% 
+ # filter(Method =="Flowmeter")
+#ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=Moose2.flowonly) +
+ # geom_point(aes( color=Method)) +
+#  geom_smooth(method = "lm") +
+ # theme_classic() +
+#  ggtitle("Moose2 with just flowmeter") 
+#Moose2.flow.lm <- lm(Moose2.flowonly$MeasuredQ_Ls ~ Moose2.flowonly$WaterLevelmeters)
+#summary(Moose2.flow.lm)
+
+# Calculate Q from rating curve, Moose 2 PT with only flowmeter Q values
+#moose2comb.flow <- moose2comb
+#moose2comb.flow$pred.moose2.Q <- coef(Moose2.flow.lm)[2] * moose2comb.flow$WaterLevelmeters + coef(Moose2.flow.lm)[1]
+
+#ggplot(aes(x=DateTime, y=pred.moose2.Q), data=moose2comb.flow) +
+  #geom_point(color="#1F78B4") +
+  #geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
+  #theme_classic() +
+  #ggtitle("Moose2 predicted flowmeter only")
+
+# Moose1 These data are better. Going to use Moose1 for final Q data
+moose1comb <- full_join(Moose1, Qsummary.MO) %>% 
+  filter(WaterLevelmeters > 166)
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose1comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+Moose1.lm <- lm(moose1comb$MeasuredQ_Ls ~ moose1comb$WaterLevelmeters)
+summary(Moose1.lm)
+
+# Calculate Q from rating curve, Moose 2 PT with all measured Q values
+moose1comb$pred.moose1.Q <- coef(Moose1.lm)[2] * moose1comb$WaterLevelmeters + coef(Moose1.lm)[1]
+ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose1comb) +
+  geom_line(color="#A6CEE3") +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls), size=3) +
+  theme_classic() +
+  ggtitle("Moose1 predicted all measured Q") 
+moose1comb <- moose1comb %>% 
+  mutate(Q_Ls = pred.moose1.Q)
+
+# Moose 1 & 2 comparison
+ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose1comb) +
+  geom_line(aes(x=DateTime, y=pred.moose1.Q), data=moose1comb, color="#A6CEE3") +
+  geom_line(aes(x=DateTime, y=pred.moose2.Q), data=moose2comb,color="#1F78B4") +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls), size=3) +
+  theme_classic() +
+  ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") 
+
+#########################
+French 
+##########################
+# French 2
+## Going to start with French 2 because it has better diel fluxes
+
+Qsummary.FR <- Qsummary  %>% #filter out measured Q at just french
+  filter(Site == "French") 
+French2comb <- full_join(French2, Qsummary.FR) %>% 
+  filter(WaterLevelmeters > 185)
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French2comb) +
+  geom_point(aes(color = Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  scale_x_continuous(limits = c(185.4,186.3)) +
+  theme_classic() +
+  ggtitle("French2 all measured Q") 
+French2.lm <- lm(French2comb$MeasuredQ_Ls ~ French2comb$WaterLevelmeters)
+summary(French2.lm)
+
+# Calculate Q from rating curve, Moose 2 PT with all measured Q values
+French2comb$pred.french2.Q <- coef(French2.lm)[2] * French2comb$WaterLevelmeters + coef(French2.lm)[1]
+ggplot(aes(x=DateTime, y=pred.french2.Q), data=French2comb) +
+  geom_point(color="#1F78B4") +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
+  theme_classic() +
+  ggtitle("French2 predicted all measured Q") 
+
+# Now going to do it with French 1
+French1comb <- full_join(French1, Qsummary.FR) %>% 
+  filter(WaterLevelmeters > 184)
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French1comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  scale_x_continuous(limits = c(184.2,184.9)) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+French1.lm <- lm(French1comb$MeasuredQ_Ls ~ French1comb$WaterLevelmeters)
+summary(French1.lm)
+
+# Calculate Q from rating curve, French1 with all measured Q values
+French1comb$pred.french1.Q <- coef(French1.lm)[2] * French1comb$WaterLevelmeters + coef(French1.lm)[1]
+ggplot(aes(x=DateTime, y=pred.french1.Q), data=French1comb) +
+  geom_point(color="#A6CEE3") +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
+  theme_classic() +
+  ggtitle("French1 predicted all measured Q") 
+French1comb <- French1comb %>% 
+  mutate(Q_Ls = pred.french1.Q)
+###########
+
+# Combined all data
+cols <- c("DateTime", "name", "Q_Ls") #select columns to join
+moose1comb <- moose1comb %>% 
+  select(cols)
+French1comb <- French1comb %>% 
+  select(cols)
+
+allQ <- bind_rows(French1comb, moose1comb) #binding rows together to retain column structure 
+write.csv(allQ, file = "2018_French_Moose_calc_Q.csv")
+
+ggplot() +
+  geom_point(aes(x=DateTime, y=Q_Ls, color = name), data=allQ) + 
+  theme_classic() +
+  ggtitle("French and Moose Q 2018") +
+  scale_color_brewer(palette = "Set1") 

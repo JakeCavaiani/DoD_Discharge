@@ -1,0 +1,214 @@
+### This script reads in and plots Rain Gauge data at FRCH, STRT, VAUL, CARI, CRREL sites for 2020 from our HOBOs and POKE from LTER data ###
+
+#Step 1: Import raw data from HOBOware # File path directory DoD Project->2020 AK Sensors-> Rain Gauge-> "site"
+#Step 2: Plot data # HOBOware data comes in the form of cumulative precip....you have to put it in instanteous 15 minute intervals
+#Step 3: output csv with Site, DateTime, and Precip
+
+
+# Import Libraries #
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(RColorBrewer)
+library(gridExtra)
+library(here)
+
+dir.create(here("RainGauge"))
+
+### Import Data from our sites ###
+strt.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT05dgyg07MOSVdaEFFywTuktj7TTY0ukYjp5ZckRTP5BJ9dFaq5fT0MppdTchBJseTlLSzoyuLbWNS/pub?output=csv"
+frch.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSXjY8hE7y3xpQs42ce8tTuqxadD-9GSLdlzmlzapcdxZoYwZ0M3GOjrQfKshj5Cw1XlPMICGK2v51L/pub?output=csv"
+vaul.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTd-IH6XcwWpzDQav6eQO5NBzV2XB3XzCwJdxHarSiOniu57EoqegV8vU4eF8bo_8REcr8SxsXaDMpR/pub?output=csv"
+### from CPCRW Caribou Peak Met Station ###
+caribou.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYvitZk-JWF9bNRKvg2EWyAzt3YPPnWm3UioUEEyoMXaUkZSJRov-R0bk9nMOoXP1CcyyBtELi1_ZF/pub?output=csv"
+### from CPCRW CRREL Main Met Station ###
+crrel.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNOk0Gqqc-CqnXO220DIWIeGP9RQLMNEC54QAn-civk5a6Fb_Y3Z3oBNpJNAni46foqRkyytes9GT8/pub?output=csv"
+
+
+precip.cariboupeak$date_timeAK = as.POSIXct(precip.cariboupeak$Time, "%m/%d/%y %H:%M", tz="America/Anchorage")
+class(precip.cariboupeak$date_timeAK)
+tz(precip.cariboupeak$date_timeAK)
+precip.cariboupeak = precip.cariboupeak[,-1]
+names(precip.cariboupeak) = c("Precip", "DateTime")
+
+precip.crrel$DateTime = as.POSIXct(precip.crrel$Time, "%m/%d/%Y %H:%M", tz="America/Anchorage")
+class(precip.crrel$DateTime)
+tz(precip.crrel$DateTime)
+precip.crrel = precip.crrel[,-1]
+names(precip.crrel) = c("Precip", "DateTime")
+# read in data # 
+strt.2020.gauge <- read.csv(url(strt.2020.url), skip = 1)
+frch.2020.gauge <- read.csv(url(frch.2020.url), skip = 1)                       
+vaul.2020.gauge <- read.csv(url(vaul.2020.url), skip = 1)
+caribou.2020.gauge <- read.csv(url(caribou.2020.url), skip = 4)
+crrel.2020.gauge <- read.csv(url(crrel.2020.url), skip = 4)
+
+caribou.2020.gauge$Site <- "CARI" # adding a site column
+crrel.2020.gauge$Site <- "CRREL" # adding a site column
+### Rename columns ###
+names(strt.2020.gauge) <- c("Site", "DateTimeGMT", "Precip")
+names(frch.2020.gauge) <- c("Site", "DateTimeGMT", "Precip")
+names(vaul.2020.gauge) <- c("Site", "DateTimeGMT", "Precip")
+names(caribou.2020.gauge) <- c("DateTimeGMT", "Precip", "Site")
+names(crrel.2020.gauge) <- c("DateTimeGMT", "Precip", "Site")
+
+strt.2020.gauge$Site <- "STRT" # adding a site column
+frch.2020.gauge$Site <- "FRCH" # adding a site column
+vaul.2020.gauge$Site <- "VAUL" # adding a site column
+
+# Input NA for missing time #
+strt.2020.gauge$DateTimeGMT[strt.2020.gauge$DateTimeGMT == ""] <- NA
+frch.2020.gauge$DateTimeGMT[frch.2020.gauge$DateTimeGMT == ""] <- NA
+vaul.2020.gauge$DateTimeGMT[vaul.2020.gauge$DateTimeGMT == ""] <- NA
+caribou.2020.gauge$DateTimeGMT[caribou.2020.gauge$DateTimeGMT == ""] <- NA
+crrel.2020.gauge$DateTimeGMT[crrel.2020.gauge$DateTimeGMT == ""] <- NA
+
+
+# Convert time and put in AK time #
+strt.2020.gauge$DateTime <- mdy_hms(strt.2020.gauge$DateTimeGMT, tz = "GMT")
+attributes(strt.2020.gauge$DateTime)$tzone <- 'America/Anchorage'
+
+frch.2020.gauge$DateTime <- mdy_hms(frch.2020.gauge$DateTimeGMT, tz = "GMT")
+attributes(frch.2020.gauge$DateTime)$tzone <- 'America/Anchorage'
+
+vaul.2020.gauge$DateTime <- mdy_hms(vaul.2020.gauge$DateTimeGMT, tz = "GMT")
+attributes(vaul.2020.gauge$DateTime)$tzone <- 'America/Anchorage'
+
+caribou.2020.gauge$DateTime = as.POSIXct(caribou.2020.gauge$DateTimeGMT, "%m/%d/%y %H:%M", tz="America/Anchorage")
+crrel.2020.gauge$DateTime = as.POSIXct(crrel.2020.gauge$DateTimeGMT, "%m/%d/%y %H:%M", tz="America/Anchorage")
+
+# Plot data #
+STRT.2020.RAIN <- ggplot(strt.2020.gauge) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Cumulative Precipitation (mm)") +
+  ggtitle("Stuart 2020 Rain Gauge")
+
+STRT.2020.RAIN
+
+FRCH.2020.RAIN <- ggplot(frch.2020.gauge) + 
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Cumulative Precipitation (mm)") +
+  ggtitle("French 2020 Rain Gauge")
+FRCH.2020.RAIN
+
+VAUL.2020.RAIN <- ggplot(vaul.2020.gauge) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Cumulative Precipitation (mm)") +
+  ggtitle("Vault 2020 Rain Gauge")
+VAUL.2020.RAIN
+
+CARI.2020.RAIN <- ggplot(caribou.2020.gauge) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Instanteous Precipitation (mm)") +
+  ggtitle("CPCRW CARI 2020 Rain Gauge")
+CARI.2020.RAIN
+
+CRREL.2020.RAIN <- ggplot(crrel.2020.gauge) +
+  geom_line(aes(x = DateTime, y = Precip)) +
+  xlab("Date") +
+  ylab("Instanteous Precipitation (mm)") +
+  ggtitle("CPCRW CRREL 2020 Rain Gauge")
+CRREL.2020.RAIN
+
+# Bind Together # Poker is going to be the average between these two rain gauges
+poke.2020.gauge <- data.frame(caribou.2020.gauge$DateTime, crrel.2020.gauge$Precip, caribou.2020.gauge$Precip)
+poke.2020.gauge$MeanPrecip <- rowMeans(poke.2020.gauge[,c('crrel.2020.gauge.Precip', 'caribou.2020.gauge.Precip')], na.rm = TRUE)
+poke.2020.gauge$Site <- "POKE"
+names(poke.2020.gauge) <- c("DateTime", "CRREL_Precip", "CARI_Precip", "inst_rainfall_mm", "Site")
+
+## STRT ## turn into instantaneous precip
+strt.2020.gauge$inst_rainfall_mm = 0.2
+
+## FRCH ##
+frch.2020.gauge$inst_rainfall_mm = 0.2
+
+## VAUL ##
+vaul.2020.gauge$inst_rainfall_mm = 0.2
+
+
+#### compile into per 15 min rainfall ###
+
+## FRCH ##
+min<-cut(frch.2020.gauge$DateTime, breaks="15 min")
+FRCH.2020.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = frch.2020.gauge, FUN=function(x) 
+  sum=sum(x)))
+FRCH.2020.st$DateTime<-as.POSIXct(FRCH.2020.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+## STRT ## adding FRCH data to data frame because STRT didnt have a rain gauge there until the 7/29/20
+min<-cut(strt.2020.gauge$DateTime, breaks="15 min")
+STRT.2020.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data = strt.2020.gauge, FUN=function(x) 
+  sum=sum(x)))
+STRT.2020.st$DateTime <-as.POSIXct(STRT.2020.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+STRT.FRCH <- FRCH.2020.st[-c(438:677), ] #clipping off 7/29-on 
+
+STRT.2020.st <- full_join(STRT.FRCH, STRT.2020.st, by = c("DateTime")) #merging FRCH and STRT
+STRT.2020.st$inst_rainfall_mm <- rowMeans(STRT.2020.st[,c(2,5)], na.rm = TRUE) 
+
+## VAUL ##
+min<-cut(vaul.2020.gauge$DateTime, breaks="15 min")
+VAUL.2020.st <- as.data.frame(aggregate(inst_rainfall_mm ~ min, data=vaul.2020.gauge, FUN=function(x) 
+  sum=sum(x)))
+VAUL.2020.st$DateTime<-as.POSIXct(VAUL.2020.st$min, "%Y-%m-%d %H:%M:%S", tz="America/Anchorage")
+
+VAUL.FRCH <- FRCH.2020.st[-c(175:677)] #clipping off 6-22 on
+
+VAUL.2020.st <- full_join(VAUL.FRCH, VAUL.2020.st) #merging FRCH and VAUL
+
+
+#### round time to nearest 15 min ####
+STRT.2020.st$DateTime = lubridate::round_date(STRT.2020.st$DateTime, "15 minutes")
+FRCH.2020.st$DateTime = lubridate::round_date(FRCH.2020.st$DateTime, "15 minutes")
+VAUL.2020.st$DateTime = lubridate::round_date(VAUL.2020.st$DateTime, "15 minutes")
+
+### Remove columns that are not needed ###
+STRT.2020.st <- STRT.2020.st[,-c(1,2,4,5)]
+FRCH.2020.st <- FRCH.2020.st[,-c(1)]
+VAUL.2020.st <- VAUL.2020.st[,-c(1)]
+poke.2020.gauge <- poke.2020.gauge[,-c(2,3)]
+STRT.2020.st$Site <- "STRT"
+FRCH.2020.st$Site <- "FRCH"
+VAUL.2020.st$Site <- "VAUL"
+#### plot to check ####
+plot(STRT.2020.st$inst_rainfall_mm ~ STRT.2020.st$DateTime, type="h", 
+     xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+plot(FRCH.2020.st$inst_rainfall_mm ~ FRCH.2020.st$DateTime, type="h", 
+     xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+plot(VAUL.2020.st$inst_rainfall_mm ~ VAUL.2020.st$DateTime, type="h", 
+     xlim=c(as.POSIXct("2020-06-05 00:00:00"), as.POSIXct("2020-10-21 00:00:00")),
+     ylim=c(0,13))
+
+
+
+rain.gauge.2020 <- bind_rows(strt.2020.gauge, frch.2020.gauge, vaul.2020.gauge, poke.2020.gauge)
+
+
+
+total.precip.2020 <- ggplot(rain.gauge.2020) +
+  geom_line(aes(x = DateTime, y = Precip, color = Site)) +
+  xlab("Date") + 
+  ylab("Cumulative Precipitation in cm") +
+  ggtitle("STRT FRCH VAUL Rain Gauge")
+total.precip.2020
+
+### Write CSV ### 
+write.csv(STRT.2020.st,"~/Documents/DoD_2020/RainGauge/STRT.RainGauge.2020.csv", row.names = FALSE)
+write.csv(FRCH.2020.st,"~/Documents/DoD_2020/RainGauge/FRCH.RainGauge.2020.csv", row.names = FALSE)
+write.csv(VAUL.2020.st,"~/Documents/DoD_2020/RainGauge/VAUL.RainGauge.2020.csv", row.names = FALSE)
+write.csv(poke.2020.gauge,"~/Documents/DoD_2020/RainGauge/POKE.RainGauge.2020.csv", row.names = FALSE)
+
+
+
+
+
+
+

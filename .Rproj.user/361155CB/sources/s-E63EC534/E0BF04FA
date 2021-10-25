@@ -1,0 +1,26 @@
+{
+    "id": "E0BF04FA",
+    "path": "~/Documents/DoD_Discharge/R_Scripts/03_predicted_discharge.R",
+    "project_path": "R_Scripts/03_predicted_discharge.R",
+    "type": "r_source",
+    "hash": "2009373440",
+    "contents": "",
+    "dirty": false,
+    "created": 1634249483656.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "66,0",
+        "scrollLine": "51"
+    },
+    "folds": "329|41|628|0|\n",
+    "lastKnownWriteTime": 1635201951,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1635201951954,
+    "read_only": false,
+    "read_only_alternatives": []
+}
