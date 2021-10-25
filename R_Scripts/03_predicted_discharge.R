@@ -63,6 +63,13 @@ ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose1comb) +
   theme_classic() +
   ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") 
 
+moose2comb <- moose2comb[-c(1:2), ]
+moos.final.discharge.2018 <- data.frame(moose2comb$Site, moose2comb$DateTime, moose1comb$pred.moose1.Q, moose2comb$pred.moose2.Q)
+moos.final.discharge.2018$MeanDischarge <- rowMeans(moos.final.discharge.2018[,c(3:4)], na.rm = TRUE)
+names(moos.final.discharge.2018) <- c("Site", "DateTime", "PT1Q", "PT2Q", "MeanDischarge")
+moos.final.discharge.2018$Site <- "MOOS"
+
+
 
 # FRCH PT 1 #
 French1comb$pred.french1.Q <- coef(French1.lm)[2] * French1comb$WaterLevelmeters + coef(French1.lm)[1]
@@ -89,23 +96,25 @@ ggplot(aes(x=DateTime, y=pred.french1.Q), data=French1comb) +
   theme_classic() +
   ggtitle("French1(light) & French2(dark) predicted all measured Q") 
 
+frch.final.discharge.2018 <- data.frame(French2comb$Site, French2comb$DateTime, French1comb$pred.french1.Q, French2comb$pred.french2.Q)
+frch.final.discharge.2018$MeanDischarge <- rowMeans(frch.final.discharge.2018[,c(3:4)], na.rm = TRUE)
+names(frch.final.discharge.2018) <- c("Site", "DateTime", "PT1Q", "PT2Q", "MeanDischarge")
+frch.final.discharge.2018$Site <- "FRCH"
 
+write.csv(moos.final.discharge.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/MOOS/final_moos_Q.csv", row.names = FALSE)
+write.csv(frch.final.discharge.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/FRCH/final_frch_Q.csv", row.names = FALSE)
 
-write.csv(moos.final.discharge.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/VAUL/final_vaul_Q.csv", row.names = FALSE)
-write.csv(vaul.final.discharge.2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/VAUL/final_vaul_Q.csv", row.names = FALSE)
-
-Q_2019 <- rbind(frch.final.discharge.2019, vaul.final.discharge.2019,
-                poke.final.discharge.2019, strt.final.discharge.2019,
-                moos.final.discharge.2019)
-Q_2019$day = format(as.POSIXct(Q_2019$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
-Q_2019$day = as.POSIXct(Q_2019$day, "%Y-%m-%d", tz = "America/Anchorage")
-write.csv(Q_2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q_2019.csv", row.names = FALSE)
+Q_2018 <- rbind(frch.final.discharge.2018,
+                moos.final.discharge.2018)
+Q_2018$day = format(as.POSIXct(Q_2018$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
+Q_2018$day = as.POSIXct(Q_2018$day, "%Y-%m-%d", tz = "America/Anchorage")
+write.csv(Q_2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q_2018.csv", row.names = FALSE)
 
 #Q_2019$DateTime = NULL
 
-Q.daily.2019 = with(Q_2019, tapply(MeanDischarge, list(day, Site), mean))
-Q.daily.2019 = as.data.frame(Q.daily.2019)
-write.csv(Q.daily.2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q.daily.2019.csv", row.names = FALSE)
+Q.daily.2018 = with(Q_2018, tapply(MeanDischarge, list(day, Site), mean))
+Q.daily.2018 = as.data.frame(Q.daily.2018)
+write.csv(Q.daily.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q.daily.2018.csv", row.names = FALSE)
 
 ################################################# 2019 ######################################################
 # FRCH # 
