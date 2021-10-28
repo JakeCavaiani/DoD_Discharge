@@ -38,6 +38,69 @@ dir.create(here("Rating_curve", "Plots", "MOOS"))
 dir.create(here("Rating_curve", "Plots", "POKE"))
 dir.create(here("Rating_curve", "Plots", "STRT"))
 dir.create(here("Rating_curve", "Plots", "VAUL"))
+
+##################### 2015 ##################################################################
+# Import data from google drive #
+discharge.2015 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC9Bk0nS-Cx4Ec8MyLHd2xNuSv8JTobR8SSV_ODQHAvp4cUK8k3z9EmOs/pub?output=csv"
+QSummary <- read.csv(url(discharge.2015))
+QSummary$date <- mdy(QSummary$date)
+QSummary$DateTime <- as.POSIXct(paste(QSummary$date, QSummary$time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+
+
+# ALL Sites #
+ggplot(QSummary) +
+  geom_point(aes(x=date, y=Q..L.s., color=site), size=3) +
+  theme_classic() +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("ALL SITES")
+
+# Filter French #
+QSummary.FR <- QSummary %>% filter(site =="French")
+
+
+### Rating curve for FRCH PT1 ###
+frch.stream$site <- "French" # Add a column identifier 
+
+French1comb <- full_join(frch.stream, QSummary.FR) # Join PT data with Discharge
+French1.lm <- lm(French1comb$Q..L.s. ~ French1comb$AbsolutePressure) # linear model with discharge and water level
+
+frch.formula <- y ~ x
+
+frc.1 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = French1comb) +
+  geom_point(aes(color = Q..L.s.), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+
+frc.1
+
+# Filter Moose #
+QSummary.MO <- QSummary %>% filter(site =="Moose")
+
+# Rating curve for MOOS PT1 # 
+moos.stream$site <- "Moose"
+
+Moose1comb <- full_join(moos.stream, QSummary.MO)
+MOOS1.lm <- lm(Moose1comb$Q..L.s. ~ Moose1comb$AbsolutePressure)
+
+moos.formula <- y ~ x
+
+mrc.1 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = Moose1comb) +
+  geom_point(aes(color = Q..L.s.), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+
+mrc.1
+
+
+
 #################################### 2018 ###################################################
 Qsummary.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0R955lmRu0iaZFc-CxoVhwApmJuWaiHCYxhqICnY4oFH1sDI-VhRESmLFeuss01SYz0krWRktJ3oF/pub?output=csv" 
 Qsummary <- read.csv(url(Qsummary.url))

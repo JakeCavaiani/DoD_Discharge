@@ -57,6 +57,69 @@ dir.create(here("PT_data", "2019", "STRT"))
 dir.create(here("PT_data", "2019", "MOOS"))
 dir.create(here("PT_data", "2019", "plots"))
 
+################################# 2015 #######################################################################
+# Import Raw Data #
+
+moos.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTpuXf_81xoWO_N3uJY8qT_ZY-a9CfjFsl-UavJ8vXjBkfiR3cT9YcXo8xXncjN0Yph_6tHEY9iMJVM/pub?output=csv"
+
+frch.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVR3fDBQNFLI3kvdH2jgM_ktS2S4MuAnBnMct6LC3_Ph2xAwBWQP7XHkMvDDF1oiSkB58NrANhu601/pub?output=csv"
+
+
+
+# Load Data#
+moos.stream <- read.csv(url(moos.stream.url), skip = 24)
+
+frch.stream <- read.csv(url(frch.stream.url), skip = 1)
+
+moos.stream <- moos.stream[,-c(5:7)] # Remove Na columns
+
+
+# Rename columns #
+names(moos.stream) <- c("Date", "Time", "AbsolutePressure", "WaterLevel")
+
+names(frch.stream) <- c("Date", "Time", "AbsolutePressure", "WaterLevel")
+
+# Convert time and put in AK time #
+moos.stream$Date <- mdy(moos.stream$Date)
+moos.stream$DateTime <- as.POSIXct(paste(moos.stream$Date, moos.stream$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+
+frch.stream$Date <- mdy(frch.stream$Date)
+frch.stream$DateTime <- as.POSIXct(paste(frch.stream$Date, frch.stream$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+
+# Filtering out data #
+### MOOS ###
+moos.stream <- moos.stream %>% subset(moos.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
+plot(x = moos.stream$DateTime, y = moos.stream$WaterLevel) # Plot check
+
+### FRCH ###
+frch.stream <- frch.stream %>%  subset(frch.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
+
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:10"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:15"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:20"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:25"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:30"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:35"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:40"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:45"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:50"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:55"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:00"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:05"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:10"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:15"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:20"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:25"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:30"] <- NA
+frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:35"] <- NA
+
+plot(x = frch.stream$DateTime, y = frch.stream$WaterLevel) # plot check
+
+
+getwd()
+### Write CSV ###
+write.csv(moos.stream,"PT_data/2015/moos.pt.2015.csv", row.names = FALSE)
+write.csv(frch.stream,"PT_data/2015/frch.pt.2015.csv", row.names = FALSE)
 
 ############################################## 2018 ###########################################################
 # Import Data #

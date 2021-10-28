@@ -34,6 +34,68 @@ dir.create(here("Predicted_Discharge", "2019", "VAUL"))
 dir.create(here("Predicted_Discharge", "2019", "POKE"))
 dir.create(here("Predicted_Discharge", "2019", "STRT"))
 dir.create(here("Predicted_Discharge", "2019", "MOOS"))
+################################################## 2015 ######################################################
+### FRCH ###
+# PT1 #
+French1comb$pred.french1.Q <- coef(French1.lm)[2] * French1comb$AbsolutePressure+ coef(French1.lm)[1]
+ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
+  theme_classic() +
+  ggtitle("French1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+
+# Final Discharge # 
+frch.final.discharge <- data.frame(French1comb$site, French1comb$DateTime, French1comb$pred.french1.Q)
+
+### MOOS ### 
+# PT1 #
+Moose1comb$pred.moos1.Q <- coef(MOOS1.lm)[2] * Moose1comb$AbsolutePressure+ coef(MOOS1.lm)[1]
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose1comb) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
+  theme_classic() +
+  ggtitle("Moose1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+
+# Final Discharge #
+moos.final.discharge <- data.frame(Moose1comb$site, Moose1comb$DateTime, Moose1comb$pred.moos1.Q)
+
+
+
+### Rename Columns ###
+names(frch.final.discharge) <- c("Site", "DateTime", "MeanDischarge")
+names(moos.final.discharge) <- c("Site", "DateTime", "MeanDischarge")
+
+frch.final.discharge$Site <- "FRCH"
+moos.final.discharge$Site <- "MOOS"
+### Write CSV ### 
+write.csv(frch.final.discharge,"~/Documents/DoD_Discharge/Predicted_Discharge/2015/FRCH/FRCH.Q.csv", row.names = FALSE)
+write.csv(moos.final.discharge,"~/Documents/DoD_Discharge/Predicted_Discharge/2015/MOOS/MOOS.Q.csv", row.names = FALSE)
+
+
+moos.final.discharge <- na.omit(moos.final.discharge) # Removed 11 rows
+frch.final.discharge <- na.omit(frch.final.discharge) # Removed 31 rows
+
+
+final_discharge_2015 <- rbind(frch.final.discharge, moos.final.discharge)
+
+write.csv(final_discharge_2015,"~/Documents/DoD_Discharge/Predicted_Discharge/2015/FrMo.Q.csv", row.names = FALSE)
+
+Q_2015 <- final_discharge_2015
+Q_2015$day = format(as.POSIXct(Q_2015$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2015$day = as.POSIXct(Q_2015$day, "%Y-%m-%d", tz="America/Anchorage")
+#Q_2015$DateTime = NULL
+
+write.csv(Q_2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q_2015.csv")
+
+Q.daily.2015 = with(Q_2015, tapply(MeanDischarge, list(day, Site), mean))
+Q.daily.2015 = as.data.frame(Q.daily.2015)
+write.csv(Q.daily.2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q.daily.2015.csv")
 
 ################################### 2018 ###################################################################
 # MOOS 1 #
