@@ -32,17 +32,8 @@ library(dplyr)
 library(RColorBrewer)
 library(gridExtra)
 library(ggpmisc)
-library(here)
-library(tidyverse)
-library(lubridate)
 library(data.table)
 library(rio)
-library(ggplot2)
-library(scales)
-library(psych)
-library(here)
-library(googledrive)
-library(readxl)
 library(neonUtilities)
 library(raster)
 
@@ -797,7 +788,7 @@ poke.stream.two.2021 <- poke.stream.two.2021 %>% subset(poke.stream.two.2021$Dat
 
 ggplot(poke.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel))# plot check 
-poke.one.below.216 <- poke.stream.one.2021.2[which(poke.stream.one.2021.2$WaterLevel < "216"), ] # trying to find the erroneous point in the dataframe 
+poke.one.below.216 <- poke.stream.one.2021[which(poke.stream.one.2021$WaterLevel < "216"), ] # trying to find the erroneous point in the dataframe 
 
 poke.stream.one.2021$DateTime[poke.stream.one.2021$DateTime == "2021-08-10 04:50:00"] <- NA
 poke.stream.one.2021$DateTime[poke.stream.one.2021$DateTime == "2021-06-29"] <- NA

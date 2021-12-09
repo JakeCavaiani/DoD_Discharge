@@ -24,7 +24,7 @@ library(dplyr)
 library(RColorBrewer)
 library(gridExtra)
 library(ggpmisc)
-library(here)
+
 
 
 dir.create(here("Predicted_Discharge"))
@@ -701,8 +701,8 @@ write.csv(Q.daily.2020,"~/Documents/DoD_Discharge/Predicted_Discharge/2020/Q.dai
 ################################################# 2021 ###################################################
 ### POKE ###
 # PT1 #
-Poke1comb.2021$pred.poke1.Q <- coef(POKE1.lm.2021)[2] * Poke1comb.2021$WaterLevel+ coef(POKE1.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021) +
+Poke1comb.2021.1$pred.poke1.Q <- coef(POKE1.lm.2021.1)[2] * Poke1comb.2021.1$WaterLevel+ coef(POKE1.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
@@ -711,8 +711,8 @@ ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021) +
   ylab("Discharge (L/s)") 
 
 # PT2 #
-Poke2comb.2021$pred.poke2.Q <- coef(POKE2.lm.2021)[2] * Poke2comb.2021$WaterLevel+ coef(POKE2.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2021) +
+Poke2comb.2021.1$pred.poke2.Q <- coef(POKE2.lm.2021.1)[2] * Poke2comb.2021.1$WaterLevel+ coef(POKE2.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
@@ -722,15 +722,15 @@ ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2021) +
   ylim(0, 3500) +
   ylab("Discharge(L/s)")
 
-poke.final.discharge.2021 <- full_join(Poke1comb.2021, Poke2comb.2021, by = "DateTime")
+poke.final.discharge.2021 <- full_join(Poke1comb.2021.1, Poke2comb.2021.1, by = "DateTime")
 poke.final.discharge.2021$MeanDischarge <- rowMeans(poke.final.discharge.2021[,c ("pred.poke1.Q", 'pred.poke2.Q')], na.rm = TRUE) # taking the average of the two PTs
 poke.final.discharge.2021 <- poke.final.discharge.2021[,-c(1:4,6:13,15:26)] # remove unnecesary columns
 poke.final.discharge.2021 <- poke.final.discharge.2021[-c(30574:31598) , ] # Removing duplicate date values 
 
 # Poker1 (light blue) and Poker2 (dark blue) with observed Q.
-ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021) +
-  geom_line(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021, color="#A6CEE3", size=1.25) +
-  geom_line(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2021,color="#1F78B4", size=1.25, alpha = 0.75) +
+ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021.1) +
+  geom_line(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2021.1, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2021.1,color="#1F78B4", size=1.25, alpha = 0.75) +
   geom_line(aes(x = DateTime, y = MeanDischarge), data = poke.final.discharge.2021, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
@@ -751,13 +751,13 @@ ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
   ylab("Discharge (L/s)") 
 
 # PT2 #
-Strt2comb.2021$pred.strt2.Q <- coef(STRT2.lm.2021)[2] * Strt2comb.2021$WaterLevel+ coef(STRT2.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2021) +
+Strt2comb.2021.1$pred.strt2.Q <- coef(STRT2.lm.2021.1)[2] * Strt2comb.2021.1$WaterLevel+ coef(STRT2.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Stuart 2 Predicted Q") +
-  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  scale_shape_discrete(name = "Method", labels = c("ADCP", "Wading Rod", "Salt Dilution")) +
   xlab("") +
   ylim(0, 2000) +
   ylab("Discharge(L/s)")
@@ -765,7 +765,7 @@ ggplot(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2021) +
 strt.final.discharge.2021 <- full_join(Strt1comb.2021, Strt2comb.2021, by = "DateTime")
 strt.final.discharge.2021$MeanDischarge <- rowMeans(strt.final.discharge.2021[,c ("pred.strt1.Q", 'pred.strt2.Q')], na.rm = TRUE) # taking the average of the two PTs
 strt.final.discharge.2021 <- strt.final.discharge.2021[,-c(1:4,6:13,15:26)] # remove unnecesary columns
-
+strt.final.discharge.2021 <- Strt2comb.2021
 # Stuart1 (light blue) and Stuart2 (dark blue) with observed Q.
 ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
   geom_line(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021, color="#A6CEE3", size=1.25) +
@@ -780,8 +780,8 @@ ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
 
 ### FRCH ###
 # PT1 #
-Frch1comb.2021$pred.frch1.Q <- coef(FRCH1.lm.2021)[2] * Frch1comb.2021$WaterLevel+ coef(FRCH1.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021) +
+Frch1comb.2021.1$pred.frch1.Q <- coef(FRCH1.lm.2021.1)[2] * Frch1comb.2021.1$WaterLevel+ coef(FRCH1.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
@@ -790,8 +790,8 @@ ggplot(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021) +
   ylab("Discharge (L/s)") 
 
 # PT2 #
-Frch2comb.2021$pred.frch2.Q <- coef(FRCH2.lm.2021)[2] * Frch2comb.2021$WaterLevel+ coef(FRCH2.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.frch2.Q), data = Frch2comb.2021) +
+Frch2comb.2021.1$pred.frch2.Q <- coef(FRCH2.lm.2021.1)[2] * Frch2comb.2021.1$WaterLevel+ coef(FRCH2.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.frch2.Q), data = Frch2comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
@@ -815,31 +815,32 @@ ggplot(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021) +
   ggtitle("French1(light) & French2(dark) predicted all measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time")
-
+frch.final.discharge.2021 <- Frch2comb.2021.1
 ### MOOS ###
 # PT1 #
-Moos1comb.2021$pred.moos1.Q <- coef(MOOS1.lm.2021)[2] * Moos1comb.2021$WaterLevel+ coef(MOOS1.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moos1comb.2021) +
+Moos1comb.2021.1$pred.moos1.Q <- coef(MOOS1.lm.2021.1)[2] * Moos1comb.2021.1$WaterLevel+ coef(MOOS1.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moos1comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Moose1 predicted all measured Q") +
+  scale_shape_discrete(name = "Method", labels = c("ADCP", "Wading Rod", "Salt Dilution")) +
   xlab("Date") +
   ylab("Discharge (L/s)") 
 
 # PT2 #
-Moos2comb.2021$pred.moos2.Q <- coef(MOOS2.lm.2021)[2] * Moos2comb.2021$WaterLevel+ coef(MOOS2.lm.2021)[1]
-ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moos2comb.2021) +
+Moos2comb.2021.1$pred.moos2.Q <- coef(MOOS2.lm.2021.1)[2] * Moos2comb.2021.1$WaterLevel+ coef(MOOS2.lm.2021.1)[1]
+ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moos2comb.2021.1) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Moose 2 Predicted Q") +
-  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  scale_shape_discrete(name = "Method", labels = c("ADCP", "Wading Rod", "Salt Dilution")) +
   xlab("") +
   ylab("Discharge(L/s)")
 
-moos.final.discharge.2021 <- full_join(Moos1comb.2021, Moos2comb.2021, by = "DateTime")
-moos.final.discharge.2021$MeanDischarge <- rowMeans(moos.final.discharge.2021[,c ("pred.moos1.Q", 'pred.moos2.Q')], na.rm = TRUE) # taking the average of the two PTs
+moos.final.discharge.2021 <- full_join(Moos1comb.2021.1, Moos2comb.2021.1, by = "DateTime")
+moos.final.discharge.2021$MeanDischarge <- rowMeans(moos.final.discharge.2021[,c("pred.moos1.Q", 'pred.moos2.Q')], na.rm = TRUE) # taking the average of the two PTs
 moos.final.discharge.2021 <- moos.final.discharge.2021[,-c(1:4,6:13,15:26)] # remove unnecesary columns
 
 # Moose1 (light blue) and Moose2 (dark blue) with observed Q.
@@ -865,7 +866,310 @@ ggplot(aes(x = DateTime, y = pred.vaul1.Q), data = Vaul1comb.2021) +
   xlab("Date") +
   ylab("Discharge (L/s)") 
 
+vaul.final.discharge.2021 <- Vaul1comb.2021
+### Rename Columns ###
+moos.final.discharge.2021$Site <- "MOOS" # adding site identifier
+moos.final.discharge.2021 <- moos.final.discharge.2021[,-c(2:3) ] # Removing the two individual columns
+poke.final.discharge.2021$Site <- "POKE"
+poke.final.discharge.2021 <- poke.final.discharge.2021[,-c(2:3) ] # Removing the two individual columns
+frch.final.discharge.2021$Site <- "FRCH" # adding site identifier
+frch.final.discharge.2021 <- frch.final.discharge.2021[,-c(2:3) ] # Removing the two individual columns
+strt.final.discharge.2021$Site <- "STRT" # adding site identifier
+strt.final.discharge.2021 <- strt.final.discharge.2021[,-c(2:3) ] # Removing the two individual columns
+vaul.final.discharge.2021 <- vaul.final.discharge.2021[,-c(2:4,6:13)]
+names(vaul.final.discharge.2021) <- c("Site", "DateTime", "MeanDischarge")
 
 
+all.discharge.2021 <- rbind(frch.final.discharge.2021, moos.final.discharge.2021, 
+                            poke.final.discharge.2021, strt.final.discharge.2021,
+                            vaul.final.discharge.2021)
 
+Q_2021 <- all.discharge.2021
+Q_2021$day = format(as.POSIXct(Q_2021$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2021$day = as.POSIXct(Q_2021$day, "%Y-%m-%d", tz="America/Anchorage")
+
+
+Q.daily.2021 = with(Q_2021, tapply(MeanDischarge, list(day, Site), mean))
+Q.daily.2021 = as.data.frame(Q.daily.2021)
+
+write.csv(Q_2021,"~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q_2021.csv", row.names = FALSE)
+write.csv(Q.daily.2021,"~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q.daily.2021.csv", row.names = FALSE)
+
+################ model selection for adding on other data to sites missing a discharge record from before 6/29(VAUL, MOOS, FRCH)
+# import precip data # 
+strt.rain <- read.csv("~/Documents/DoD_2021/RainGauge/strt.precip.discharge.csv")
+strt.rain$DateTime <- ymd_hms(strt.rain$DateTime)
+attributes(strt.rain$DateTime)$tzone <- 'America/Anchorage'
+strt.rain <- strt.rain[,-c(2:5)]
+vaul.rain <- read.csv("~/Documents/DoD_2021/RainGauge/vaul.precip.discharge.csv")
+vaul.rain$DateTime <- ymd_hms(vaul.rain$DateTime)
+attributes(vaul.rain$DateTime)$tzone <- 'America/Anchorage'
+vaul.rain <- vaul.rain[,-c(2:5)]
+
+Vaul.pre.model <- QSummary.VA.2021[, -c(1:6,8,9)] # just Q and datetime from discrete measurements
+names(Vaul.pre.model) <- c("Q", "DateTime")
+vaul.final.discharge.2021.pre.model <- vaul.final.discharge.2021[,-1]
+names(vaul.final.discharge.2021.pre.model) <- c("DateTime", "Q")
+vaul.model <- rbind(Vaul.pre.model, vaul.final.discharge.2021.pre.model)
+vaul.model <- left_join(vaul.model, vaul.rain, by = "DateTime")
+vaul.model$doy <- yday(vaul.model$DateTime)
+
+Poke.pre.model <- QSummary.PO.2021[, -c(1:6,8,9)]
+names(Poke.pre.model) <- c("Q", "DateTime")
+poke.final.discharge.2021.pre.model <- poke.final.discharge.2021[,-3]
+names(poke.final.discharge.2021.pre.model) <- c("DateTime", "Q")
+poke.model <- rbind(Poke.pre.model, poke.final.discharge.2021.pre.model)
+poke.model <- left_join(poke.model, strt.rain, by = "DateTime")
+poke.model$doy <- yday(poke.model$DateTime)
+
+
+vaul.poke.model <- left_join(vaul.model, poke.model, by = "DateTime")
+
+vaul.poke.lm.1 <- lm(vaul.poke.model$Q.x ~ vaul.poke.model$Q.y)
+summary(vaul.poke.lm.1)
+vaul.poke.lm.2 <- lm(vaul.poke.model$Q.x ~ vaul.poke.model$Q.y + vaul.poke.model$inst_rainfall_mm.x)
+summary(vaul.poke.lm.2)
+vaul.poke.lm.3 <- lm(vaul.poke.model$Q.x ~ vaul.poke.model$Q.y + vaul.poke.model$inst_rainfall_mm.x + vaul.poke.model$doy.x)
+summary(vaul.poke.lm.3)
+vaul.poke.lm.4 <- lm(vaul.poke.model$Q.x ~ vaul.poke.model$Q.y + vaul.poke.model$twentyfour.x)
+summary(vaul.poke.lm.4)
+vaul.poke.lm.5 <- lm(vaul.poke.model$Q.x ~ vaul.poke.model$Q.y + vaul.poke.model$twentyfour.x + vaul.poke.model$doy.x)
+summary(vaul.poke.lm.5)
+
+
+vaul.poke.model$pred.vaul1.Q <- coef(vaul.poke.lm.1)[2] * vaul.poke.model$Q.y+ coef(vaul.poke.lm.1)[1]
+vaul.poke.model$pred.vaul2.Q <- coef(vaul.poke.lm.2)[2] * vaul.poke.model$Q.y+ coef(vaul.poke.lm.1)[1]
+vaul.poke.model$pred.vaul3.Q <- coef(vaul.poke.lm.3)[2] * vaul.poke.model$Q.y+ coef(vaul.poke.lm.3)[1]
+vaul.poke.model$pred.vaul4.Q <- coef(vaul.poke.lm.4)[2] * vaul.poke.model$Q.y+ coef(vaul.poke.lm.4)[1]
+vaul.poke.model$pred.vaul5.Q <- coef(vaul.poke.lm.5)[2] * vaul.poke.model$Q.y+ coef(vaul.poke.lm.5)[1]
+
+vaul.pre.pt <- vaul.poke.model %>% subset(vaul.poke.model$DateTime > "2021-05-10" & vaul.poke.model$DateTime < "2021-06-29") # clipping off data that is empty in vaul data 
+
+vaul.final.discharge.2021.1 <- left_join(vaul.final.discharge.2021, vaul.pre.pt) # joining to make a complete data frame throughout the year
+
+vaul.final.discharge.2021.1$Q_final <- rowMeans(vaul.final.discharge.2021.1[,c(3,14)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+vaul.final.discharge.2021.1$Q_final.2 <- rowMeans(vaul.final.discharge.2021.1[,c(3,15)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+vaul.final.discharge.2021.1$Q_final.3 <- rowMeans(vaul.final.discharge.2021.1[,c(3,16)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+vaul.final.discharge.2021.1$Q_final.4 <- rowMeans(vaul.final.discharge.2021.1[,c(3,17)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+vaul.final.discharge.2021.1$Q_final.5 <- rowMeans(vaul.final.discharge.2021.1[,c(3,18)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+
+vaul.final.discharge.2021.2 <- full_join(vaul.final.discharge.2021.1, QSummary.VA.2021) # joining the discrete measurements with the predicted Q 
+
+ggplot(aes(x = DateTime, y = Q_final), data = vaul.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vaul1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.2), data = vaul.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vaul1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)") # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.3), data = vaul.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vaul1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.4), data = vaul.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vaul1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.5), data = vaul.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vaul1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = MeanDischarge), data = poke.final.discharge.2021) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  theme_classic() +
+  ggtitle("poke average predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+# FRCH # 
+Frch.pre.model <- QSummary.FR.2021[, -c(1:6,8,9)] # just Q and datetime from discrete measurements
+names(Frch.pre.model) <- c("Q", "DateTime")
+frch.final.discharge.2021.pre.model <- frch.final.discharge.2021[,-c(1:4,6:13)]
+names(frch.final.discharge.2021.pre.model) <- c("DateTime", "Q")
+frch.model <- rbind(Frch.pre.model, frch.final.discharge.2021.pre.model)
+frch.model <- left_join(frch.model, strt.rain, by = "DateTime")
+frch.model$doy <- yday(frch.model$DateTime)
+
+Strt.pre.model <- QSummary.ST.2021[, -c(1:6,8,9)]
+names(Strt.pre.model) <- c("Q", "DateTime")
+strt.final.discharge.2021.pre.model <- strt.final.discharge.2021[,-c(1:4,6:13)]
+names(strt.final.discharge.2021.pre.model) <- c("DateTime", "Q")
+#strt.model <- rbind(Strt.pre.model, strt.final.discharge.2021.pre.model)
+strt.model <- left_join(strt.model, strt.rain, by = "DateTime")
+strt.model$doy <- yday(strt.model$DateTime)
+
+frch.strt.model <- left_join(frch.model, strt.model, by = "DateTime")
+
+frch.strt.lm.1 <- lm(frch.strt.model$Q.x ~ frch.strt.model$Q.y)
+summary(frch.strt.lm.1)
+frch.strt.lm.2 <- lm(frch.strt.model$Q.x ~ frch.strt.model$Q.y + frch.strt.model$inst_rainfall_mm.x)
+summary(frch.strt.lm.2)
+frch.strt.lm.3 <- lm(frch.strt.model$Q.x ~ frch.strt.model$Q.y + frch.strt.model$inst_rainfall_mm.x + frch.strt.model$doy.x)
+summary(frch.strt.lm.3)
+frch.strt.lm.4 <- lm(frch.strt.model$Q.x ~ frch.strt.model$Q.y + frch.strt.model$twentyfour.x)
+summary(frch.strt.lm.4)
+frch.strt.lm.5 <- lm(frch.strt.model$Q.x ~ frch.strt.model$Q.y + frch.strt.model$twentyfour.x + frch.strt.model$doy.x)
+summary(frch.strt.lm.5)
+
+
+frch.strt.model$pred.frch1.Q <- coef(frch.strt.lm.1)[2] * frch.strt.model$Q.y+ coef(frch.strt.lm.1)[1]
+frch.strt.model$pred.frch2.Q <- coef(frch.strt.lm.2)[2] * frch.strt.model$Q.y+ coef(frch.strt.lm.2)[1]
+frch.strt.model$pred.frch3.Q <- coef(frch.strt.lm.3)[2] * frch.strt.model$Q.y+ coef(frch.strt.lm.3)[1]
+frch.strt.model$pred.frch4.Q <- coef(frch.strt.lm.4)[2] * frch.strt.model$Q.y+ coef(frch.strt.lm.4)[1]
+frch.strt.model$pred.frch5.Q <- coef(frch.strt.lm.5)[2] * frch.strt.model$Q.y+ coef(frch.strt.lm.5)[1]
+
+frch.pre.pt <- frch.strt.model %>% subset(frch.strt.model$DateTime > "2021-05-10" & frch.strt.model$DateTime < "2021-06-29") # clipping off data that is empty in vaul data 
+
+frch.final.discharge.2021.1 <- left_join(frch.final.discharge.2021.pre.model, frch.pre.pt) # joining to make a complete data frame throughout the year
+
+frch.final.discharge.2021.1$Q_final <- rowMeans(frch.final.discharge.2021.1[,c(2,16)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+frch.final.discharge.2021.1$Q_final.2 <- rowMeans(frch.final.discharge.2021.1[,c(2,17)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+frch.final.discharge.2021.1$Q_final.3 <- rowMeans(frch.final.discharge.2021.1[,c(2,18)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+frch.final.discharge.2021.1$Q_final.4 <- rowMeans(frch.final.discharge.2021.1[,c(2,19)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+frch.final.discharge.2021.1$Q_final.5 <- rowMeans(frch.final.discharge.2021.1[,c(2,20)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+
+frch.final.discharge.2021.2 <- full_join(frch.final.discharge.2021.1, QSummary.FR.2021) # joining the discrete measurements with the predicted Q 
+
+ggplot(aes(x = DateTime, y = Q_final), data = frch.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH2 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.2), data = frch.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH2 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)") # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.3), data = frch.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH2 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.4), data = frch.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH2 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.5), data = frch.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+# MOOS #
+Moos.pre.model <- QSummary.MO.2021[, -c(1:6,8,9)] # just Q and datetime from discrete measurements
+names(Moos.pre.model) <- c("Q", "DateTime")
+moos.final.discharge.2021.pre.model <- moos.final.discharge.2021[,-c(2,3)]
+names(moos.final.discharge.2021.pre.model) <- c("DateTime", "Q")
+moos.model <- rbind(Moos.pre.model, moos.final.discharge.2021.pre.model)
+moos.model <- left_join(moos.model, strt.rain, by = "DateTime")
+moos.model$doy <- yday(moos.model$DateTime)
+
+moos.strt.model <- left_join(moos.model, strt.model, by = "DateTime")
+
+moos.strt.lm.1 <- lm(moos.strt.model$Q.x ~ moos.strt.model$Q.y)
+summary(moos.strt.lm.1)
+moos.strt.lm.2 <- lm(moos.strt.model$Q.x ~ moos.strt.model$Q.y + moos.strt.model$inst_rainfall_mm.x)
+summary(moos.strt.lm.2)
+moos.strt.lm.3 <- lm(moos.strt.model$Q.x ~ moos.strt.model$Q.y + moos.strt.model$inst_rainfall_mm.x + moos.strt.model$doy.x)
+summary(moos.strt.lm.3)
+moos.strt.lm.4 <- lm(moos.strt.model$Q.x ~ moos.strt.model$Q.y + moos.strt.model$twentyfour.x)
+summary(moos.strt.lm.4)
+moos.strt.lm.5 <- lm(moos.strt.model$Q.x ~ moos.strt.model$Q.y + moos.strt.model$twentyfour.x + moos.strt.model$doy.x)
+summary(moos.strt.lm.5)
+
+
+moos.strt.model$pred.vaul1.Q <- coef(moos.strt.lm.1)[2] * moos.strt.model$Q.y+ coef(moos.strt.lm.1)[1]
+moos.strt.model$pred.vaul2.Q <- coef(moos.strt.lm.2)[2] * moos.strt.model$Q.y+ coef(moos.strt.lm.2)[1]
+moos.strt.model$pred.vaul3.Q <- coef(moos.strt.lm.3)[2] * moos.strt.model$Q.y+ coef(moos.strt.lm.3)[1]
+moos.strt.model$pred.vaul4.Q <- coef(moos.strt.lm.4)[2] * moos.strt.model$Q.y+ coef(moos.strt.lm.4)[1]
+moos.strt.model$pred.vaul5.Q <- coef(moos.strt.lm.5)[2] * moos.strt.model$Q.y+ coef(moos.strt.lm.5)[1]
+
+moos.pre.pt <- moos.strt.model %>% subset(moos.strt.model$DateTime > "2021-05-10" & moos.strt.model$DateTime < "2021-06-29") # clipping off data that is empty in vaul data 
+
+moos.final.discharge.2021.1 <- left_join(moos.final.discharge.2021.pre.model, moos.pre.pt) # joining to make a complete data frame throughout the year
+
+moos.final.discharge.2021.1$Q_final <- rowMeans(moos.final.discharge.2021.1[,c(2,16)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+moos.final.discharge.2021.1$Q_final.2 <- rowMeans(moos.final.discharge.2021.1[,c(2,17)], na.rm = TRUE) # taking the average of the vaul mean discharge and the new column from the lm
+moos.final.discharge.2021.1$Q_final.3 <- rowMeans(moos.final.discharge.2021.1[,c(2,18)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+moos.final.discharge.2021.1$Q_final.4 <- rowMeans(moos.final.discharge.2021.1[,c(2,19)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+moos.final.discharge.2021.1$Q_final.5 <- rowMeans(moos.final.discharge.2021.1[,c(2,20)], na.rm = TRUE)# taking the average of the vaul mean discharge and the new column from the lm
+
+moos.final.discharge.2021.2 <- full_join(moos.final.discharge.2021.1, QSummary.MO.2021) # joining the discrete measurements with the predicted Q 
+
+
+ggplot(aes(x = DateTime, y = Q_final), data = moos.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("MOOS predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.2), data = moos.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("MOOS predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)") # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.3), data = moos.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("MOOS predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.4), data = moos.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("MOOS predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
+
+ggplot(aes(x = DateTime, y = Q_final.5), data = moos.final.discharge.2021.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("MOOS predicted all measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")  # plotting 
 
