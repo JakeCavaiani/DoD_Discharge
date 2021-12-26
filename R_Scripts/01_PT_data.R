@@ -36,6 +36,7 @@ library(data.table)
 library(rio)
 library(neonUtilities)
 library(raster)
+library(imputeTS)
 
 
 
@@ -80,29 +81,58 @@ frch.stream$DateTime <- as.POSIXct(paste(frch.stream$Date, frch.stream$Time), fo
 # Filtering out data #
 ### MOOS ###
 moos.stream <- moos.stream %>% subset(moos.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
-plot(x = moos.stream$DateTime, y = moos.stream$WaterLevel) # Plot check
+plot(x = moos.stream$DateTime, y = moos.stream$AbsolutePressure, type = "l") # Plot check
+
+#june to july
+moos.stream.1 <- moos.stream %>% subset(moos.stream$DateTime < "2015-07-01 00:00:00" & moos.stream$DateTime > "2015-06-01 00:00:00") 
+plot(moos.stream.1$DateTime, moos.stream.1$AbsolutePressure, type = "l")
+which(moos.stream.1$AbsolutePressure < 102)
+moos.stream.1[c(4052, 5270:5277), 2] <- NA
+#july to august
+moos.stream.2 <- moos.stream %>% subset(moos.stream$DateTime < "2015-08-01 00:00:00" & moos.stream$DateTime > "2015-07-01 00:00:00") 
+plot(moos.stream.2$DateTime, moos.stream.2$AbsolutePressure, type = "l")
+which(moos.stream.2$AbsolutePressure < 102)
+moos.stream.2$AbsolutePressure[moos.stream.2$AbsolutePressure == "99.188"] <- NA
+moos.stream.2[2047, 2] <- NA
+#august to September
+moos.stream.3 <- moos.stream %>% subset(moos.stream$DateTime < "2015-09-01 00:00:00" & moos.stream$DateTime > "2015-08-01 00:00:00") 
+plot(moos.stream.3$DateTime, moos.stream.3$AbsolutePressure, type = "l")
+which(moos.stream.3$AbsolutePressure < 102)
+moos.stream.3[c(2679,2680,2681,2683), 2] <- NA
+
+#September to October
+moos.stream.4 <- moos.stream %>% subset(moos.stream$DateTime < "2015-10-01 00:00:00" & moos.stream$DateTime > "2015-09-01 00:00:00") 
+plot(moos.stream.4$DateTime, moos.stream.4$AbsolutePressure, type = "l")
 
 ### FRCH ###
+plot(x = frch.stream$DateTime, y = frch.stream$AbsolutePressure, type = "l") # Plot check
+
 frch.stream <- frch.stream %>%  subset(frch.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
 
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:10"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:15"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:20"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:25"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:30"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:35"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:40"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:45"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:50"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 12:55"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:00"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:05"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:10"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:15"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:20"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:25"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:30"] <- NA
-frch.stream$DateTime[frch.stream$DateTime == "2015-08-10 13:35"] <- NA
+#May to june
+frch.stream.1 <- frch.stream %>% subset(frch.stream$DateTime < "2015-06-01 00:00:00" & frch.stream$DateTime > "2015-05-20 00:00:00") 
+plot(frch.stream.1$DateTime, frch.stream.1$AbsolutePressure, type = "l")
+which(frch.stream.1$AbsolutePressure < 102)
+frch.stream.1[c(1535, 2047:2060), 2] <- NA
+
+#Juneto july
+frch.stream.2 <- frch.stream %>% subset(frch.stream$DateTime < "2015-07-01 00:00:00" & frch.stream$DateTime > "2015-06-01 00:00:00") 
+plot(frch.stream.2$DateTime, frch.stream.2$AbsolutePressure, type = "l")
+which(frch.stream.2$AbsolutePressure < 100)
+frch.stream.2[c(49,2052,4111,5213:5241), 2] <- NA
+#July to August # no cleaning necessary
+frch.stream.3 <- frch.stream %>% subset(frch.stream$DateTime < "2015-08-01 00:00:00" & frch.stream$DateTime > "2015-07-01 00:00:00") 
+plot(frch.stream.3$DateTime, frch.stream.3$AbsolutePressure, type = "l")
+
+#August to September 
+frch.stream.4 <- frch.stream %>% subset(frch.stream$DateTime < "2015-09-01 00:00:00" & frch.stream$DateTime > "2015-08-01 00:00:00") 
+plot(frch.stream.4$DateTime, frch.stream.4$AbsolutePressure, type = "l")
+which(frch.stream.4$AbsolutePressure < 100)
+frch.stream.4[c(2641:2656, 4631:4654), 2] <- NA
+
+#September to October # no cleaning necessary
+frch.stream.5 <- frch.stream %>% subset(frch.stream$DateTime < "2015-10-01 00:00:00" & frch.stream$DateTime > "2015-09-01 00:00:00") 
+plot(frch.stream.5$DateTime, frch.stream.5$AbsolutePressure, type = "l")
 
 plot(x = frch.stream$DateTime, y = frch.stream$WaterLevel) # plot check
 
@@ -151,6 +181,36 @@ plot(x= French1$WaterLevelmeters[100:nrow(French1)], y=French2$WaterLevelmeters[
 
 plot(x= Moose1$WaterLevelmeters[100:nrow(Moose1)-15], y=Moose2$WaterLevelmeters[100:nrow(Moose2)-15], 
      main = "Moose PT comparison", xlab = "Moose1 PT", ylab = "Moose2 PT")
+
+# cleaning Moose 1 # 
+plot(Moose1$DateTime, Moose1$WaterLevelmeters, type = "l")
+which(Moose1$WaterLevelmeters < 166)
+Moose1[c(1:38, 7191:7199), 3] <- NA # cleaning the beginning and end of out of water points 
+
+moos.stream.1 <- Moose1 %>% subset(Moose1$DateTime < "2018-10-01 00:00:00" & DateTime > "2018-09-01 00:00:00")
+plot(moos.stream.1$DateTime, moos.stream.1$WaterLevelmeters, type = "l") # max of storm  (2018-09-02 21:30:00)
+moos.stream.2 <- Moose1 %>% subset(Moose1$DateTime < "2018-09-08 00:00:00" & DateTime > "2018-09-01 00:00:00")
+plot(moos.stream.2$DateTime, moos.stream.2$WaterLevelmeters, type = "l") # max of storm  (2018-09-02 21:30:00)
+
+#need to clip 2018-09-02 21:30:00 to 2018-09-07 23:30:00 from Moose2 and put that on Moose1
+# removing the noise and replacing it with better pressure transducer
+
+Moose1.pre <- Moose1[-c(4639:7202), ]
+Moose1.pre.middle <- rbind(Moose1.pre, moos.stream.3)
+Moose1.post <- Moose1[-c(1:4882), ]
+Moose1.pre.middle.post <- rbind(Moose1.pre.middle, Moose1.post)
+
+moos.stream.3 <- Moose2 %>% subset(Moose2$DateTime < "2018-09-08 00:00:00" & DateTime > "2018-09-02 21:30:00")
+plot(moos.stream.3$DateTime, moos.stream.3$WaterLevelmeters, type = "l") # max of storm  (2018-09-02 21:30:00)
+
+plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = "l") 
+moos.stream.4 <- Moose1.pre.middle.post %>% subset(Moose1.pre.middle.post$DateTime < "2018-09-10 00:00:00" & DateTime > "2018-09-02 21:30:00")
+plot(moos.stream.4$DateTime, moos.stream.4$WaterLevelmeters, type = "l") # max of storm  (2018-09-02 21:30:00)
+ # cleaning vertical bar in middle of september 
+moos.stream.5 <- Moose1.pre.middle.post %>% subset(Moose1.pre.middle.post$DateTime < "2018-10-01 00:00:00" & DateTime > "2018-09-15 21:30:00")
+plot(moos.stream.5$DateTime, moos.stream.5$WaterLevelmeters, type = "l") # max of storm  (2018-09-02 21:30:00)
+which(moos.stream.5$WaterLevelmeters < 166.6)
+moos.stream.5[c(380:400), 3] <- NA # cleaning the beginning and end of out of water points 
 
 # French Plots
 allfrench %>% 
@@ -271,6 +331,102 @@ poke.pt.2019 <- bind_rows(poke.stream.one.2019, poke.stream.two.2019)
 moos.pt.2019 <- moos.stream.one.2019
 moos.pt.2019$Site <- "MOOS1"
 
+# cleaning moose #
+#June to july # nothing to clean 
+moos.stream.one.2019.1 <- moos.stream.one.2019 %>% subset(moos.stream.one.2019$DateTime < "2019-07-01 00:00:00" & moos.stream.one.2019$DateTime > "2019-06-01 00:00:00") 
+plot(moos.stream.one.2019.1$DateTime, moos.stream.one.2019.1$AbsPTDepth, type = "l")
+
+#July to August 
+moos.stream.one.2019.2 <- moos.stream.one.2019 %>% subset(moos.stream.one.2019$DateTime < "2019-08-01 00:00:00" & moos.stream.one.2019$DateTime > "2019-07-01 00:00:00") 
+plot(moos.stream.one.2019.2$DateTime, moos.stream.one.2019.2$AbsPTDepth, type = "l")
+which(moos.stream.one.2019.2$AbsPTDepth > 1.2) # 3715
+which(moos.stream.one.2019.2$AbsPTDepth < 0.95) # 5179, 5342
+
+#August to September  # noisy on the receding limb around august 20th but there is nothing to do about it considering i only have one PT to work with 
+moos.stream.one.2019.3 <- moos.stream.one.2019 %>% subset(moos.stream.one.2019$DateTime < "2019-09-01 00:00:00" & moos.stream.one.2019$DateTime > "2019-08-01 00:00:00") 
+plot(moos.stream.one.2019.3$DateTime, moos.stream.one.2019.3$AbsPTDepth, type = "l")
+
+#Septembter to end 
+moos.stream.one.2019.4 <- moos.stream.one.2019 %>% subset(moos.stream.one.2019$DateTime < "2019-11-01 00:00:00" & moos.stream.one.2019$DateTime > "2019-09-01 00:00:00") 
+plot(moos.stream.one.2019.4$DateTime, moos.stream.one.2019.4$AbsPTDepth, type = "l")
+
+# Cleaning frch
+
+# Set to NA so when it takes the average of the Two it only uses FRCH PT2
+which(frch.stream.one.2019$AbsPTDepth > 2.40) 
+frch.stream.one.2019.1 <- frch.stream.one.2019 %>% subset(frch.stream.one.2019$DateTime < "2019-08-24 00:00:00" & frch.stream.one.2019$DateTime > "2019-08-17 00:00:00") 
+plot(frch.stream.one.2019.1$DateTime, frch.stream.one.2019.1$AbsPTDepth, type = "l") # 10549:11162 - NA
+plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth, type = "l", col = "red")
+par(new=TRUE)
+plot(frch.stream.two.2019$DateTime, frch.stream.two.2019$AbsPTDepth, type = "l", col = "blue")
+
+frch.stream.one.2019.before <- frch.stream.one.2019[-c(10549:15724), ]  # clipping off to have beginning of dataframe
+
+frch.stream.two.middle <- frch.stream.two.2019[-c(1:10549, 11162:15724), ]
+
+frch.stream.one.2019.after <- frch.stream.one.2019[-c(1:11162), ]  # clipping off to have beginning of dataframe
+
+frch.stream.one.all <- rbind(frch.stream.one.2019.before, frch.stream.two.middle, frch.stream.one.2019.after)
+plot(frch.stream.one.all$DateTime, frch.stream.one.all$AbsPTDepth, type = "l")
+frch.stream.one.all <- frch.stream.one.2019
+
+### PT2 ###
+#april to june # nothing to clean 
+frch.stream.two.2019.1 <- frch.stream.two.2019 %>% subset(frch.stream.two.2019$DateTime < "2019-06-01 00:00:00" & frch.stream.two.2019$DateTime > "2019-04-28 00:00:00") 
+plot(frch.stream.two.2019.1$DateTime, frch.stream.two.2019.1$AbsPTDepth, type = "l")
+which(frch.stream.two.2019.1$AbsPTDepth > .47) # 107:108, 389, 610, 964
+
+# cleaning Poker 
+#may to june # nothing to clean it appears
+poke.stream.one.2019.1 <- poke.stream.one.2019 %>% subset(poke.stream.one.2019$DateTime < "2019-06-01 00:00:00" & poke.stream.one.2019$DateTime > "2019-05-01 00:00:00") 
+plot(poke.stream.one.2019.1$DateTime, poke.stream.one.2019.1$AbsPTDepth, type = "l")
+
+#June to july
+poke.stream.one.2019.1 <- poke.stream.one.2019 %>% subset(poke.stream.one.2019$DateTime < "2019-07-01 00:00:00" & poke.stream.one.2019$DateTime > "2019-06-25 00:00:00") 
+plot(poke.stream.one.2019.1$DateTime, poke.stream.one.2019.1$AbsPTDepth, type = "l")
+which(poke.stream.one.2019.1$AbsPTDepth < 0.1) # 3359:3365
+
+#July to august
+poke.stream.one.2019.1 <- poke.stream.one.2019 %>% subset(poke.stream.one.2019$DateTime < "2019-08-01 00:00:00" & poke.stream.one.2019$DateTime > "2019-07-01 00:00:00") 
+plot(poke.stream.one.2019.1$DateTime, poke.stream.one.2019.1$AbsPTDepth, type = "l")
+which(poke.stream.one.2019.1$AbsPTDepth < 0.04) # 5959:5967, 6517:6530, 7296:7300
+#
+# 3359:3365, 5959:5967, 6517:6530, 7296:7300 15015:15439 remove - out of water
+#August to September 
+poke.stream.one.2019.1 <- poke.stream.one.2019 %>% subset(poke.stream.one.2019$DateTime < "2019-09-20 00:00:00" & poke.stream.one.2019$DateTime > "2019-08-20 00:00:00") 
+plot(poke.stream.one.2019.1$DateTime, poke.stream.one.2019.1$AbsPTDepth, type = "l")
+
+#September to October 
+poke.stream.one.2019.1 <- poke.stream.one.2019 %>% subset(poke.stream.one.2019$DateTime < "2019-11-01 00:00:00" & poke.stream.one.2019$DateTime > "2019-09-01 00:00:00") 
+plot(poke.stream.one.2019.1$DateTime, poke.stream.one.2019.1$AbsPTDepth, type = "l")
+
+poke.stream.one.2019$DateTime <- as.POSIXct(paste(poke.stream.one.2019$DateTimeGMT), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+
+# PT2 
+#may to june 
+poke.stream.two.2019.1 <- poke.stream.two.2019 %>% subset(poke.stream.two.2019$DateTime < "2019-06-01 00:00:00" & poke.stream.two.2019$DateTime > "2019-05-01 00:00:00") 
+plot(poke.stream.two.2019.1$DateTime, poke.stream.two.2019.1$AbsPTDepth, type = "l")
+which(poke.stream.two.2019.1$AbsPTDepth < 0.4) # 4
+
+#June  to July 
+poke.stream.two.2019.1 <- poke.stream.two.2019 %>% subset(poke.stream.two.2019$DateTime < "2019-07-01 00:00:00" & poke.stream.two.2019$DateTime > "2019-06-01 00:00:00") 
+plot(poke.stream.two.2019.1$DateTime, poke.stream.two.2019.1$AbsPTDepth, type = "l")
+which(poke.stream.two.2019.1$AbsPTDepth < 0.34) # 2978:2983
+
+# July to August 
+poke.stream.two.2019.1 <- poke.stream.two.2019 %>% subset(poke.stream.two.2019$DateTime < "2019-08-01 00:00:00" & poke.stream.two.2019$DateTime > "2019-07-01 00:00:00") 
+plot(poke.stream.two.2019.1$DateTime, poke.stream.two.2019.1$AbsPTDepth, type = "l")
+which(poke.stream.two.2019.1$AbsPTDepth < 0.28) # 5578:5587,6137:6150, 6913:6920
+
+# August to September 
+poke.stream.two.2019.1 <- poke.stream.two.2019 %>% subset(poke.stream.two.2019$DateTime < "2019-10-01 00:00:00" & poke.stream.two.2019$DateTime > "2019-08-22 00:00:00") 
+plot(poke.stream.two.2019.1$DateTime, poke.stream.two.2019.1$AbsPTDepth, type = "l") # 9738:11227
+
+# 
+poke.stream.two.2019.1 <- poke.stream.two.2019 %>% subset(poke.stream.two.2019$DateTime < "2019-11-01 00:00:00" & poke.stream.two.2019$DateTime > "2019-10-01 00:00:00") 
+plot(poke.stream.two.2019.1$DateTime, poke.stream.two.2019.1$AbsPTDepth, type = "l") # 14634:15058
+# 9738:11227 14634:15058
+# 4, 2978:2983, 5578:5587,6137:6150, 6913:6920
 # Checking closeness between two PT #
 plot(x = frch.stream.one.2019$AbsPTDepth, y = frch.stream.two.2019$AbsPTDepth, main = "French PT comparison",
      xlab = "French1 PT", 
@@ -476,6 +632,12 @@ strt.stream.one.2020 <- strt.stream.one.2020 %>% subset(strt.stream.one.2020$Dat
 
 plot(x = strt.stream.one.2020$DateTime, y = strt.stream.one.2020$WaterLevel) # plot check
 
+strt.stream.one.2020.1 <- strt.stream.one.2020 %>% subset(strt.stream.one.2020$DateTime < "2020-08-24" & strt.stream.one.2020$DateTime > "2020-08-23" ) # cleaning data that is before October 8th due to ice in channel (Site was taken down Oct 13th)
+
+plot(x = strt.stream.one.2020.1$DateTime, y = strt.stream.one.2020.1$WaterLevel, type = 'l') # plot check
+
+which(strt.stream.one.2020.1$WaterLevel < 248.46)
+
 strt.stream.two.2020 <- strt.stream.two.2020 %>% subset(strt.stream.two.2020$DateTime < "2020-10-08") # cleaning data that is before October 8th due to ice in channel (Site was taken down Oct 13th)
 
 strt.stream.two.2020$DateTime[strt.stream.two.2020$DateTime == "2020-06-24 8:45"] <- NA
@@ -490,7 +652,22 @@ plot(x = vaul.stream.2020$DateTime, y = vaul.stream.2020$WaterLevel) # plot chec
 ### POKE ### 
 poke.stream.one.2020 <- poke.stream.one.2020 %>% subset(poke.stream.one.2020$DateTime < "2020-10-10") # Cleaning data that is before October 10th due to ice (Site was taken down Oct 14th)
 
-plot(x = poke.stream.one.2020$DateTime, y = poke.stream.one.2020$WaterLevel) # plot check
+poke.stream.one.2020[9799, 4] - poke.stream.one.2020[9800, 4] # 0.068
+poke.stream.one.before <- poke.stream.one.2020[-c(9800:12256), ] # before
+poke.stream.one.after <- poke.stream.one.2020[-c(1:9799), ] # after
+poke.stream.one.after$WaterLevel <- poke.stream.one.after[, 4] + 0.068
+poke.one.final <- full_join(poke.stream.one.before, poke.stream.one.after)
+plot(x = poke.one.final$DateTime, y = poke.one.final$WaterLevel, type = 'l')
+
+poke.final.discharge.2020[9800, 3] - poke.final.discharge.2020[9801, 3] #454.4731 is the difference 
+
+poke.final.before <- poke.final.discharge.2020[-c(9799:12269), ] # before
+poke.final.after <- poke.final.discharge.2020[-c(1:9800), ] # after
+poke.final.after$MeanDischarge <- poke.final.after[, 3] + 454.4731
+poke.final.discharge.2020 <- full_join(poke.final.before, poke.final.after)
+
+
+plot(x = poke.stream.one.2020$DateTime, y = poke.stream.one.2020$WaterLevel, type = "l") # plot check
 
 poke.stream.two.2020 <- poke.stream.two.2020 %>% subset(poke.stream.two.2020$DateTime < "2020-10-10") # Cleaning data that is before October 10th due to ice (Site was taken down Oct 14th)
 
@@ -808,6 +985,13 @@ poke.stream.two.2021$DateTime[poke.stream.two.2021$DateTime == "2021-06-14 04:00
 ggplot(poke.stream.two.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel))# plot check 
 
+poke.stream.one.2021.1 <- poke.stream.one.2021 %>% subset(poke.stream.one.2021$DateTime > "2021-08-31" & poke.stream.one.2021$DateTime < "2021-09-10") # Deployed on the 6th of may and removed on the 29th of september 
+plot(poke.stream.one.2021.1$DateTime, poke.stream.one.2021.1$WaterLevel, type = "l")
+
+
+poke.stream.two.2021.1 <- poke.stream.two.2021 %>% subset(poke.stream.two.2021$DateTime > "2021-08-31" & poke.stream.two.2021$DateTime < "2021-09-10") # Deployed on the 6th of may and removed on the 29th of september 
+plot(poke.stream.two.2021.1$DateTime, poke.stream.two.2021.1$WaterLevel, type = "l")
+
 # STRT #
 ggplot(strt.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
@@ -824,6 +1008,53 @@ ggplot(strt.stream.one.2021) +
 ggplot(strt.stream.two.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
 
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-05-01" & strt.stream.one.2021$DateTime < "2021-06-01") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l')
+which(strt.stream.one.2021.1$WaterLevel > 251.5)
+
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-06-01" & strt.stream.one.2021$DateTime < "2021-07-01") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l')
+
+#5258 is the first one that is going up, 5261 is the first one that needs to be cut
+
+strt.stream.one.2021[5261, 4] - strt.stream.one.2021[5257, 4] # 0.543
+
+strt.stream.one.2021.after <- strt.stream.one.2021[-c(1:5260), ]
+strt.stream.one.2021.before <- strt.stream.one.2021[-c(5258:32362), ]
+strt.stream.one.2021.before$WaterLevel <- strt.stream.one.2021.before[, 4] + 0.543
+
+strt.stream.one.2021.final <- rbind(strt.stream.one.2021.before, strt.stream.one.2021.after)
+plot(strt.stream.one.2021.final$DateTime, strt.stream.one.2021.final$WaterLevel, type = 'l')
+
+strt.stream.one.2021 <- strt.stream.one.2021.final
+
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-06-27" & strt.stream.one.2021$DateTime < "2021-07-20") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') # 5923:10458
+
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-07-20" & strt.stream.one.2021$DateTime < "2021-07-30") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') # 11837:13900
+
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-07-30" & strt.stream.one.2021$DateTime < "2021-08-31") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') 
+which(strt.stream.one.2021.1$WaterLevel < 250.2) # 17342
+
+strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-08-31" & strt.stream.one.2021$DateTime < "2021-09-30") 
+plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') 
+
+#PT2
+strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-06-27" & strt.stream.two.2021$DateTime < "2021-07-25") 
+plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 5257:10460
+
+strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-07-24" & strt.stream.two.2021$DateTime < "2021-07-31") 
+plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 12997:13911
+
+strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-08-07" & strt.stream.two.2021$DateTime < "2021-08-11") 
+plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 17350:17380
+
+strt.stream.two.2021[17381, 4] - strt.stream.two.2021[10461, 4] # 0.407
+strt.stream.two.middle <- strt.stream.two.2021[-c(1:10460, 17382:32362), ]
+
+strt.stream.two.2021[c(10461:17381), 4] + 0.407
 # Vaul #
 ggplot(vaul.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
@@ -834,11 +1065,29 @@ vaul.stream.one.2021 <- vaul.stream.one.2021[-c(4777:4793, 16861, 30756:30757) ,
 ggplot(vaul.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
 
+vaul.stream.one.2021.1 <- vaul.stream.one.2021 %>% subset(vaul.stream.one.2021$DateTime > "2021-08-01" & vaul.stream.one.2021$DateTime < "2021-09-01") # Deployed on the 6th of may and removed on the 29th of september 
+plot(vaul.stream.one.2021.1$DateTime, vaul.stream.one.2021.1$WaterLevel, type = "l")
+which(vaul.stream.one.2021.1$WaterLevel < 197.8)
 # FRCH #
 ggplot(frch.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
 
 frch.stream.one.2021 <- frch.stream.one.2021 %>% subset(frch.stream.one.2021$DateTime < "2021-09-27") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+plot(frch.stream.one.2021$DateTime, frch.stream.one.2021$WaterLevel, type = 'l')
+
+frch.stream.one.2021.1 <- frch.stream.one.2021 %>% subset(frch.stream.one.2021$DateTime < "2021-08-01" & frch.stream.one.2021$DateTime > "2021-07-20") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+plot(frch.stream.one.2021.1$DateTime, frch.stream.one.2021.1$WaterLevel, type = 'l')
+
+#12957 is last point before.....12958 is first point of raised point
+frch.stream.one.2021[12958, 4] - frch.stream.one.2021[12957, 4] #0.568 is the difference 
+
+frch.stream.one.2021.before <- frch.stream.one.2021[-c(12958:31008), ]
+frch.stream.one.2021.after <- frch.stream.one.2021[-c(1:12957), ]
+frch.stream.one.2021.before$WaterLevel <- frch.stream.one.2021.before[, 4] + 0.568
+
+frch.stream.one.2021.final <- rbind(frch.stream.one.2021.before, frch.stream.one.2021.after)
+plot(frch.stream.one.2021.final$DateTime, frch.stream.one.2021.final$WaterLevel, type = 'l')
+
 
 ggplot(frch.stream.two.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
@@ -852,6 +1101,11 @@ ggplot(frch.stream.two.2021) +
 # MOOS #
 ggplot(moos.stream.one.2021) +
   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+
+moos.stream.one.2021.1 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime < "2021-09-27" & moos.stream.one.2021$DateTime > "2021-09-20") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+plot(moos.stream.one.2021.1$DateTime, moos.stream.one.2021.1$WaterLevel, type = 'l')
+
+which(moos.stream.one.2021.1$WaterLevel < 165.92)
 
 moos.stream.one.2021 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime < "2021-09-27") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
 

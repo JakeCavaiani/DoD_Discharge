@@ -1,0 +1,5 @@
+"0","strt.stream.one.2020 <- read.csv(url(strt.stream.2020.url), skip = 1)
+"
+"2","Error in open.connection(file, ""rt"") : 
+  cannot open the connection to 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE57c7ol5XBElx6nIOm4fl4UFB5qgffo49nSw2RuJ_kIZAC43vLusqtjQy5h2h3bNikmJwDvIBEO7X/pub?output=csv'
+"

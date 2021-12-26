@@ -1,0 +1,5 @@
+"0","pressure.ts <- lapply(pressure.only, function(x) {read.zoo(x, index.column=1, format=""%Y-%m-%d %H:%M:%S"", tz=""America/Anchorage"")
+})
+"
+"2","Error in file(file, ""rt"") : invalid 'description' argument
+"
