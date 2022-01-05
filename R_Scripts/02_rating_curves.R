@@ -39,6 +39,9 @@ dir.create(here("Rating_curve", "Plots", "POKE"))
 dir.create(here("Rating_curve", "Plots", "STRT"))
 dir.create(here("Rating_curve", "Plots", "VAUL"))
 
+frch_pt_2015 <- read.csv("PT_data/2015/frch.pt.2015.csv")
+
+
 ##################### 2015 ##################################################################
 # Import data from google drive #
 discharge.2015 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC9Bk0nS-Cx4Ec8MyLHd2xNuSv8JTobR8SSV_ODQHAvp4cUK8k3z9EmOs/pub?output=csv"
