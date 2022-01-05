@@ -1,0 +1,4 @@
+"0","moos.stream.one.2020 <- moos.stream.one.2020 %>% subset(moos.stream.one.2020$DateTime < ""2020-10-14"") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out"
+"0","moos.stream.one.2020[c(1115:1499, 6032:6038 ), 4] <- NA # Setting NA to noisy part of the data set from the 27th to 30th"
+"0",""
+"0","plot(moos.stream.one.2020$DateTime, moos.stream.one.2020$WaterLevel, type = 'l')"

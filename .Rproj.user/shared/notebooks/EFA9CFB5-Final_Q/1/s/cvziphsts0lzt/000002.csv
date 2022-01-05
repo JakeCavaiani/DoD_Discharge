@@ -1,0 +1,5 @@
+"0","frch.pt.2020 <- rbind(frch.stream.one.2020.final, frch.stream.two.2020.final)
+"
+"2","Error in rbind(frch.stream.one.2020.final, frch.stream.two.2020.final) : 
+  object 'frch.stream.one.2020.final' not found
+"

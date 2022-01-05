@@ -1,0 +1,4 @@
+"0","plot(x = poke.stream.one.2020$WaterLevel, y = poke.stream.two.2020$WaterLevel, main = ""Poker PT comparison"","
+"0","     xlab = ""Poker1 PT"", "
+"0","     ylab = ""Poker2 PT"")"
+"0",""

@@ -1,0 +1,7 @@
+"0","Q_2019 <- rbind(frch.final.discharge.2019.final, vaul.final.discharge.2019.final,
+                poke.final.discharge.2019.final, Stuart4comb.2019,
+                Moose2comb.2019_final)
+"
+"2","Error in rbind(deparse.level, ...) : 
+  numbers of columns of arguments do not match
+"

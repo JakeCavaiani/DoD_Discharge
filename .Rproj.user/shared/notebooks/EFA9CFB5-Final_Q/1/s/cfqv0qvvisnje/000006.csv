@@ -1,0 +1,2 @@
+"0","Moose1[c(1:38, 7191:7199), 3] <- NA"
+"0","plot(Moose1$DateTime, Moose1$WaterLevelmeters, type = ""l"")"

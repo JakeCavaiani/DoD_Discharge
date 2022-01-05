@@ -1,0 +1,4 @@
+"0",""
+"0","ggplot(data = allmoose, aes(x = DateTime, y = WaterLevelmeters, color = name))+"
+"0","  geom_line()"
+"0",""

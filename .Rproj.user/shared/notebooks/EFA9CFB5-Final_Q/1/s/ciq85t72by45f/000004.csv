@@ -1,0 +1,1 @@
+"0","plot(French1$DateTime, French1$WaterLevelmeters, type = ""l"")"

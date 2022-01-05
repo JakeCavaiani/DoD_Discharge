@@ -1,0 +1,4 @@
+"0","plot(POKE_RainGauge_2020$inst_rainfall_mm ~ POKE_RainGauge_2020$DateTime, type=""h"","
+"0","     xlim = as.POSIXct(c(""2020-06-04 05:30:00"",""2020-10-14 12:15:00""), tz=""America/Anchorage""),"
+"0","     ylim = c(20,0), "
+"0","     axes=F, xlab="""", ylab="""")"

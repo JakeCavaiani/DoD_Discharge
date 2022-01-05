@@ -1,0 +1,6 @@
+"0","vaul.stream.2020 <- vaul.stream.2020 %>% subset(vaul.stream.2020$DateTime < ""2020-10-05"") # Cleaning data that is before October 5th due to ice in channel (Site was taken down Oct 14th)"
+"0",""
+"0","plot(VAUL_RainGauge_2020$inst_rainfall_mm~ VAUL_RainGauge_2020$DateTime, type=""h"","
+"0","     xlim = as.POSIXct(c(""2020-06-05 07:00:00"",""2020-10-14 12:30:00""), tz=""America/Anchorage""),"
+"0","     ylim = c(20,0), "
+"0","     axes=F, xlab="""", ylab="""")"

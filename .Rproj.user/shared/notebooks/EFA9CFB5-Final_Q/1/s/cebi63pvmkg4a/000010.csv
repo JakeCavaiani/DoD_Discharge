@@ -1,0 +1,1 @@
+"0","plot(moos.stream.one.2020.final$DateTime, moos.stream.one.2020.final$WaterLevel, type = 'l')"
