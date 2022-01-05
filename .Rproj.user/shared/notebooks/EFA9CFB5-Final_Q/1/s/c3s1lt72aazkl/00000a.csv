@@ -1,5 +1,0 @@
-"0","poke.stream.one.2019$DateTime <- as.POSIXct(paste(poke.stream.one.2019$DateTimeGMT), format = ""%Y-%m-%d %H:%M"", tz = ""America/Anchorage"")
-"
-"2","Error in paste(poke.stream.one.2019$DateTimeGMT) : 
-  object 'poke.stream.one.2019' not found
-"
