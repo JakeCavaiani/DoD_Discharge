@@ -1,0 +1,5 @@
+"0","write.csv(strt.final.discharge.2020_fina, ""~/Documents/DoD_Discharge/Predicted_Discharge/2020/STRT/STRT.Q.csv"", row.names = FALSE)
+"
+"2","Error in is.data.frame(x) : 
+  object 'strt.final.discharge.2020_fina' not found
+"

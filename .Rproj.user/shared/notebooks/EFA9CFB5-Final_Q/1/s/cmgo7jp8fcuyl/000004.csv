@@ -1,9 +1,0 @@
-"0","moos.stream.two.2021 <- read.csv(url(moos.stream.2021.url.two), skip = 1) # Deployed the 19th of May
-moos.stream.two.2021 <- read.csv(url(moos.stream.2021.url.two), skip = 1) # Deployed the 19th of May
-moos.stream.two.2021 <- moos.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
-moos.stream.two.2021 <- moos.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
-names(moos.stream.two.2021) <- c(""Site"", ""DateTimeGMT"", ""AbsolutePressure"", ""WaterLevel"")
-"
-"2","Error in names(moos.stream.two.2021) <- c(""Site"", ""DateTimeGMT"", ""AbsolutePressure"",  : 
-  'names' attribute [4] must be the same length as the vector [3]
-"

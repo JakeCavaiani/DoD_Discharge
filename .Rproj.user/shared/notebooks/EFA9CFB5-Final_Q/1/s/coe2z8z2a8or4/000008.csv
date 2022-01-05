@@ -1,0 +1,4 @@
+"0",""
+"0","plot(x= Moose1$WaterLevelmeters[100:nrow(Moose1)-15], y=Moose2$WaterLevelmeters[100:nrow(Moose2)-15], "
+"0","     main = ""Moose PT comparison"", xlab = ""Moose1 PT"", ylab = ""Moose2 PT"")"
+"0",""

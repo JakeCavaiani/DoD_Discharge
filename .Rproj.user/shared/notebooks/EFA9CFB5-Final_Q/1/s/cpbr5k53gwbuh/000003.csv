@@ -1,0 +1,2 @@
+"0","Moose1.pre.middle.post <- na_kalman(Moose1.pre.middle.post)"
+"0","plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = ""l"")"

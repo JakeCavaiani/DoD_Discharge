@@ -1,0 +1,4 @@
+"0","plot(x = strt.stream.one.2020$WaterLevel, y = strt.stream.two.2020$WaterLevel, main = ""Stuart PT comparison"","
+"0","     xlab = ""Stuart1 PT"", "
+"0","     ylab = ""Stuart2 PT"")"
+"0",""

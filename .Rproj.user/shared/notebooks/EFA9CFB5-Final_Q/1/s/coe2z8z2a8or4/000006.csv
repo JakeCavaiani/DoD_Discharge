@@ -1,0 +1,3 @@
+"0",""
+"0","plot(x= French1$WaterLevelmeters[100:nrow(French1)], y=French2$WaterLevelmeters[100:nrow(French2)], "
+"0","     main = ""French PT comparison"", xlab = ""French1 PT"", ylab = ""French2 PT"")"
