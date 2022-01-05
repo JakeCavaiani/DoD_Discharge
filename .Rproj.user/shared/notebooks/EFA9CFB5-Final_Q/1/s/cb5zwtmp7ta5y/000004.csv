@@ -1,0 +1,8 @@
+"0","French1comb$pred.french1.Q <- coef(French1.lm)[2] * French1comb$AbsolutePressure+ coef(French1.lm)[1]"
+"0","ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb) +"
+"0","  geom_line(color=""#A6CEE3"", size=1.25) +"
+"0","  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +"
+"0","  theme_classic() +"
+"0","  ggtitle(""French1 predicted all measured Q"") +"
+"0","  xlab(""Date"") +"
+"0","  ylab(""Predicted Discharge"") "

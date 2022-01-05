@@ -1,0 +1,5 @@
+"0","frch.stream <- frch.stream %>%  subset(frch.stream$DateTime < ""2015-09-20 18:30:00"") # PT was taken out on the 21st "
+"0",""
+"0","#May to june"
+"0","frch.stream.1 <- frch.stream %>% subset(frch.stream$DateTime < ""2015-06-01 00:00:00"" & frch.stream$DateTime > ""2015-05-20 00:00:00"") "
+"0","plot(frch.stream.1$DateTime, frch.stream.1$AbsolutePressure, type = ""l"")"

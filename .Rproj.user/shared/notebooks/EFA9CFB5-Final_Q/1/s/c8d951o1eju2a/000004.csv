@@ -1,0 +1,7 @@
+"0","allfrench %>% "
+"0","  filter(WaterLevelmeters > 184) %>% "
+"0","  ggplot() + "
+"0","  geom_line(aes(x=DateTime, y=WaterLevelmeters, color=name), size=1.25) +"
+"0","  theme_classic() +"
+"0","  ggtitle(""French"") +"
+"0","  scale_color_brewer(palette = ""Paired"")"

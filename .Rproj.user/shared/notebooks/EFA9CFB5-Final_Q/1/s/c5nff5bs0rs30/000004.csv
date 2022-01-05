@@ -1,0 +1,2 @@
+"0","moos.stream.one.2019 <- moos.stream.one.2019[-c(3715, 5179,5342), ]"
+"0","plot(moos.stream.one.2019$DateTime, moos.stream.one.2019$AbsPTDepth, type = 'l')"

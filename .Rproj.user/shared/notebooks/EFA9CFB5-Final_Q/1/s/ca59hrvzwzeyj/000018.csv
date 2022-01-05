@@ -1,0 +1,3 @@
+"0",""
+"0","frch.stream[c(3215,3727:3740,5185,7188,9247,10349:10377,25340:25355,27328:27353), 2] <- NA"
+"0","plot(x = frch.stream$DateTime, y = frch.stream$AbsolutePressure, type = ""l"")"
