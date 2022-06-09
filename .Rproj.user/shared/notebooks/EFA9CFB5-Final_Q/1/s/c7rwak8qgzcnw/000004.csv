@@ -1,5 +1,0 @@
-"0","Q.daily.2015 = with(Q_2015, tapply(MeanDischarge, list(day, Site), mean))
-"
-"2","Error in tapply(MeanDischarge, list(day, Site), mean) : 
-  object 'MeanDischarge' not found
-"

@@ -1,0 +1,4 @@
+"0","poke.final.discharge.2021_final <- poke.final.discharge.2021[,-c(2:3)]"
+"0","poke.final.discharge.2021_final$Site <- ""POKE"""
+"0","names(poke.final.discharge.2021_final) <- c(""DateTime"", ""Q"", ""Site"")"
+"0","write.csv(poke.final.discharge.2021_final, ""~/Documents/DoD_Discharge/Predicted_Discharge/2021/POKE/POKE.Q.csv"", row.names = FALSE)"

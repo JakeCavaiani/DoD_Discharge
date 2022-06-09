@@ -1,8 +1,0 @@
-"0","Moose2comb.2019$pred.moos1.Q <- coef(Moose2.lm.2019)[2] * Moose2comb.2019$AbsPTDepth+ coef(Moose2.lm.2019)[1]"
-"0","ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose2comb.2019) +"
-"0","  geom_line(color=""#A6CEE3"", size=1.25) +"
-"0","  geom_point(aes(x = DateTime, y = Q_Ls), size=3) +"
-"0","  theme_classic() +"
-"0","  ggtitle(""Moose1 predicted all measured Q"") +"
-"0","  xlab(""Date"") +"
-"0","  ylab(""Predicted Discharge"") "

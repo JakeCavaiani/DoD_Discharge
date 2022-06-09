@@ -1,5 +1,0 @@
-"0","strt.pt.2021 <- rbind(strt.stream.one.2021, strrt.stream.two.2021)
-"
-"2","Error in rbind(deparse.level, ...) : 
-  object 'strrt.stream.two.2021' not found
-"

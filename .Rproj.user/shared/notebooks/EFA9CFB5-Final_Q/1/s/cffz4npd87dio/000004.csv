@@ -1,5 +1,0 @@
-"0","names(French1comb_final) <- names(""DateTime"", ""Site"", ""Q"")
-"
-"2","Error in names(""DateTime"", ""Site"", ""Q"") : 
-  3 arguments passed to 'names' which requires 1
-"

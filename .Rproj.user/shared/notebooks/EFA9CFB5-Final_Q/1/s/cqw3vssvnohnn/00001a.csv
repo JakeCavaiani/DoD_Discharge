@@ -1,7 +1,0 @@
-"0",""
-"0","e <- QSummary.2019 %>% filter(Site == ""Stuart"") %>% "
-"0","  ggplot() +"
-"0","  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +"
-"0","  theme_classic() +"
-"0","  ggtitle(""Stuart"")"
-"0","e"

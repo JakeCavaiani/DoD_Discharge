@@ -1,0 +1,4 @@
+"0","Moose1comb_final <- Moose1comb[,-c(1,2,5:15)]"
+"0","names(Moose1comb_final) <- c(""DateTime"", ""Site"", ""Q"")"
+"0","Moose1comb_final$Site <- ""MOOS"""
+"0","write.csv(Moose1comb_final, ""~/Documents/DoD_Discharge/Predicted_Discharge/2015/MOOS/MOOS.Q.csv"", row.names = FALSE)"

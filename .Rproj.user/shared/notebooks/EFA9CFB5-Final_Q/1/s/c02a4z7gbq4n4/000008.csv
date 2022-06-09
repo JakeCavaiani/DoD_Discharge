@@ -1,2 +1,0 @@
-"0","frch.stream.one.2019 <- frch.stream.one.all"
-"0","plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth, type = 'l')"

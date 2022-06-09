@@ -1,4 +1,0 @@
-"0","vaul.pt.2019 <- rbind(vaul.stream.one.2019, vaul.stream.two.2019)"
-"2","Error in rbind(deparse.level, ...) : 
-  object 'vaul.stream.two.2019' not found
-"

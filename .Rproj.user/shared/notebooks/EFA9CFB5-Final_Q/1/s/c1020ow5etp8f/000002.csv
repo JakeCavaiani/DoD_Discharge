@@ -1,0 +1,4 @@
+"0","French1comb_final <- French1comb[,-c(1,2,5:13)]"
+"0","names(French1comb_final) <- c(""DateTime"", ""Site"", ""Q"")"
+"0","French1comb_final$Site <- ""FRCH"""
+"0","write.csv(French1comb_final, ""~/Documents/DoD_Discharge/Predicted_Discharge/2015/FRCH/FRCH.Q.csv"", row.names = FALSE)"

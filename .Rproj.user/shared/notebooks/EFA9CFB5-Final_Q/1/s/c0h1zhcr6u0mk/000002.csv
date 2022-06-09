@@ -1,0 +1,4 @@
+"0","frch.final.discharge.2021_final <- frch.final.discharge.2021[,-c(2:3)]"
+"0","frch.final.discharge.2021_final$Site <- ""FRCH"""
+"0","names(frch.final.discharge.2021_final) <- c(""DateTime"", ""Q"", ""Site"")"
+"0","write.csv(frch.final.discharge.2021_final, ""~/Documents/DoD_Discharge/Predicted_Discharge/2021/FRCH/FRCH.Q.csv"", row.names = FALSE)"
