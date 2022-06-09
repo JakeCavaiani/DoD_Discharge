@@ -473,11 +473,11 @@ Q_2015$day = format(as.POSIXct(Q_2015$DateTime,format="%Y-%m-%d %H:%M:%S"),forma
 Q_2015$day = as.POSIXct(Q_2015$day, "%Y-%m-%d", tz="America/Anchorage")
 #Q_2015$DateTime = NULL
 
-write.csv(Q_2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q_2015.csv", row.names = FALSE)
+write_csv(Q_2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q_2015.csv")
 
 Q.daily.2015 = with(Q_2015, tapply(Q, list(day, Site), mean))
 Q.daily.2015 = as.data.frame(Q.daily.2015)
-write.csv(Q.daily.2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q.daily.2015.csv", row.names = FALSE)
+write_csv(Q.daily.2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q.daily.2015.csv")
 
 ```
 
@@ -792,11 +792,11 @@ Q_2018$day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),forma
 Q_2018$day = as.POSIXct(Q_2018$day, "%Y-%m-%d", tz="America/Anchorage")
 #Q_2015$DateTime = NULL
 
-write.csv(Q_2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q_2018.csv", row.names = FALSE)
+write_csv(Q_2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q_2018.csv")
 
 Q.daily.2018 = with(Q_2018, tapply(Q, list(day, Site), mean))
 Q.daily.2018 = as.data.frame(Q.daily.2018)
-write.csv(Q.daily.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q.daily.2018.csv", row.names = FALSE)
+write_csv(Q.daily.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q.daily.2018.csv")
 
 ```
 
@@ -1851,13 +1851,13 @@ Q_2019 <- rbind(frch.final.discharge.2019.final, vaul.final.discharge.2019.final
                 Moose2comb.2019_final)
 Q_2019$day = format(as.POSIXct(Q_2019$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
 Q_2019$day = as.POSIXct(Q_2019$day, "%Y-%m-%d", tz = "America/Anchorage")
-write.csv(Q_2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q_2019.csv", row.names = FALSE)
+write_csv(Q_2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q_2019.csv")
 
 #Q_2019$DateTime = NULL
 
 Q.daily.2019 = with(Q_2019, tapply(Q, list(day, Site), mean))
 Q.daily.2019 = as.data.frame(Q.daily.2019)
-write.csv(Q.daily.2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q.daily.2019.csv", row.names = FALSE)
+write_csv(Q.daily.2019, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/Q.daily.2019.csv")
 ```
 
 
@@ -3090,6 +3090,12 @@ Q_2020$day = as.POSIXct(Q_2020$day, "%Y-%m-%d", tz="America/Anchorage")
 
 Q.daily.2020 = with(Q_2020, tapply(Q, list(day, Site), mean))
 Q.daily.2020 = as.data.frame(Q.daily.2020)
+
+write_csv(Q_2020, "~/Documents/DoD_Discharge/Predicted_Discharge/2020/Q_2020.csv")
+write_csv(Q.daily.2020, "~/Documents/DoD_Discharge/Predicted_Discharge/2020/Q.daily.2020.csv")
+
+write_csv(Q.daily.2020, "~/Documents/DoD_Discharge/Predicted_Discharge/2020/Q.daily.2020.csv")
+
 ```
 
 ########################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
@@ -4247,12 +4253,12 @@ Q_2021 <- rbind(moos.final.discharge.2021_final, frch.final.discharge.2021_final
 Q_2021$day = format(as.POSIXct(Q_2021$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
 Q_2021$day = as.POSIXct(Q_2021$day, "%Y-%m-%d", tz="America/Anchorage")
 
-write.csv(Q_2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q_2021.csv", row.names = FALSE)
+write_csv(Q_2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q_2021.csv")
 
 Q.daily.2021 = with(Q_2021, tapply(Q, list(day, Site), mean))
 Q.daily.2021 = as.data.frame(Q.daily.2021)
 
-write.csv(Q.daily.2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q.daily.2021.csv", row.names = FALSE)
+write_csv(Q.daily.2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q.daily.2021.csv")
 ```
 
 
