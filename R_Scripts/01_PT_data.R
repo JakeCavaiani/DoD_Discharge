@@ -1159,3 +1159,308 @@ abline(1,1)
 
 
 
+
+
+
+
+
+
+############################################### 2022 ################################################
+### Import Raw Data ### 
+poke.stream.2021.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRuPTbgwOrFhhVETrN4HMpVoHrNVwLSecr0acVH7i8ePtxme0PxX1tR_SQ7Mqlg3iiCOHUFw80NFfA5/pub?output=csv"
+poke.stream.2021.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgmuOVxwxSfNzLsb76OmrUQhYzl6prnjP17ubO4XV7x0T0bMpUX7jX5itel6oPe3HDCORnoYD25IgU/pub?output=csv"
+strt.stream.2021.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTBHVco3KO6uDX5ixIteIKLgnLUTe1GIGYK-8WBM2eXn1VWvthOjFIGvmXyVOq3l2vnxiBQQaDzbqE1/pub?output=csv"
+strt.stream.2021.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqHls7RlLhnawrL43INl8xLeRLigkYcLhNaUtpHBCN91YmE0rCpNJqBiwvJKp9d0rDapG_UGid43fC/pub?output=csv"
+vaul.stream.2021.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUpdW2ARqdQmnNzpRIbIyGD24DhBSwL5CHFzAG8bwhOsttnyU2nehzfJ0gG8BZHX2VbSc3W1NikCIH/pub?output=csv"
+frch.stream.2021.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi6_PAev36hNhtcXdBBQk3pyJqBoQEKpV8tSvtZgz_DPdqXSg93-d_FDomNSH_lkNhb7fJJVloxl1g/pub?output=csv"
+frch.stream.2021.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0NaSrjYnUkQC42v448LFY0EZEr98R6a2gH0FpPlMBwpfEDY80rSzbDOP3OfpB-SI4QQBCOMgoQxd2/pub?output=csv"
+moos.stream.2021.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSVsPDDkXNKBU9Ux2qnvtWl-HS0hgXM2cww9_1l2Xz0Vc9C1_KA2Ss56FuS1fq8mESdgqq2Pl5Nvw6o/pub?output=csv"
+moos.stream.2021.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCnhugeQ8EmP9P22kirbLQhPgDwFoPyMmZ4SR05jSHgleJBcUQYjNb3K2w6hGtdu4W-XJixdl8fk6-/pub?output=csv"
+
+# Load Data#
+poke.stream.one.2021 <- read.csv(url(poke.stream.2021.url), skip = 1) 
+poke.stream.two.2021 <- read.csv(url(poke.stream.2021.url.two), skip = 1)
+strt.stream.one.2021 <- read.csv(url(strt.stream.2021.url), skip = 1) # Deployed the 7th of May 
+strt.stream.two.2021 <- read.csv(url(strt.stream.2021.url.two), skip = 1) # Deployed the 19th of May
+vaul.stream.one.2021 <- read.csv(url(vaul.stream.2021.url), skip = 1)
+frch.stream.one.2021 <- read.csv(url(frch.stream.2021.url), skip = 1) # Deployed the 7th of May 
+frch.stream.two.2021 <- read.csv(url(frch.stream.2021.url.two), skip = 1) # Deployed the 19th of May
+moos.stream.one.2021 <- read.csv(url(moos.stream.2021.url), skip = 1) # Deployed the 7th of May 
+moos.stream.two.2021 <- read.csv(url(moos.stream.2021.url.two), skip = 1) # Deployed the 19th of May
+
+# Erase columns that are unneeded
+poke.stream.one.2021 <- poke.stream.one.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+poke.stream.two.2021 <- poke.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+
+strt.stream.one.2021 <- strt.stream.one.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+strt.stream.two.2021 <- strt.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+
+vaul.stream.one.2021 <- vaul.stream.one.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+
+frch.stream.one.2021 <- frch.stream.one.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+frch.stream.two.2021 <- frch.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+
+moos.stream.one.2021 <- moos.stream.one.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+moos.stream.two.2021 <- moos.stream.two.2021[,-c(4,5)] # Dont need temperature and barometric pressure 
+
+# Rename columns 
+names(poke.stream.one.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(poke.stream.two.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+names(strt.stream.one.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(strt.stream.two.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+names(vaul.stream.one.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+names(frch.stream.one.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(frch.stream.two.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+names(moos.stream.one.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(moos.stream.two.2021) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+# Input NAs for time 
+poke.stream.one.2021$DateTimeGMT[poke.stream.one.2021$DateTimeGMT == ""] <- NA
+poke.stream.two.2021$DateTimeGMT[poke.stream.two.2021$DateTimeGMT == ""] <- NA
+
+strt.stream.one.2021$DateTimeGMT[strt.stream.one.2021$DateTimeGMT == ""] <- NA
+strt.stream.two.2021$DateTimeGMT[strt.stream.two.2021$DateTimeGMT == ""] <- NA
+
+vaul.stream.one.2021$DateTimeGMT[vaul.stream.one.2021$DateTimeGMT == ""] <- NA
+
+frch.stream.one.2021$DateTimeGMT[frch.stream.one.2021$DateTimeGMT == ""] <- NA
+frch.stream.two.2021$DateTimeGMT[frch.stream.two.2021$DateTimeGMT == ""] <- NA
+
+moos.stream.one.2021$DateTimeGMT[moos.stream.one.2021$DateTimeGMT == ""] <- NA
+moos.stream.two.2021$DateTimeGMT[moos.stream.two.2021$DateTimeGMT == ""] <- NA
+
+# Convert to AK time 
+poke.stream.one.2021$DateTime <- mdy_hms(poke.stream.one.2021$DateTimeGMT, tz = "GMT")
+attributes(poke.stream.one.2021$DateTime)$tzone <- 'America/Anchorage'
+poke.stream.two.2021$DateTime <- mdy_hms(poke.stream.two.2021$DateTimeGMT, tz = "GMT")
+attributes(poke.stream.two.2021$DateTime)$tzone <- 'America/Anchorage'
+
+strt.stream.one.2021$DateTime <- mdy_hms(strt.stream.one.2021$DateTimeGMT, tz = "GMT")
+attributes(strt.stream.one.2021$DateTime)$tzone <- 'America/Anchorage'
+strt.stream.two.2021$DateTime <- mdy_hms(strt.stream.two.2021$DateTimeGMT, tz = "GMT")
+attributes(strt.stream.two.2021$DateTime)$tzone <- 'America/Anchorage'
+
+vaul.stream.one.2021$DateTime <- mdy_hms(vaul.stream.one.2021$DateTimeGMT, tz = "GMT")
+attributes(vaul.stream.one.2021$DateTime)$tzone <- 'America/Anchorage'
+
+frch.stream.one.2021$DateTime <- mdy_hms(frch.stream.one.2021$DateTimeGMT, tz = "GMT")
+attributes(frch.stream.one.2021$DateTime)$tzone <- 'America/Anchorage'
+frch.stream.two.2021$DateTime <- mdy_hms(frch.stream.two.2021$DateTimeGMT, tz = "GMT")
+attributes(frch.stream.two.2021$DateTime)$tzone <- 'America/Anchorage'
+
+moos.stream.one.2021$DateTime <- mdy_hms(moos.stream.one.2021$DateTimeGMT, tz = "GMT")
+attributes(moos.stream.one.2021$DateTime)$tzone <- 'America/Anchorage'
+moos.stream.two.2021$DateTime <- mdy_hms(moos.stream.two.2021$DateTimeGMT, tz = "GMT")
+attributes(moos.stream.two.2021$DateTime)$tzone <- 'America/Anchorage'
+
+
+# # filter out take out of water points #
+# # Poke #
+# poke.stream.one.2021 <- poke.stream.one.2021 %>% subset(poke.stream.one.2021$DateTime > "2021-05-12" & poke.stream.one.2021$DateTime < "2021-09-29") # Deployed on the 6th of may and removed on the 29th of september 
+# poke.stream.two.2021 <- poke.stream.two.2021 %>% subset(poke.stream.two.2021$DateTime > "2021-05-06" & poke.stream.two.2021$DateTime < "2021-09-29") # Deployed on the 6th of may and removed on the 29th of september 
+# 
+# ggplot(poke.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel))# plot check 
+# poke.one.below.216 <- poke.stream.one.2021[which(poke.stream.one.2021$WaterLevel < "216"), ] # trying to find the erroneous point in the dataframe 
+# 
+# poke.stream.one.2021$DateTime[poke.stream.one.2021$DateTime == "2021-08-10 04:50:00"] <- NA
+# poke.stream.one.2021$DateTime[poke.stream.one.2021$DateTime == "2021-06-29"] <- NA
+# 
+# ggplot(poke.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) #plot check  # clean for now but definitely have to make a change due to beaver dams
+# 
+# ggplot(poke.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel))# plot check
+# 
+# poke.two.below.216 <- poke.stream.two.2021[which(poke.stream.two.2021$WaterLevel < "216"), ] # trying to find the erroneous point in the dataframe 
+# 
+# 
+# poke.stream.two.2021$DateTime[poke.stream.two.2021$DateTime == "2021-06-14 04:00:00"] <- NA
+# 
+# 
+# ggplot(poke.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel))# plot check 
+# 
+# poke.stream.one.2021.1 <- poke.stream.one.2021 %>% subset(poke.stream.one.2021$DateTime > "2021-08-31" & poke.stream.one.2021$DateTime < "2021-09-10") # Deployed on the 6th of may and removed on the 29th of september 
+# plot(poke.stream.one.2021.1$DateTime, poke.stream.one.2021.1$WaterLevel, type = "l")
+# 
+# 
+# poke.stream.two.2021.1 <- poke.stream.two.2021 %>% subset(poke.stream.two.2021$DateTime > "2021-08-31" & poke.stream.two.2021$DateTime < "2021-09-10") # Deployed on the 6th of may and removed on the 29th of september 
+# plot(poke.stream.two.2021.1$DateTime, poke.stream.two.2021.1$WaterLevel, type = "l")
+# 
+# # STRT #
+# ggplot(strt.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# strt.one.above.251.5 <- strt.stream.one.2021[which(strt.stream.one.2021$WaterLevel > "251.5"), ] # trying to find the erroneous point in the dataframe 
+# strt.stream.one.2021 <- strt.stream.one.2021[-c(910:923) , ] # removing erroneous points on 5/13 from 20:15-23:30
+# 
+# strt.one.below.250.25 <- strt.stream.one.2021[which(strt.stream.one.2021$WaterLevel < "250.25"), ] # trying to find the erroneous point in the dataframe 
+# strt.stream.one.2021 <- strt.stream.one.2021[-c(17340:17350) , ] # removing erroneous points on 5/13 from 20:15-23:30
+# 
+# ggplot(strt.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# ggplot(strt.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-05-01" & strt.stream.one.2021$DateTime < "2021-06-01") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l')
+# which(strt.stream.one.2021.1$WaterLevel > 251.5)
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-06-01" & strt.stream.one.2021$DateTime < "2021-07-01") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l')
+# 
+# #5258 is the first one that is going up, 5261 is the first one that needs to be cut
+# 
+# strt.stream.one.2021[5261, 4] - strt.stream.one.2021[5257, 4] # 0.543
+# 
+# strt.stream.one.2021.after <- strt.stream.one.2021[-c(1:5260), ]
+# strt.stream.one.2021.before <- strt.stream.one.2021[-c(5258:32362), ]
+# strt.stream.one.2021.before$WaterLevel <- strt.stream.one.2021.before[, 4] + 0.543
+# 
+# strt.stream.one.2021.final <- rbind(strt.stream.one.2021.before, strt.stream.one.2021.after)
+# plot(strt.stream.one.2021.final$DateTime, strt.stream.one.2021.final$WaterLevel, type = 'l')
+# 
+# strt.stream.one.2021 <- strt.stream.one.2021.final
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-06-27" & strt.stream.one.2021$DateTime < "2021-07-20") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') # 5923:10458
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-07-20" & strt.stream.one.2021$DateTime < "2021-07-30") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') # 11837:13900
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-07-30" & strt.stream.one.2021$DateTime < "2021-08-31") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') 
+# which(strt.stream.one.2021.1$WaterLevel < 250.2) # 17342
+# 
+# strt.stream.one.2021.1 <- strt.stream.one.2021 %>% subset(strt.stream.one.2021$DateTime > "2021-08-31" & strt.stream.one.2021$DateTime < "2021-09-30") 
+# plot(strt.stream.one.2021.1$DateTime, strt.stream.one.2021.1$WaterLevel, type = 'l') 
+# 
+# #PT2
+# strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-06-27" & strt.stream.two.2021$DateTime < "2021-07-25") 
+# plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 5257:10460
+# 
+# strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-07-24" & strt.stream.two.2021$DateTime < "2021-07-31") 
+# plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 12997:13911
+# 
+# strt.stream.two.2021.1 <- strt.stream.two.2021 %>% subset(strt.stream.two.2021$DateTime > "2021-08-07" & strt.stream.two.2021$DateTime < "2021-08-11") 
+# plot(strt.stream.two.2021.1$DateTime, strt.stream.two.2021.1$WaterLevel, type = 'l')  # 17350:17380
+# 
+# strt.stream.two.2021[17381, 4] - strt.stream.two.2021[10461, 4] # 0.407
+# strt.stream.two.middle <- strt.stream.two.2021[-c(1:10460, 17382:32362), ]
+# 
+# strt.stream.two.2021[c(10461:17381), 4] + 0.407
+# # Vaul #
+# ggplot(vaul.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# vaul.one.below.197.75 <- vaul.stream.one.2021[which(vaul.stream.one.2021$WaterLevel < "197.75"), ] # trying to find the erroneous point in the dataframe 
+# vaul.stream.one.2021 <- vaul.stream.one.2021[-c(4777:4793, 16861, 30756:30757) , ] # removing erroneous points 
+# 
+# ggplot(vaul.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# vaul.stream.one.2021.1 <- vaul.stream.one.2021 %>% subset(vaul.stream.one.2021$DateTime > "2021-08-01" & vaul.stream.one.2021$DateTime < "2021-09-01") # Deployed on the 6th of may and removed on the 29th of september 
+# plot(vaul.stream.one.2021.1$DateTime, vaul.stream.one.2021.1$WaterLevel, type = "l")
+# which(vaul.stream.one.2021.1$WaterLevel < 197.8)
+# # FRCH #
+# ggplot(frch.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# frch.stream.one.2021 <- frch.stream.one.2021 %>% subset(frch.stream.one.2021$DateTime < "2021-09-27") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+# plot(frch.stream.one.2021$DateTime, frch.stream.one.2021$WaterLevel, type = 'l')
+# 
+# frch.stream.one.2021.1 <- frch.stream.one.2021 %>% subset(frch.stream.one.2021$DateTime < "2021-08-01" & frch.stream.one.2021$DateTime > "2021-07-20") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+# plot(frch.stream.one.2021.1$DateTime, frch.stream.one.2021.1$WaterLevel, type = 'l')
+# 
+# #12957 is last point before.....12958 is first point of raised point
+# frch.stream.one.2021[12958, 4] - frch.stream.one.2021[12957, 4] #0.568 is the difference 
+# 
+# frch.stream.one.2021.before <- frch.stream.one.2021[-c(12958:31008), ]
+# frch.stream.one.2021.after <- frch.stream.one.2021[-c(1:12957), ]
+# frch.stream.one.2021.before$WaterLevel <- frch.stream.one.2021.before[, 4] + 0.568
+# 
+# frch.stream.one.2021.final <- rbind(frch.stream.one.2021.before, frch.stream.one.2021.after)
+# plot(frch.stream.one.2021.final$DateTime, frch.stream.one.2021.final$WaterLevel, type = 'l')
+# 
+# 
+# ggplot(frch.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# frch.two.below.183.6 <- frch.stream.two.2021[which(frch.stream.two.2021$WaterLevel < "183.6"), ]
+# frch.stream.two.2021 <- frch.stream.two.2021[-c(12948, 17535,31360,31361) , ] # removing erroneous points 
+# frch.stream.two.2021 <- frch.stream.two.2021 %>% subset(frch.stream.two.2021$DateTime < "2021-09-27") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+# 
+# ggplot(frch.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# # MOOS #
+# ggplot(moos.stream.one.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# moos.stream.one.2021.1 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime < "2021-09-27" & moos.stream.one.2021$DateTime > "2021-09-20") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+# plot(moos.stream.one.2021.1$DateTime, moos.stream.one.2021.1$WaterLevel, type = 'l')
+# 
+# which(moos.stream.one.2021.1$WaterLevel < 165.92)
+# 
+# moos.stream.one.2021 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime < "2021-09-27") #  removed on the 28th of september and it appears that there was some ice influence on the 28th 
+# 
+# ggplot(moos.stream.two.2021) +
+#   geom_point(aes(x = DateTime, y = WaterLevel)) # plot check
+# 
+# 
+# # Combine two PTs into one 
+# poke.stream.two.2021 <- poke.stream.two.2021[1:nrow(poke.stream.one.2021),]
+# poke.stream.one.2021$Site <- "POKE1" #add column identifier
+# poke.stream.two.2021$Site <- "POKE2"
+# poke.pt.2021 <- bind_rows(poke.stream.one.2021, poke.stream.two.2021)
+# 
+# strt.stream.two.2021 <- strt.stream.two.2021[1:nrow(strt.stream.one.2021),]
+# strt.stream.one.2021$Site <- "STRT1" #add column identifier
+# strt.stream.two.2021$Site <- "STRT2"
+# strt.pt.2021 <- bind_rows(strt.stream.one.2021, strt.stream.two.2021)
+# 
+# frch.stream.two.2021 <- frch.stream.two.2021[1:nrow(frch.stream.one.2021),]
+# frch.stream.one.2021$Site <- "FRCH1" #add column identifier
+# frch.stream.two.2021$Site <- "FRCH2"
+# frch.pt.2021 <- bind_rows(frch.stream.one.2021, frch.stream.two.2021)
+# 
+# moos.stream.two.2021 <- moos.stream.two.2021[1:nrow(moos.stream.one.2021),]
+# moos.stream.one.2021$Site <- "MOOS1" #add column identifier
+# moos.stream.two.2021$Site <- "MOOS2"
+# moos.pt.2021 <- bind_rows(moos.stream.one.2021, moos.stream.two.2021)
+# 
+# # Checking closeness between two PT #
+# plot(x = poke.stream.one.2021$WaterLevel, y = poke.stream.two.2021$WaterLevel, main = "Poker PT comparison",
+#      xlab = "Poker1PT", 
+#      ylab = "Poker2PT")
+# abline(1,1)
+# 
+# plot(x = strt.stream.one.2021$WaterLevel, y = strt.stream.two.2021$WaterLevel, main = "Stuart PT comparison",
+#      xlab = "Stuart1PT", 
+#      ylab = "Stuart2PT")
+# abline(1,1)
+# 
+# plot(x = frch.stream.one.2021$WaterLevel, y = frch.stream.two.2021$WaterLevel, main = "French PT comparison",
+#      xlab = "French1PT", 
+#      ylab = "French2PT")
+# abline(1,1)
+# 
+# plot(x = moos.stream.one.2021$WaterLevel, y = moos.stream.two.2021$WaterLevel, main = "Moose PT comparison",
+#      xlab = "Moose1PT", 
+#      ylab = "Moose2PT")
+# abline(1,1)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
