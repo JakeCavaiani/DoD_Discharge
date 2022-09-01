@@ -982,36 +982,58 @@ ggplot(QSummary.2022) +
 
 ### MOOS #### 
 # Load in water pressure data 
+# urls
 moos.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7QMNWjVX1R43qflIW7lVqkj7wRHouhgQhWK76kfR8zK-UZg9bFSm92ccPy8T0luhFHKwsLNQQjA56/pub?output=csv"
-
+moos.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRo04g32Yr3DsZbXQiw6VTPfgWuWq5csh1VhxfMy3IT3U6OkJOGvTlofjXwFfugiaRVJ34pPnOUZ3te/pub?output=csv"
 moos.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBpyHQqVDqrUTjTvYXM4RhAEoeG0lRV7fB2mHHGa55Xa__nHrjKCRX_GAIyoIatgWfOwNlmjN-hzzb/pub?output=csv"
 
+# load in data
 moos.atmo.2022 <- read.csv(url(moos.atmo.2022.url), skip = 1) 
-
+moos.stream.one.2022 <- read.csv(url(moos.stream.one.2022.url), skip = 1) 
 moos.stream.two.2022 <- read.csv(url(moos.stream.two.2022.url), skip = 1) 
 
-moos.atmo.2022 <- moos.atmo.2022[, -c(5:11)] # removing columns that arent date/abs pressure and temp
+# cleaning df to be able to interpret and merge
+moos.atmo.2022 <- moos.atmo.2022[, -c(5:11)] # removing columns that aren't date/abs pressure and temp
 names(moos.atmo.2022) <- c("Site", "DateTimeGMT", "AirPressure", "TempC")
+
+moos.stream.one.2022 <- moos.stream.one.2022[, -c(5:8)] # removing columns that aren't date/abs pressure and temp
+names(moos.stream.one.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
 
 moos.stream.two.2022 <- moos.stream.two.2022[, -c(5:12)] # removing columns that arent date/abs pressure and temp
 names(moos.stream.two.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
 
+moos.final.pressure.2022 <- right_join(moos.stream.one.2022, moos.stream.two.2022, by = c("DateTimeGMT"))
+moos.final.pressure.2022$MeanPressure <- rowMeans(moos.final.pressure.2022[,c(3,6)], na.rm = TRUE)
+
+
 # join the two atmospheric and water pressure together
-MOOS.2022 <- left_join(moos.atmo.2022, moos.stream.two.2022, by = "DateTimeGMT")
+MOOS.2022 <- left_join(moos.atmo.2022, moos.final.pressure.2022, by = "DateTimeGMT")
 
 MOOS.2022$DateTime <- mdy_hms(MOOS.2022$DateTimeGMT, tz = "GMT")
 attributes(MOOS.2022$DateTime)$tzone <- 'America/Anchorage'
 
 # Water pressure - atmospheric pressure 
-MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressure
+MOOS.2022$difference <- MOOS.2022$MeanPressure - MOOS.2022$AirPressure
+MOOS.2022 <- MOOS.2022[,-c(2:10)] # only want Site/WaterPressure/DateTime/Difference
+MOOS.2022$Site <- "MOOS"
 
+# Checking closeness between two PTs
+moos.stream.two.2022 <- moos.stream.two.2022[1:nrow(moos.stream.one.2022),]
+moos.stream.one.2022$Site <- "STRT1" #add column identifier
+moos.stream.two.2022$Site <- "STRT2"
+moos.pt.2022 <- bind_rows(moos.stream.one.2022, moos.stream.two.2022)
+
+plot(x = moos.stream.one.2022$WaterPressure, y = moos.stream.two.2022$WaterPressure, main = "Stuart PT comparison",
+     xlab = "Moose1PT", 
+     ylab = "Moose2PT")
+abline(1,1)
 
 ### Filter MOOS ###
 QSummary.MO.2022 <- QSummary.2022 %>% filter(Site =="MOOS")
 
 Moose1comb.2022 <- full_join(MOOS.2022, QSummary.MO.2022)
 MOOS1.lm.2022 <- lm(Moose1comb.2022$MeasuredQ_Ls ~ Moose1comb.2022$difference)
-MOOS1.lm.2022 <- lm(Moose1comb.2022$MeasuredQ_Ls ~ Moose1comb.2022$difference)
+
 
 
 moos.formula <- y ~ x
@@ -1029,21 +1051,33 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
 
 ### POKE ####
 poke.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIx8D5P_93-MADOTtYZ75oAXQp_KJWk7es6sG9x_ytpNSXX7dSkGEUds5UvPUwpAucNyih3jCmzwRM/pub?output=csv"
+poke.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-wJjf3rO8eC7bMpQZgwqFLHFQpf5qCInyWtUF1PqaCB8Z_EoM1cTHRUmWypjftREIx1rP0V6zYJxL/pub?output=csv"
 
+# load in url
 poke.stream.one.2022 <- read.csv(url(poke.stream.one.2022.url), skip = 1) 
+poke.stream.two.2022 <- read.csv(url(poke.stream.two.2022.url), skip = 1) 
 
+# cleaning df to be able to interpret and merge
 poke.stream.one.2022 <- poke.stream.one.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
 names(poke.stream.one.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
 
+poke.stream.two.2022 <- poke.stream.two.2022[, -c(5:9)] # removing columns that arent date/abs pressure and temp
+names(poke.stream.two.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
+
+# merge to one 
+poke.final.pressure.2022 <- left_join(poke.stream.one.2022, poke.stream.two.2022, by = c("DateTimeGMT"))
+poke.final.pressure.2022$MeanPressure <- rowMeans(poke.final.pressure.2022[,c(3,6)], na.rm = TRUE)
+
 # join the two atmospheric and water pressure together
-POKE.2022 <- left_join(moos.atmo.2022, poke.stream.one.2022, by = "DateTimeGMT")
+POKE.2022 <- right_join(moos.atmo.2022, poke.final.pressure.2022, by = "DateTimeGMT")
 
 POKE.2022$DateTime <- mdy_hms(POKE.2022$DateTimeGMT, tz = "GMT")
 attributes(POKE.2022$DateTime)$tzone <- 'America/Anchorage'
 
 # Water pressure - atmospheric pressure 
-POKE.2022$difference <- POKE.2022$WaterPressure - POKE.2022$AirPressure
-
+POKE.2022$difference <- POKE.2022$MeanPressure - POKE.2022$AirPressure
+POKE.2022 <- POKE.2022[,-c(2:10)] # only want Site/WaterPressure/DateTime/Difference
+POKE.2022$Site <- "POKE"
 
 ### Filter POKE ###
 QSummary.PO.2022 <- QSummary.2022 %>% filter(Site =="POKE")
@@ -1066,340 +1100,53 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022) +
   theme_light() +
   ggtitle("Poker1 all measured Q")
 
-# ### Filter Poker ###
-# QSummary.PO.2022 <- QSummary.2022 %>% filter(Site =="POKE")
-# 
-# ### Rating curve for POKE PT1 ###
-# poke.stream.one.2022$Site <- "POKE"
-# 
-# Poke1comb.2021 <- full_join(poke.stream.one.2021, QSummary.PO.2021)
-# POKE1.lm.2021 <- lm(Poke1comb.2021$MeasuredQ_Ls ~ Poke1comb.2021$WaterLevel)
-# 
-# 
-# poke.formula <- y ~ x
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke1comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(216, 216.4) +
-#   ylim(0,1500) +
-#   theme_light() +
-#   ggtitle("Poke1 all measured Q") 
-# 
-# ysi.pt1 <- Poke1comb.2021[which(Poke1comb.2021$Method == "YSI"), ]
-# rod.pt1 <- Poke1comb.2021[which(Poke1comb.2021$Method == "Wading rod"), ]
-# 
-# Poke1comb.2021.1 <- Poke1comb.2021[-c(818,4720,28901,8734), ]# removing measurements that dont seem good
-# 
-# POKE1.lm.2021.1 <- lm(Poke1comb.2021.1$MeasuredQ_Ls ~ Poke1comb.2021.1$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke1comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(216, 216.4) +
-#   ylim(0,1500) +
-#   theme_light() +
-#   ggtitle("Poke1 all measured Q") 
-# 
-# ### Rating curve for POKE PT2 ###
-# 
-# poke.stream.two.2021$Site <- "POKE"
-# 
-# Poke2comb.2021 <- full_join(poke.stream.two.2021, QSummary.PO.2021)
-# POKE2.lm.2021 <- lm(Poke2comb.2021$MeasuredQ_Ls ~ Poke2comb.2021$WaterLevel)
-# 
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(216, 216.5) + 
-#   ylim(200, 1500) +
-#   theme_light() +
-#   ggtitle("Poker2 all measured Q")
-# 
-# ysi.pt2 <- Poke2comb.2021[which(Poke2comb.2021$Method == "YSI"), ]
-# rod.pt2 <- Poke2comb.2021[which(Poke2comb.2021$Method == "Wading rod"), ]
-# 
-# Poke2comb.2021.1 <- Poke2comb.2021[-c(1359,5261,29443), ]# removing measurements that dont seem good
-# 
-# POKE2.lm.2021.1 <- lm(Poke2comb.2021.1$MeasuredQ_Ls ~ Poke2comb.2021.1$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(216, 216.4) +
-#   ylim(0,1500) +
-#   theme_light() +
-#   ggtitle("Poke2 all measured Q") 
-# 
-# 
-# ### Filter STRT ###
-# QSummary.ST.2021 <- QSummary.2021 %>% filter(Site =="STRT")
-# 
-# ### Rating curve for STRT PT1 ###
-# strt.stream.one.2021$Site <- "STRT"
-# 
-# Strt1comb.2021 <- full_join(strt.stream.one.2021, QSummary.ST.2021)
-# STRT1.lm.2021 <- lm(Strt1comb.2021$MeasuredQ_Ls ~ Strt1comb.2021$WaterLevel)
-# 
-# strt.formula <- y ~ x
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(250, 251) + 
-#   ylim(200, 5000) + 
-#   theme_classic() +
-#   ggtitle("Strt1 all measured Q") 
-# 
-# ### Rating curve for STRT PT2 ###
-# 
-# strt.stream.two.2021$Site <- "STRT"
-# 
-# Strt2comb.2021 <- full_join(strt.stream.two.2021, QSummary.ST.2021)
-# STRT2.lm.2021 <- lm(Strt2comb.2021$MeasuredQ_Ls ~ Strt2comb.2021$WaterLevel)
-# 
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt2comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = strt.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(249.5, 250.15) + 
-#   ylim(200, 3000) +
-#   theme_classic() +
-#   ggtitle("Stuart2 all measured Q")
-# 
-# ysi.pt2.strt <- Strt2comb.2021[which(Strt2comb.2021$Method == "YSI"), ]
-# 
-# 
-# Strt2comb.2021.1 <- Strt2comb.2021[-c(1453,2123,2791,17456,27437,30069), ]# removing measurements that dont seem good
-# 
-# STRT2.lm.2021.1 <- lm(Strt2comb.2021.1$MeasuredQ_Ls ~ Strt2comb.2021.1$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt2comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = strt.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(249.5, 250.15) + 
-#   ylim(200, 3000) +
-#   theme_classic() +
-#   ggtitle("Stuart2 all measured Q")
-# 
-# 
-# ### Filter VAUL ###
-# QSummary.VA.2021 <- QSummary.2021 %>% filter(Site =="VAUL")
-# 
-# ### Rating curve for VAUL PT1 ###
-# vaul.stream.one.2021$Site <- "VAUL"
-# 
-# Vaul1comb.2021 <- full_join(vaul.stream.one.2021, QSummary.VA.2021)
-# VAUL1.lm.2021 <- lm(Vaul1comb.2021$MeasuredQ_Ls ~ Vaul1comb.2021$WaterLevel)
-# 
-# vaul.formula <- y ~ x
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Vaul1comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(197.5, 198.5) + 
-#   ylim(0, 1250) +
-#   theme_classic() +
-#   ggtitle("Vaul1 all measured Q") 
-# 
-# ### Filter FRCH ###
-# QSummary.FR.2021 <- QSummary.2021 %>% filter(Site =="FRCH")
-# 
-# ### Rating curve for FRCH PT1 ###
-# frch.stream.one.2021$Site <- "FRCH"
-# 
-# Frch1comb.2021 <- full_join(frch.stream.one.2021, QSummary.FR.2021)
-# FRCH1.lm.2021 <- lm(Frch1comb.2021$MeasuredQ_Ls ~ Frch1comb.2021$WaterLevel)
-# 
-# frch.formula <- y ~ x
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Frch1comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(184, 185) + 
-#   theme_light() +
-#   ggtitle("Frch1 all measured Q") 
-# 
-# ysi.pt1.frch <- Frch1comb.2021[which(Frch1comb.2021$Method == "YSI"), ]
-# 
-# Frch1comb.2021.1 <- Frch1comb.2021[-c(21394,25408,29203), ]
-# 
-# FRCH1.lm.2021.1 <- lm(Frch1comb.2021.1$MeasuredQ_Ls ~ Frch1comb.2021.1$WaterLevel)
-# 
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Frch1comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(184, 185) + 
-#   theme_classic() +
-#   ggtitle("Frch1 all measured Q") 
-# 
-# rod.pt1.frch <- Frch1comb.2021[which(Frch1comb.2021$Method == "Wading rod"), ]
-# 
-# Frch1comb.2021.2 <- Frch1comb.2021[-c(21394,13030, 17623), ]
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Frch1comb.2021.2) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(184, 185) + 
-#   theme_light() +
-#   ggtitle("Frch1 all measured Q") 
-# 
-# 
-# 
-# ### Rating curve for FRCH PT2 ###
-# 
-# frch.stream.two.2021$Site <- "FRCH"
-# 
-# Frch2comb.2021 <- full_join(frch.stream.two.2021, QSummary.FR.2021)
-# FRCH2.lm.2021 <- lm(Frch2comb.2021$MeasuredQ_Ls ~ Frch2comb.2021$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Frch2comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = frch.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   theme_light() +
-#   ggtitle("Frch2 all measured Q")
-# 
-# ysi.pt2.frch <- Frch2comb.2021[which(Frch2comb.2021$Method == "YSI"), ]
-# rod.pt2.frch <- Frch2comb.2021[which(Frch2comb.2021$Method == "Wading rod"), ]
-# 
-# Frch2comb.2021.1 <- Frch2comb.2021[-c(21392,21410), ]
-# 
-# FRCH2.lm.2021.1 <- lm(Frch2comb.2021.1$MeasuredQ_Ls ~ Frch2comb.2021.1$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Frch2comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = frch.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   theme_light() +
-#   ggtitle("Frch2 all measured Q")
-# 
-# ### Filter MOOS ###
-# QSummary.MO.2021 <- QSummary.2021 %>% filter(Site =="MOOS")
-# 
-# ### Rating curve for MOOS PT1 ###
-# moos.stream.one.2021$Site <- "MOOS"
-# 
-# Moos1comb.2021 <- full_join(moos.stream.one.2021, QSummary.MO.2021)
-# MOOS1.lm.2021 <- lm(Moos1comb.2021$MeasuredQ_Ls ~ Moos1comb.2021$WaterLevel)
-# 
-# moos.formula <- y ~ x
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos1comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(165.8, 166.1) +
-#   theme_classic() +
-#   ggtitle("Moos1 all measured Q") 
-# 
-# ysi.pt1.moos <- Moos1comb.2021[which(Moos1comb.2021$Method == "YSI"), ]
-# 
-# Moos1comb.2021.1 <- Moos1comb.2021[-c(9008,13055, 17648), ]
-# 
-# MOOS1.lm.2021.1 <- lm(Moos1comb.2021.1$MeasuredQ_Ls ~ Moos1comb.2021.1$WaterLevel)
-# 
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos1comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(165.8, 166.1) +
-#   theme_classic() +
-#   ggtitle("Moos1 all measured Q") 
-# 
-# ### Rating curve for MOOS PT2 ###
-# 
-# moos.stream.two.2021$Site <- "MOOS"
-# 
-# Moos2comb.2021 <- full_join(moos.stream.two.2021, QSummary.MO.2021)
-# MOOS2.lm.2021 <- lm(Moos2comb.2021$MeasuredQ_Ls ~ Moos2comb.2021$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos2comb.2021) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE) +
-#   stat_poly_eq(formula = moos.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(165.8, 166) +
-#   theme_classic() +
-#   ggtitle("Moos2 all measured Q")
-# 
-# ysi.pt2.moos <- Moos2comb.2021[which(Moos2comb.2021$Method == "YSI"), ]
-# 
-# Moos2comb.2021.1 <- Moos2comb.2021[-c(9008,13055,17648), ]
-# 
-# MOOS2.lm.2021.1 <- lm(Moos2comb.2021.1$MeasuredQ_Ls ~ Moos2comb.2021.1$WaterLevel)
-# 
-# ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos2comb.2021.1) +
-#   geom_point(aes(color = Method), size = 3) +
-#   geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
-#   stat_poly_eq(formula = poke.formula, 
-#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-#                parse = TRUE) +
-#   xlim(165.8, 166.1) +
-#   theme_classic() +
-#   ggtitle("Moos2 all measured Q") 
 
 ### STRT ####
-strt.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSXPDD-aCfqJ8R8mF5W0aWQ_wnFQMGc_ioP5qtgadW8rsjzfKCouALYcC3VCC65U6uUApPffsX8pPo0/pub?output=csv"
+strt.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ42rKNca5fKJ-aXyrAf7ZkdmfHoHidtKdmNT7jD7BLJVNoRzp6xnVzg98F-_XGNjRN5ZXlzFDjWKg/pub?output=csv"
+strt.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSXPDD-aCfqJ8R8mF5W0aWQ_wnFQMGc_ioP5qtgadW8rsjzfKCouALYcC3VCC65U6uUApPffsX8pPo0/pub?output=csv"
 
+# load in data 
 strt.stream.one.2022 <- read.csv(url(strt.stream.one.2022.url), skip = 1) 
+strt.stream.two.2022 <- read.csv(url(strt.stream.two.2022.url), skip = 1) 
 
+
+# clean for merging purposes
 strt.stream.one.2022 <- strt.stream.one.2022[, -c(5:8)] # removing columns that arent date/abs pressure and temp
 names(strt.stream.one.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
 
+strt.stream.two.2022 <- strt.stream.two.2022[, -c(5:8)] # removing columns that arent date/abs pressure and temp
+names(strt.stream.two.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
+
+# merge to one 
+strt.final.pressure.2022 <- left_join(strt.stream.one.2022, strt.stream.two.2022, by = c("DateTimeGMT"))
+strt.final.pressure.2022$MeanPressure <- rowMeans(strt.final.pressure.2022[,c(3,6)], na.rm = TRUE)
+
+
 # join the two atmospheric and water pressure together
-STRT.2022 <- left_join(moos.atmo.2022, strt.stream.one.2022, by = "DateTimeGMT")
+STRT.2022 <- left_join(moos.atmo.2022, strt.final.pressure.2022, by = "DateTimeGMT")
 
 STRT.2022$DateTime <- mdy_hms(STRT.2022$DateTimeGMT, tz = "GMT")
 attributes(STRT.2022$DateTime)$tzone <- 'America/Anchorage'
 
 # Water pressure - atmospheric pressure 
-STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$AirPressure
+STRT.2022$difference <- STRT.2022$MeanPressure - STRT.2022$AirPressure
+STRT.2022 <- STRT.2022[,-c(2:10)] # only want Site/WaterPressure/DateTime/Difference
+STRT.2022$Site <- "STRT"
+
+# Checking closeness between two PTs
+strt.stream.two.2022 <- strt.stream.two.2022[1:nrow(strt.stream.one.2022),]
+strt.stream.one.2022$Site <- "STRT1" #add column identifier
+strt.stream.two.2022$Site <- "STRT2"
+strt.pt.2022 <- bind_rows(strt.stream.one.2022, strt.stream.two.2022)
+
+plot(x = strt.stream.one.2022$WaterPressure, y = strt.stream.two.2022$WaterPressure, main = "Stuart PT comparison",
+     xlab = "Stuart1PT", 
+     ylab = "Stuart2PT")
+abline(1,1)
+
+ggplot(strt.pt.2022, aes(x = DateTimeGMT, y = WaterPressure)) +
+  geom_point() +
+  facet_wrap(~Site)
 
 
 ### Filter STRT ###
@@ -1424,29 +1171,50 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
   ggtitle("Stuart1 all measured Q")
 
 
-
-
-
-
 ### FRCH ####
 frch.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGeOE-b-tvYIqLruE4YTUM_D9VXU3aveSkAAa0RK0HCpmlDezPsQzo4DLVpir-dGUyObDxZnf2TfaK/pub?output=csv"
+frch.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSW0-Yfk7-7IpXqVOiytfc25Pff3HF-_QlSoTyNWpEkrQdF5iYgDj0LZGLcKk6d8XWH1tMvqzHf3lX9/pub?output=csv"
 
+# load in url
 frch.stream.one.2022 <- read.csv(url(frch.stream.one.2022.url), skip = 1) 
+frch.stream.two.2022 <- read.csv(url(frch.stream.two.2022.url), skip = 1) 
 
+# clean for merging purposes
 frch.stream.one.2022 <- frch.stream.one.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
 names(frch.stream.one.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
 
+frch.stream.two.2022 <- frch.stream.two.2022[, -c(5:17)] # removing columns that arent date/abs pressure and temp
+names(frch.stream.two.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
+
+# merge to one 
+frch.final.pressure.2022 <- left_join(frch.stream.one.2022, frch.stream.two.2022, by = c("DateTimeGMT"))
+frch.final.pressure.2022$MeanPressure <- rowMeans(frch.final.pressure.2022[,c(3,6)], na.rm = TRUE)
+
+
 # join the two atmospheric and water pressure together
-FRCH.2022 <- left_join(moos.atmo.2022, frch.stream.one.2022, by = "DateTimeGMT")
+FRCH.2022 <- right_join(moos.atmo.2022, frch.final.pressure.2022, by = "DateTimeGMT")
 
 FRCH.2022$DateTime <- mdy_hms(FRCH.2022$DateTimeGMT, tz = "GMT")
 attributes(FRCH.2022$DateTime)$tzone <- 'America/Anchorage'
 
 # Water pressure - atmospheric pressure 
-FRCH.2022$difference <- FRCH.2022$WaterPressure - FRCH.2022$AirPressure
+FRCH.2022$difference <- FRCH.2022$MeanPressure - FRCH.2022$AirPressure
+FRCH.2022 <- FRCH.2022[,-c(2:10)] # only want Site/WaterPressure/DateTime/Difference
+FRCH.2022$Site <- "FRCH"
+
+# Checking closeness between two PTs
+frch.stream.two.2022 <- frch.stream.two.2022[1:nrow(frch.stream.one.2022),]
+frch.stream.one.2022$Site <- "STRT1" #add column identifier
+frch.stream.two.2022$Site <- "STRT2"
+frch.pt.2022 <- bind_rows(frch.stream.one.2022, frch.stream.two.2022)
+
+plot(x = frch.stream.one.2022$WaterPressure, y = frch.stream.two.2022$WaterPressure, main = "French PT comparison",
+     xlab = "French1PT", 
+     ylab = "French2PT")
+abline(1,1)
 
 
-### Filter STRT ###
+### Filter FRCH ###
 QSummary.FR.2022 <- QSummary.2022 %>% filter(Site =="FRCH")
 
 French1comb.2022 <- full_join(FRCH.2022, QSummary.FR.2022)
@@ -1467,6 +1235,54 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
   theme_light() +
   ggtitle("French1 all measured Q")
 
+### VAUL ####
+vaul.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-ztCTFptHNaTaoxpXL3xN5g58Jkdoywv0J3qAR45t65rtubHbsw7mpFt2WGn3_hhbbxr7_QY7jWhP/pub?output=csv"
+
+# load in url
+vaul.stream.one.2022 <- read.csv(url(vaul.stream.one.2022.url), skip = 1) 
+
+# clean for merging purposes
+vaul.stream.one.2022 <- vaul.stream.one.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
+names(vaul.stream.one.2022) <- c("Site", "DateTimeGMT", "WaterPressure", "TempC")
+
+
+# # merge to one 
+# frch.final.pressure.2022 <- left_join(frch.stream.one.2022, frch.stream.two.2022, by = c("DateTimeGMT"))
+# frch.final.pressure.2022$MeanPressure <- rowMeans(frch.final.pressure.2022[,c(3,6)], na.rm = TRUE)
+
+
+# join the two atmospheric and water pressure together
+VAUL.2022 <- left_join(moos.atmo.2022, vaul.stream.one.2022, by = "DateTimeGMT")
+
+VAUL.2022$DateTime <- mdy_hms(VAUL.2022$DateTimeGMT, tz = "GMT")
+attributes(VAUL.2022$DateTime)$tzone <- 'America/Anchorage'
+
+# Water pressure - atmospheric pressure 
+VAUL.2022$difference <- VAUL.2022$WaterPressure - VAUL.2022$AirPressure
+VAUL.2022 <- VAUL.2022[,-c(2:5,7)] # only want Site/WaterPressure/DateTime/Difference
+VAUL.2022$Site <- "VAUL"
+
+
+### Filter VAUL ###
+QSummary.VA.2022 <- QSummary.2022 %>% filter(Site =="VAUL")
+
+Vault1comb.2022 <- full_join(VAUL.2022, QSummary.VA.2022)
+VAUL1.lm.2022 <- lm(Vault1comb.2022$MeasuredQ_Ls ~ Vault1comb.2022$difference)
+#POKE2.lm.2022 <- lm(Poker1comb.2022$MeasuredQ_Ls ~ Poker1comb.2022$WaterPressure)
+
+
+vaul.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Vault1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  #xlim(216, 216.4) +
+  #ylim(0,1500) +
+  theme_light() +
+  ggtitle("Vault1 all measured Q")
 
 
 
