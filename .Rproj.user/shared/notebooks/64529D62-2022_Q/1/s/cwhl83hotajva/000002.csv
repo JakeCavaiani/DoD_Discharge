@@ -1,0 +1,31 @@
+"0","moos.stream.one.2022 <- moos.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= ""2022-05-09"" & DateTimeAK <= ""2022-05-25"", NA, .)))
+
+moos.stream.one.2022 <- moos.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= ""2022-05-09"" & WaterPressure < 103, NA, .)))
+
+# shfiting the step change 
+moos.1.before <- moos.stream.one.2022[c(1:8404), ] # 6/7 @ 14:15 we cleaned the PVC housing so we are shifting the previous data up to match after the cleaning 
+
+moos.1.after <- moos.stream.one.2022[c(8405:21686), ]
+
+
+moos.stream.one.2022[8413, 2] - moos.stream.one.2022[8404, 2] # 6.423
+"
+"1","[1]"
+"1"," 6.423"
+"1","
+"
+"0","moos.1.before$WaterPressure <- moos.1.before[, 2] + 6.423"
+"0","moos.stream.one.2022 <- full_join(moos.1.before, moos.1.after)"
+"2","Joining, by = c(""Site"", ""WaterPressure"", ""TempC"", ""DateTimeAK"")"
+"0","moos.stream.one.2022 <- moos.stream.one.2022 %>%"
+"0","  mutate(across(c(WaterPressure), "
+"0","                ~ifelse(DateTimeAK >= ""2022-06-07"" & DateTimeAK <= ""2022-06-08"" & WaterPressure > 111.9, NA, .)))"
+"0",""
+"0",""
+"0","ggplot(moos.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure)) +"
+"0","  geom_point() +"
+"0","  theme_classic()"
