@@ -1,0 +1,18 @@
+"0","poke.stream.one.2022.url <- ""https://docs.google.com/spreadsheets/d/e/2PACX-1vR8p1pdbkQBMo54XaZinGwxyzojCnlkXeZid3EFvmt9v31PFvpsa1DlWClj8aG0kkJIuU57WXl-cq7Q/pub?output=csv""
+poke.stream.two.2022.url <- ""https://docs.google.com/spreadsheets/d/e/2PACX-1vR-wJjf3rO8eC7bMpQZgwqFLHFQpf5qCInyWtUF1PqaCB8Z_EoM1cTHRUmWypjftREIx1rP0V6zYJxL/pub?output=csv""
+
+# load in url
+poke.stream.one.2022 <- read.csv(url(poke.stream.one.2022.url), skip = 1) 
+poke.stream.two.2022 <- read.csv(url(poke.stream.two.2022.url), skip = 1) 
+
+# cleaning df to be able to interpret and merge
+poke.stream.one.2022 <- poke.stream.one.2022[, -c(5:18)] # removing columns that arent date/abs pressure and temp
+
+poke.stream.two.2022 <- poke.stream.two.2022[, -c(5:9)] # removing columns that arent date/abs pressure and temp
+
+# changing to AK time (It reads in as GMT but it is actually AKST )
+poke.stream.one.2022$DateTimeAK <- mdy_hms(poke.stream.one.2022$Date.Time..GMT.08.00)
+"
+"2","Error in mdy_hms(poke.stream.one.2022$Date.Time..GMT.08.00) : 
+  could not find function ""mdy_hms""
+"

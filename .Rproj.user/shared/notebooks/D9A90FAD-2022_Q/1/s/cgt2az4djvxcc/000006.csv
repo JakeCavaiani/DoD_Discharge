@@ -1,0 +1,18 @@
+"0","eielson.atmo.2022.url <- ""https://docs.google.com/spreadsheets/d/e/2PACX-1vRNaeqSnSANyg1akwelIH50Oh3undYyZkhoMku-n0Y9JTpLOY3jK7BJwQlA2ktP40MFZ3OzYdjnGmFm/pub?output=csv""
+
+eielson.atmo.2022 <- read.csv(url(eielson.atmo.2022.url), skip = 6) 
+eielson.atmo.2022 <- eielson.atmo.2022[-1,]
+
+names(eielson.atmo.2022) <- c(""Site"", ""DateTimeAK"", ""TempC"", ""sea_level_pressure"", ""AirPressure"")
+
+eielson.atmo.2022$DateTimeAK <- mdy_hm(eielson.atmo.2022$DateTimeAK)
+
+eielson.atmo.2022$DateTimeAK <- lubridate::round_date(eielson.atmo.2022$DateTimeAK, ""15 minutes"")
+
+eielson.atmo.2022$DateTimeAK <- force_tz(eielson.atmo.2022$DateTimeAK, ""America/Anchorage"")
+
+eielson.atmo.2022$AirPressure <- as.numeric(eielson.atmo.2022$AirPressure)
+"
+"2","NAs introduced by coercion"
+"0","eielson.atmo.2022$AirPressure <- eielson.atmo.2022$AirPressure*3.38639 # converting from inHG to kPa"
+"0",""
