@@ -1,0 +1,5 @@
+"0","eielson.atmo.2022.compare <- eielson.atmo.2022.compare[,-c(eielson.atmo.2022.compare$Site, eielson.atmo.2022.compare$TempC, eielson.atmo.2022.compare$AirPressure, eielson.atmo.2022.compare$AirPressure, eielson.atmo.2022.compare$mmHG, eielson.atmo.2022.compare$mmHGcorrected)] # removing columns I dont need
+"
+"2","Error in -c(eielson.atmo.2022.compare$Site, eielson.atmo.2022.compare$TempC,  : 
+  invalid argument to unary operator
+"

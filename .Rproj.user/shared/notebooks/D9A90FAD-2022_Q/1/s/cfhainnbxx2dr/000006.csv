@@ -1,0 +1,5 @@
+"0","# adjusting/cleaning moos.stream.two"
+"0",""
+"0","ggplot(moos.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure)) +"
+"0","  geom_point() +"
+"0","  theme_classic()"

@@ -1,0 +1,5 @@
+"0","Poker1comb.2022 <- POKE.2022.dt[QSummary.PO.2022.dt, on = ""DateTimeAK"", roll = 'nearest']
+"
+"2","Error in `[.data.table`(POKE.2022.dt, QSummary.PO.2022.dt, on = ""DateTimeAK"",  : 
+  QSummary.PO.2022.dt is not found in calling scope and it is not a column name either. When the first argument inside DT[...] is a single symbol (e.g. DT[var]), data.table looks for var in calling scope.
+"

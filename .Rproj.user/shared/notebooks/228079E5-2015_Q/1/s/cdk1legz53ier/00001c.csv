@@ -1,0 +1,7 @@
+"0",""
+"0","frch.stream <- frch.stream %>%"
+"0","  mutate(across(c(AbsolutePressure), "
+"0","                ~ifelse(DateTimeAK >= ""2015-05-01"" & DateTimeAK <= ""2015-06-01"" & AbsolutePressure < 102, NA, .)))"
+"0",""
+"0","ggplot(frch.stream, aes(x = DateTimeAK, y = AbsolutePressure)) +"
+"0","  geom_point()"
