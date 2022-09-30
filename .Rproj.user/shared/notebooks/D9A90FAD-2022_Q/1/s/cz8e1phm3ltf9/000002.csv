@@ -1,3 +1,0 @@
-"0","# merge to one "
-"0","poke.final.pressure.2022 <- left_join(poke.stream.one.2022, poke.stream.two.2022, by = c(""DateTimeAK""))"
-"0","poke.final.pressure.2022$MeanPressure <- rowMeans(poke.final.pressure.2022[,c(2,6)], na.rm = TRUE)"

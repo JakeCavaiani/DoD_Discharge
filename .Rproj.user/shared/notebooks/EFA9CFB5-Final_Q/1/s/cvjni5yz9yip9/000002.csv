@@ -1,3 +1,0 @@
-"0","plot(x = frch.stream.one.2021$WaterLevel, y = frch.stream.two.2021$WaterLevel, main = ""French PT comparison"","
-"0","     xlab = ""French1PT"", "
-"0","     ylab = ""French2PT"")"

@@ -1,1 +1,0 @@
-{"frames":[{"func":"subset(STRT.2022.dt, DateTimeAK < \"2022-09-02 05:00:00\")","file":"","line_number":0,"end_line_number":0,"character_number":0,"end_character_number":0}],"message":"Error in subset(STRT.2022.dt, DateTimeAK < \"2022-09-02 05:00:00\") : \n  object 'STRT.2022.dt' not found\n"}

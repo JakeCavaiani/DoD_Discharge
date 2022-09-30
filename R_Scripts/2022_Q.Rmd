@@ -6,6 +6,8 @@ output:
   word_document: default
   pdf_document: default
 ---
+# The purpose of this script is to read in pressure transducer data from 2022 and generate rating curves to ultimately generate predicted continuous discharge records throughout the whole season
+# Step 1) Read in most updated merged files from each site from the google drive (DoD Project->2022 AK sensors->Discharge->site->"merged_date_file" )
 
 
 ```{r cars}
@@ -714,7 +716,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
 ### FRCH
 ```{r}
 frch.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRkT5GIhFY4nLblzPi4Upc8y6Pk2k4vXLSGAkFyMhLowsCmct0fZ5rxm-vd85RfFr7YLrCuuSiOqQbL/pub?output=csv"
-frch.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiDAbzBj_jHk1Hd3iM7fFvzMrRCSF9fbKTcmQD_dUFGOjoIQuBZBKV4KdNhfevLOq0Udch0LbWiKXw/pub?output=csv"
+frch.stream.two.2022.url <-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiDAbzBj_jHk1Hd3iM7fFvzMrRCSF9fbKTcmQD_dUFGOjoIQuBZBKV4KdNhfevLOq0Udch0LbWiKXw/pub?output=csv"
 
 # load in url
 frch.stream.one.2022 <- read.csv(url(frch.stream.one.2022.url), skip = 1) 

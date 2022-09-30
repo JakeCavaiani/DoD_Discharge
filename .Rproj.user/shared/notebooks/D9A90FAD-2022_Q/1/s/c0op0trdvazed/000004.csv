@@ -1,4 +1,0 @@
-"0","ggplot(poke.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+"
-"0","  geom_point() +"
-"0","  theme_classic()"
-"0",""
