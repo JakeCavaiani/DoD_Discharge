@@ -1,0 +1,5 @@
+"0","STRT.2022.dt <- subset(STRT.2022.dt, DateTimeAK < ""2022-09-02 05:00:00"") # removing rows that had dates corresponding to end of record that messed up the rolling nearest function 
+"
+"2","Error in subset(STRT.2022.dt, DateTimeAK < ""2022-09-02 05:00:00"") : 
+  object 'STRT.2022.dt' not found
+"
