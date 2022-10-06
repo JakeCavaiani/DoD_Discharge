@@ -45,11 +45,13 @@ QSummary.2022$DateTimeAK <- as.POSIXct(paste(QSummary.2022$Date, QSummary.2022$T
 QSummary.2022$DateTimeAK <- lubridate::round_date(QSummary.2022$DateTimeAK, "60 minutes")
 
 ### ALL Sites ###
-ggplot(QSummary.2022) +
+QSummary.2022 %>% filter(Site == "MOOS") %>% ggplot() +
   geom_point(aes(x=DateTimeAK, y=MeasuredQ_Ls, color=Site, shape=Method), size=3) +
   theme_classic() +
-  scale_color_manual(values=c("#FF7F00","#A6761D", "#6A3D9A", "#66C2A5", "#E7298A")) +
-  ggtitle("ALL SITES") 
+  scale_color_manual(values=c("#FF7F00","#A6761D", "#6A3D9A", "#66C2A5", "#E7298A")) #+
+  #ggtitle("ALL SITES") 
+
+
 
 ```
 Here is all the sites up discrete discharge measurements up until 8/31/2022
@@ -357,7 +359,7 @@ names(MOOS.2022)[names(MOOS.2022) == 'Site.x'] <- 'Site'
 MOOS.2022$Site <- "MOOS"
 
 
-# KLJ
+# KLJ: checking the difference between the pressure tranducers
 AA <- MOOS.2022 %>% filter(DateTimeAK < "2022-07-29 12:00:00") %>% summarise(meandiff = mean(WaterPressure.x - WaterPressure.y, na.rm = TRUE))
 
 BB <- MOOS.2022 %>% filter(DateTimeAK > "2022-07-29 12:00:00") %>% summarise(meandiff = mean(WaterPressure.x - WaterPressure.y, na.rm = TRUE))
