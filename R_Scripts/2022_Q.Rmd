@@ -628,12 +628,29 @@ STRT.atmo.2022.compare <- full_join(eielson.atmo.2022.compare, strt.atmo.2022, b
 STRT.atmo.2022.compare %>% filter(DateTimeAK > "2022-05-01") %>% ggplot() + geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT)) + 
   geom_point(aes(DateTimeAK, AirPressureSTRT), color = "red")
 ```
+
+```{r}
+## Use measured air pressure when possible
+STRT.atmo.2022.compare <- STRT.atmo.2022.compare %>% select(DateTimeAK, AirPressureCorrectedSTRT, AirPressureSTRT )
+
+  ### Using mostly our air pressure data with gap filled in by Eilson:
+STRT.atmo.2022.compare$strt.combo <- c()
+STRT.atmo.2022.compare<- STRT.atmo.2022.compare %>%
+  mutate(strt.combo = ifelse(DateTimeAK <= "2022-05-18" | DateTimeAK >= "2022-06-03", AirPressureSTRT, AirPressureCorrectedSTRT))
+
+STRT.atmo.2022.compare<- STRT.atmo.2022.compare %>%
+  mutate(across(c(strt.combo), 
+                ~ifelse(DateTimeAK >= "2022-07-18" & DateTimeAK <= "2022-09-03" | DateTimeAK >= "2022-09-08", AirPressureCorrectedSTRT, .)))
+
+STRT.atmo.2022.compare %>% filter(DateTimeAK > "2022-05-01") %>% ggplot() + geom_point(aes(DateTimeAK, strt.combo)) #+ geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT), color = "red", cex = 0.5)
+```
+
 ```{r}
 # join the two atmospheric and water pressure together
-STRT.2022 <- left_join(eielson.atmo.2022.compare, strt.final.pressure.2022, by = "DateTimeAK")
+STRT.2022 <- left_join(STRT.atmo.2022.compare, strt.final.pressure.2022, by = "DateTimeAK")
 
 # Water pressure - atmospheric pressure 
-STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$AirPressureCorrectedSTRT
+STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$strt.combo
 
 STRT.2022 <-  STRT.2022[ , -which(names(STRT.2022) %in% c("TempC"))] # removing columns I do not need
 STRT.2022$Site <- "STRT"
