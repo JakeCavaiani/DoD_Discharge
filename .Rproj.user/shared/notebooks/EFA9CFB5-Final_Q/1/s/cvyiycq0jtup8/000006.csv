@@ -1,0 +1,9 @@
+"0","plot_grid(mrc.1, mrc.2,"
+"0","          mrc.3, NA,"
+"0","          ncol = 2, nrow = 2)"
+"2","`geom_smooth()` using formula 'y ~ x'
+"
+"2","`geom_smooth()` using formula 'y ~ x'
+"
+"2","`geom_smooth()` using formula 'y ~ x'
+"

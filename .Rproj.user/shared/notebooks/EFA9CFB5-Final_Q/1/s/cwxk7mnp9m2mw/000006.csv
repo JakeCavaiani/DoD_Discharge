@@ -1,0 +1,7 @@
+"0",""
+"0","b <- QSummary %>% filter(site == ""French"") %>% "
+"0","  ggplot() +"
+"0","  geom_point(aes(x=date, y=Q..L.s.), size=3) +"
+"0","  theme_classic() +"
+"0","  ggtitle(""Moose"")"
+"0","b"

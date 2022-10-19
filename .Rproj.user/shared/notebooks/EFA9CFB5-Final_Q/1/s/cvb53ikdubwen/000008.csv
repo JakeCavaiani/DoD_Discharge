@@ -1,0 +1,4 @@
+"0",""
+"0","#August to September "
+"0","frch.stream.4 <- frch.stream %>% subset(frch.stream$DateTime < ""2015-09-01 00:00:00"" & frch.stream$DateTime > ""2015-08-01 00:00:00"") "
+"0","plot(frch.stream.4$DateTime, frch.stream.4$AbsolutePressure, type = ""l"")"
