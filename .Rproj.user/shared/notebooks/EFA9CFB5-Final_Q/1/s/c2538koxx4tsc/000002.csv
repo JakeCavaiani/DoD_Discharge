@@ -1,4 +1,0 @@
-"0","plot(caribou.2015.gauge$Precip~ caribou.2015.gauge$DateTime, type=""h"","
-"0","     xlim = as.POSIXct(c(""2015-05-14 04:05:00"",""2015-09-22 02:20:00""), tz=""America/Anchorage""),"
-"0","     ylim = c(20,0), "
-"0","     axes=F, xlab="""", ylab="""")"

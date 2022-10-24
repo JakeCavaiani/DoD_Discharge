@@ -1,5 +1,0 @@
-"0","moos.stream <- moos.stream %>% subset(moos.stream$DateTime < ""2015-09-20 18:30:00"") # PT was taken out on the 21st "
-"0",""
-"0","#june to july"
-"0","moos.stream.1 <- moos.stream %>% subset(moos.stream$DateTime < ""2015-07-01 00:00:00"" & moos.stream$DateTime > ""2015-06-01 00:00:00"") "
-"0","plot(moos.stream.1$DateTime, moos.stream.1$AbsolutePressure, type = ""l"")"
