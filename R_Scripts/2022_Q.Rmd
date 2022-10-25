@@ -75,9 +75,68 @@ eielson.atmo.2022$DateTimeAK <- force_tz(eielson.atmo.2022$DateTimeAK, "America/
 eielson.atmo.2022$AirPressure <- as.numeric(eielson.atmo.2022$AirPressure)
 eielson.atmo.2022$AirPressure <- eielson.atmo.2022$AirPressure*3.38639 # converting from inHG to kPa
 
+# MOOS elevation is 574 feet
+# POKE 760.96
+# STRT 820 ft
+# FRCH 601 ft 
+# VAUL 688.8 ft
+
+# compare Eielson and MOOS atmospheric pressure
+eielson.atmo.2022.compare <- eielson.atmo.2022
+eielson.atmo.2022.compare$sea_level_pressure <- as.numeric(eielson.atmo.2022.compare$sea_level_pressure)
+eielson.atmo.2022.compare$mmHG <- eielson.atmo.2022.compare$sea_level_pressure * 25.44 # converting to mmHG
+
+# conversion to elevation at each site 
+# MOOS 
+eielson.atmo.2022.compare$mmHGcorrectedMOOS <- eielson.atmo.2022.compare$mmHG - (2.5*574/100) 
+
+eielson.atmo.2022.compare$AirPressureCorrectedMOOS <- eielson.atmo.2022.compare$mmHGcorrectedMOOS * 0.133322 # converting this to kPA to compare with MOOS PT
+
+# POKE 
+eielson.atmo.2022.compare$mmHGcorrectedPOKE <- eielson.atmo.2022.compare$mmHG - (2.5*760.96/100) 
+
+eielson.atmo.2022.compare$AirPressureCorrectedPOKE <- eielson.atmo.2022.compare$mmHGcorrectedPOKE * 0.133322 # converting this to kPA 
+
+# STRT
+eielson.atmo.2022.compare$mmHGcorrectedSTRT <- eielson.atmo.2022.compare$mmHG - (2.5*820/100) 
+
+eielson.atmo.2022.compare$AirPressureCorrectedSTRT <- eielson.atmo.2022.compare$mmHGcorrectedSTRT * 0.133322 # converting this to kPA 
+
+# FRCH
+eielson.atmo.2022.compare$mmHGcorrectedFRCH <- eielson.atmo.2022.compare$mmHG - (2.5*601/100) 
+
+eielson.atmo.2022.compare$AirPressureCorrectedFRCH <- eielson.atmo.2022.compare$mmHGcorrectedFRCH * 0.133322 # converting this to kPA 
+
+# VAUL
+eielson.atmo.2022.compare$mmHGcorrectedVAUL <- eielson.atmo.2022.compare$mmHG - (2.5*688.8/100) 
+
+eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$mmHGcorrectedVAUL * 0.133322 # converting this to kPA 
 
 ```
+```{r}
+## Read in CPCRW CREEL BP data 
+cpcrw.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUsd5pTS0k_J67u3VrmKSsV591Hpcoe41hU4G_BIKzp4ztgPCZZqlEBQ98J0smD6iB40e0l36CRopc/pub?output=csv"
+cpcrw.atmo.2022 <- read.csv(url(cpcrw.atmo.2022.url), skip = 6)
+names(cpcrw.atmo.2022) <- c("DateTimeAK", "AirPressure_BCEF", "AirPressure_met_adj",  "AirPressure_met_avg")
 
+cpcrw.atmo.2022$DateTimeAK <- mdy_hm(cpcrw.atmo.2022$DateTimeAK)
+
+cpcrw.atmo.2022$DateTimeAK <- lubridate::round_date(cpcrw.atmo.2022$DateTimeAK, "15 minutes")
+
+# Convert to mPa
+cpcrw.atmo.2022$AirPressure_BCEF <- cpcrw.atmo.2022$AirPressure_BCEF*.1
+cpcrw.atmo.2022$AirPressure_met_adj <- cpcrw.atmo.2022$AirPressure_met_adj*.1
+cpcrw.atmo.2022$AirPressure_met_avg <- cpcrw.atmo.2022$AirPressure_met_avg*.1
+
+
+cpcrw.atmo.2022 %>% ggplot(aes(DateTimeAK, AirPressure_BCEF)) + geom_point()
+cpcrw.atmo.2022 %>% ggplot(aes(DateTimeAK, AirPressure_met_adj)) + geom_point()
+cpcrw.atmo.2022 %>% ggplot(aes(DateTimeAK, AirPressure_met_avg)) + geom_point()
+
+#CPCRW data is no good
+
+cpcrw.atmo.2022 %>% mutate(AirPressureCorrectedPOKE = AirPressure_met_avg) %>% ggplot( aes(DateTimeAK, AirPressureCorrectedPOKE)) + geom_point(color = "red") + geom_point(data = eielson.atmo.2022.compare, aes(DateTimeAK, AirPressureCorrectedPOKE))
+```
 
 ### MOOS #### 
 ```{r setup, include=FALSE}
@@ -181,42 +240,6 @@ ggplot(eielson.atmo.2022, aes(x = DateTimeAK, y = AirPressure)) +
 ```
 
 ```{r}
-# MOOS elevation is 574 feet
-# POKE 760.96
-# STRT 820 ft
-# FRCH 601 ft 
-# VAUL 688.8 ft
-
-# compare Eielson and MOOS atmospheric pressure
-eielson.atmo.2022.compare <- eielson.atmo.2022
-eielson.atmo.2022.compare$sea_level_pressure <- as.numeric(eielson.atmo.2022.compare$sea_level_pressure)
-eielson.atmo.2022.compare$mmHG <- eielson.atmo.2022.compare$sea_level_pressure * 25.44 # converting to mmHG
-
-# conversion to elevation at each site 
-# MOOS 
-eielson.atmo.2022.compare$mmHGcorrectedMOOS <- eielson.atmo.2022.compare$mmHG - (2.5*574/100) 
-
-eielson.atmo.2022.compare$AirPressureCorrectedMOOS <- eielson.atmo.2022.compare$mmHGcorrectedMOOS * 0.133322 # converting this to kPA to compare with MOOS PT
-
-# POKE 
-eielson.atmo.2022.compare$mmHGcorrectedPOKE <- eielson.atmo.2022.compare$mmHG - (2.5*760.96/100) 
-
-eielson.atmo.2022.compare$AirPressureCorrectedPOKE <- eielson.atmo.2022.compare$mmHGcorrectedPOKE * 0.133322 # converting this to kPA 
-
-# STRT
-eielson.atmo.2022.compare$mmHGcorrectedSTRT <- eielson.atmo.2022.compare$mmHG - (2.5*820/100) 
-
-eielson.atmo.2022.compare$AirPressureCorrectedSTRT <- eielson.atmo.2022.compare$mmHGcorrectedSTRT * 0.133322 # converting this to kPA 
-
-# FRCH
-eielson.atmo.2022.compare$mmHGcorrectedFRCH <- eielson.atmo.2022.compare$mmHG - (2.5*601/100) 
-
-eielson.atmo.2022.compare$AirPressureCorrectedFRCH <- eielson.atmo.2022.compare$mmHGcorrectedFRCH * 0.133322 # converting this to kPA 
-
-# VAUL
-eielson.atmo.2022.compare$mmHGcorrectedVAUL <- eielson.atmo.2022.compare$mmHG - (2.5*688.8/100) 
-
-eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$mmHGcorrectedVAUL * 0.133322 # converting this to kPA 
 
 
 moos.atmo.2022.compare <- moos.atmo.2022
@@ -723,8 +746,8 @@ frch.stream.one.2022$DateTimeAK <- mdy_hms(frch.stream.one.2022$Date.Time..GMT.0
 frch.stream.two.2022$DateTimeAK <- mdy_hms(frch.stream.two.2022$Date.Time..GMT.08.00)
 
 # round date to 5 minute intervals
-frch.stream.one.2022$DateTimeAK <- lubridate::round_date(frch.stream.one.2022$DateTimeAK, "5 minutes")
-frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "5 minutes")
+frch.stream.one.2022$DateTimeAK <- lubridate::round_date(frch.stream.one.2022$DateTimeAK, "15 minutes")
+frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "15 minutes")
 
 # cleaning off original datetime 
 frch.stream.one.2022 <- frch.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
@@ -800,9 +823,9 @@ ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = atmo.pt.frch) +
   ggtitle("FRCH PT1(blue) & FRCH PT2(orange) Water Pressure") 
 
 ```
-
+# They look the same and PT1 is more complete, so we will use that one.
 ```{r}
-
+frch.final.pressure.2022 <- frch.stream.one.2022
 ```
 
 ```{r}
@@ -811,9 +834,7 @@ FRCH.2022 <- left_join(eielson.atmo.2022.compare, frch.final.pressure.2022, by =
 
 
 # Water pressure - atmospheric pressure 
-FRCH.2022$difference <- FRCH.2022$MeanPressure - FRCH.2022$AirPressureCorrectedFRCH
-
-FRCH.2022 <-  FRCH.2022[ , -which(names(FRCH.2022) %in% c("WaterPressure.x", "TempC.x", "Site.y", "WaterPressure.y", "TempC.y"))] # removing columns I do not need
+FRCH.2022$difference <- FRCH.2022$WaterPressure - FRCH.2022$AirPressureCorrectedFRCH
 
 names(FRCH.2022)[names(FRCH.2022) == 'Site.x'] <- 'Site'
 
@@ -991,80 +1012,4 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Vault1comb.2022) +
   #ylim(0,1500) +
   theme_light() +
   ggtitle("Vault all measured Q")
-
-=======
----
-title: "2022_Rating_Curve"
-author: "Jake Cavaiani"
-date: "9/2/2022"
-output:
-  word_document: default
-  pdf_document: default
----
-
-
-```{r cars}
-# Load packages #
-library(tidyverse)
-library(lubridate)
-library(data.table)
-library(rio)
-library(ggplot2)
-library(scales)
-library(psych)
-library(here)
-library(googledrive)
-library(readxl)
-library(cowplot)
-library(zoo)
-library(readr)
-library(dplyr)
-library(RColorBrewer)
-library(gridExtra)
-library(ggpmisc)
-library(birk)
-```
-
-
-
-### ALL Sites ###
-
-```{r}
-# Import data from google drive #
-discharge.2022 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQR6HHHDpnxc6DmNHfdNLR9-dgDHR5Imt0Ve4_t2DzIF18_8D3O2da5zcWQzJUSoFQfaetPZDeXZ610/pub?gid=0&single=true&output=csv"
-QSummary.2022 <- read.csv(url(discharge.2022))
-
-### Format Time ###
-QSummary.2022$Date <- mdy(QSummary.2022$Date)
-QSummary.2022$DateTimeAK <- as.POSIXct(paste(QSummary.2022$Date, QSummary.2022$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
-QSummary.2022$DateTimeAK <- lubridate::round_date(QSummary.2022$DateTimeAK, "60 minutes")
-
-### ALL Sites ###
-ggplot(QSummary.2022) +
-  geom_point(aes(x=DateTimeAK, y=MeasuredQ_Ls, color=Site, shape=Method), size=3) +
-  theme_classic() +
-  scale_color_manual(values=c("#FF7F00","#A6761D", "#6A3D9A", "#66C2A5", "#E7298A")) +
-  ggtitle("ALL SITES") 
-
-```
-Here is all the sites up discrete discharge measurements up until 8/31/2022
-
-```{r}
-eielson.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQjJbkVdOseFUsTFMDXaHRoKkPiFt6Uvc-9R3tkFZxKFjqSmPPgZzexdbhezBr_qYgGUdVN6ywYR28c/pub?output=csv"
-
-eielson.atmo.2022 <- read.csv(url(eielson.atmo.2022.url), skip = 6) 
-eielson.atmo.2022 <- eielson.atmo.2022[-1,]
-
-names(eielson.atmo.2022) <- c("Site", "DateTimeAK", "TempC", "sea_level_pressure", "AirPressure")
-
-eielson.atmo.2022$DateTimeAK <- mdy_hm(eielson.atmo.2022$DateTimeAK)
-
-eielson.atmo.2022$DateTimeAK <- lubridate::round_date(eielson.atmo.2022$DateTimeAK, "15 minutes")
-
-eielson.atmo.2022$DateTimeAK <- force_tz(eielson.atmo.2022$DateTimeAK, "America/Anchorage")
-
-eielson.atmo.2022$AirPressure <- as.numeric(eielson.atmo.2022$AirPressure)
-eielson.atmo.2022$AirPressure <- eielson.atmo.2022$AirPressure*3.38639 # converting from inHG to kPa
-
-
 ```
