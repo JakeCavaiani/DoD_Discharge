@@ -782,7 +782,7 @@ frch.stream.one.2022 <- frch.stream.one.2022 %>%
 frch.stream.one.2022 <- frch.stream.one.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK >= "2022-08-01" & DateTimeAK <= "2022-08-15" &
-  WaterPressure < 102, NA, .))) # PT wasnt placed into the stream until 5/12
+  WaterPressure < 102, NA, .))) %>% filter(WaterPressure > 98.4) # PT wasnt placed into the stream until 5/12
 
 ggplot(frch.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
@@ -803,7 +803,7 @@ PT2 also looks good...let me remove that one point in august that is below every
 frch.stream.two.2022 <- frch.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK >= "2022-08-01" & DateTimeAK <= "2022-08-15" &
-  WaterPressure < 100, NA, .))) # PT wasnt placed into the stream until 5/12
+  WaterPressure < 100, NA, .))) %>% filter(WaterPressure > 98.4)# PT wasnt placed into the stream until 5/12
 
 ggplot(frch.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
@@ -814,7 +814,7 @@ ggplot(frch.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
 
 ```{r}
 # Checking closeness between two PTs
-atmo.pt.frch <- left_join(frch.stream.one.2022, frch.stream.two.2022, by = "DateTimeAK")
+atmo.pt.frch <- full_join(frch.stream.one.2022, frch.stream.two.2022, by = "DateTimeAK")
 
 ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = atmo.pt.frch) +
   geom_line(aes(x=DateTimeAK, y=WaterPressure.x), data = atmo.pt.frch, color="#A6CEE3") +
@@ -823,10 +823,14 @@ ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = atmo.pt.frch) +
   ggtitle("FRCH PT1(blue) & FRCH PT2(orange) Water Pressure") 
 
 ```
+<<<<<<< Updated upstream
 # They look the same and PT1 is more complete, so we will use that one.
 ```{r}
 frch.final.pressure.2022 <- frch.stream.one.2022
 ```
+=======
+
+>>>>>>> Stashed changes
 
 ```{r}
 # join the two atmospheric and water pressure together
