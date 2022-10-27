@@ -1,17 +1,20 @@
-<<<<<<< Updated upstream
+
 ---
-title: "2022_Rating_Curve"
-author: "Jake Cavaiani"
-date: "9/2/2022"
+title: "2022 Rating Curves"
+author: "Jake Cavaiani, Karen Jorgenson"
+date: "10/27/2022"
 output:
-  word_document: default
+  html_document:
+    df_print: paged
   pdf_document: default
+  word_document: default
 ---
-# The purpose of this script is to read in pressure transducer data from 2022 and generate rating curves to ultimately generate predicted continuous discharge records throughout the whole season
-# Step 1) Read in most updated merged files from each site from the google drive (DoD Project->2022 AK sensors->Discharge->site->"merged_date_file" )
+The purpose of this script is to read in pressure transducer data from 2022 and generate rating curves to ultimately generate predicted continuous discharge records throughout the whole season
+
+Step 1) Read in most updated merged files from each site from the google drive (DoD Project->2022 AK sensors->Discharge->site->"merged_date_file" )
 
 
-```{r cars}
+```{r cars, include = FALSE}
 # Load packages #
 library(tidyverse)
 library(lubridate)
@@ -57,6 +60,7 @@ QSummary.2022 %>% ggplot() +
 
 
 ```
+
 Here is all the discrete discharge measurements for 2022
 
 Eielson atmospheric pressure data will be used to fill gaps in air pressure.
@@ -201,25 +205,13 @@ moos.atmo.2022 %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
 
 
 ```
-This is a little better 
-
-# Eielson Atmospheric Pressure
-```{r}
-ggplot(eielson.atmo.2022, aes(x = DateTimeAK, y = AirPressure)) +
-  geom_point()
+This is a little better. 
 
 
-```
+Here is the uncorrected air pressure comparison between Eielson and MOOS: 
 
 ```{r}
-
-
 moos.atmo.2022.compare <- moos.atmo.2022
-
-```
-This is the uncorrected air pressure comparison between Eielson and MOOS 
-
-```{r}
 atmo.pt.2022.1 <- left_join(eielson.atmo.2022.compare, moos.atmo.2022.compare, by = "DateTimeAK")
 
 atmo.pt.2022.1 %>% filter(DateTimeAK >= "2022-05-01") %>% ggplot(aes(x = DateTimeAK, y = AirPressureCorrectedMOOS)) +
@@ -230,6 +222,7 @@ atmo.pt.2022.1 %>% filter(DateTimeAK >= "2022-05-01") %>% ggplot(aes(x = DateTim
   ggtitle("Eielson Corrected(blue) & Eielson uncorrected(orange) & MOOS(red) Atmo P") 
 
 ```
+
 Looks like we have to use the corrected pressure to get what we want for our rating curves.
 
 We will only use pressure transducer 2 at Moose because it is more complete.
@@ -289,6 +282,7 @@ ggplot(data = moos.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure)) +
 
 
 ```
+
 This looks much better 
 
 ```{r}
@@ -353,7 +347,7 @@ summary(MOOS1.lm.2022)
 moos.formula = y~x
 
 ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
-  geom_point(aes(color = DateTimeAK, shape = Method), size = 3) +
+  geom_point(aes(color = Method), size = 3) +
   geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
   stat_poly_eq(formula = moos.formula,
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
@@ -363,8 +357,6 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
 
 ```
 
-
-We have all 6 wading rod points here 
 
 ### POKE ####
 
@@ -409,6 +401,7 @@ ggplot(poke.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 This is PT1....step change is air pressure and then placed in the stream. Let me clip that out 
 
 ```{r}
@@ -443,6 +436,7 @@ ggplot(poke.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 This is PT2...we only have data from 8/1 because of our musical chairs situation. We got two PTs back from onset so we deployed a second PT at POKE.
 
 ```{r}
@@ -524,9 +518,11 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022) +
   ggtitle("Poker all measured Q")
 
 ```
+
 This is the rating curve. We are missing 5/9 and 5/17 YSI because we didn't have our Pressure Transducers in yet.
 
 I will remove three points.
+
 ```{r}
 # Remove three points
 Poker1comb.2022.2 <- Poker1comb.2022 %>% filter(MeasuredQ_Ls < 700 | difference > 3)%>% filter(MeasuredQ_Ls > 400 | difference < 2)
@@ -544,7 +540,9 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022.2) +
   ggtitle("Poker all measured Q")
 
 ```
+
 I will try curves for wading rod and YSI seperately
+
 ```{r}
 ### Rating Curve ###
 poke.formula <- y ~ x
@@ -558,6 +556,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022.2) +
   ggtitle("Poker all measured Q") + facet_wrap(~Method)
 
 ```
+
 The wading rod curve looks better than the YSI curve. I will try adding just a couple YSI points to the wading rod curve.
 
 ```{r}
@@ -574,6 +573,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022.3) +
   ggtitle("Poker all measured Q") 
 
 ```
+
 That looks nice! Did we cheat at all?
 
 ### STRT ###
@@ -613,15 +613,13 @@ names(strt.stream.one.2022) <- c("Site","WaterPressure", "TempC", "DateTimeAK")
 names(strt.stream.two.2022) <- c("Site","WaterPressure", "TempC", "DateTimeAK")
 
 names(strt.atmo.2022) <- c("Site", "AirPressureSTRT", "DateTimeAK")
-```
- 
- 
-```{r}
+
 ggplot(strt.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
 
 ```
+
 This is PT1 for STRT raw. Looking at how low the PT data is I am NOT going to trust this one and take it out of our analysis 
  
  
@@ -631,6 +629,7 @@ ggplot(strt.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 This is raw PT2 for STRT. I need to remove out of water points (anything before 6/2) and clean any erroneous points
 
 
@@ -651,6 +650,7 @@ ggplot(strt.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 This looks better
 
 ``` {r}
@@ -749,7 +749,9 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
   ggtitle("Stuart all measured Q")
 
 ```
-Stuart looks like a quadratic relationship might fit better
+
+Stuart looks like a quadratic relationship might fit better.
+
 ```{r}
 STRT1.lm.2022 <- lm(Stuart1comb.2022$MeasuredQ_Ls ~ Stuart1comb.2022$difference + Stuart1comb.2022$difference^2)
 
@@ -766,7 +768,30 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
   theme_light() +
   ggtitle("Stuart all measured Q")
 ```
-Lefts try removing that low difference, high measured Q YSI point:
+
+Lets try a curve with just the wading rod points.
+
+```{r}
+Stuart1comb.2022.2 <- Stuart1comb.2022 %>% filter(difference > 4.5 | MeasuredQ_Ls <1250) %>% filter(Method == "Wading Rod")
+
+STRT1.lm.2022 <- lm(Stuart1comb.2022.2$MeasuredQ_Ls ~ Stuart1comb.2022.2$difference + Stuart1comb.2022.2$difference^2)
+
+strt.formula <- y ~ poly(x, 2, raw = TRUE)
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart all measured Q")
+```
+
+This has very few points at different pressures...
+
+Lets try removing that low difference, high measured Q YSI point:
+
 ```{r}
 Stuart1comb.2022 <- Stuart1comb.2022 %>% filter(difference > 4.5 | MeasuredQ_Ls <1250)
 STRT1.lm.2022 <- lm(Stuart1comb.2022$MeasuredQ_Ls ~ Stuart1comb.2022$difference + Stuart1comb.2022$difference^2)
@@ -779,12 +804,16 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
   stat_poly_eq(formula = strt.formula,
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
                parse = TRUE) +
-  #xlim(216, 216.4) +
-  #ylim(0,1500) +
   theme_light() +
   ggtitle("Stuart all measured Q")
 ```
+
+Not great. Anything else we can do here? 
+
+
+
 ### FRCH ###
+
 ```{r}
 frch.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRkT5GIhFY4nLblzPi4Upc8y6Pk2k4vXLSGAkFyMhLowsCmct0fZ5rxm-vd85RfFr7YLrCuuSiOqQbL/pub?output=csv"
 frch.stream.two.2022.url <-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiDAbzBj_jHk1Hd3iM7fFvzMrRCSF9fbKTcmQD_dUFGOjoIQuBZBKV4KdNhfevLOq0Udch0LbWiKXw/pub?output=csv"
@@ -847,6 +876,7 @@ ggplot(frch.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 This looks better 
 
 ```{r}
@@ -855,6 +885,7 @@ ggplot(frch.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 PT2 also looks good...let me remove that one point in august that is below everything else
 
 ```{r}
@@ -872,23 +903,31 @@ ggplot(frch.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
 
 ```{r}
 # Checking closeness between two PTs
-atmo.pt.frch <- full_join(frch.stream.one.2022, frch.stream.two.2022, by = "DateTimeAK")
+frch.pt.both <- full_join(frch.stream.one.2022, frch.stream.two.2022, by = "DateTimeAK")
 
-ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = atmo.pt.frch) +
-  geom_line(aes(x=DateTimeAK, y=WaterPressure.x), data = atmo.pt.frch, color="#A6CEE3") +
-  geom_line(aes(x=DateTimeAK, y=WaterPressure.y), data = atmo.pt.frch, color="#FF7F00") +
+ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = frch.pt.both) +
+  geom_line(aes(x=DateTimeAK, y=WaterPressure.x), data = frch.pt.both, color="#A6CEE3") +
+  geom_line(aes(x=DateTimeAK, y=WaterPressure.y), data = frch.pt.both, color="#FF7F00") +
   theme_classic() +
   ggtitle("FRCH PT1(blue) & FRCH PT2(orange) Water Pressure") 
 
 ```
 
-# They look the same and PT1 is more complete, so we will use that one.
+They look the same. Lets use PT1 except to fill the gap in August.
+
 ```{r}
-frch.final.pressure.2022 <- frch.stream.one.2022
+mean(frch.pt.both$WaterPressure.x - frch.pt.both$WaterPressure.y, na.rm = TRUE)
+frch.pt.both$WaterPressure.merged <- ifelse(frch.pt.both$WaterPressure.x %in% NA, frch.pt.both$WaterPressure.y + 1.36, frch.pt.both$WaterPressure.x)
+
+ggplot(aes(x = DateTimeAK, y = WaterPressure.merged), data = frch.pt.both) +
+  geom_line()
 ```
 
 ```{r}
 # join the two atmospheric and water pressure together
+
+frch.final.pressure.2022 <- frch.stream.one.2022
+
 FRCH.2022 <- left_join(eielson.atmo.2022.compare, frch.final.pressure.2022, by = "DateTimeAK")
 
 
@@ -942,7 +981,9 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
   ggtitle("French1 all measured Q")
 
 ```
+
 Lets try removing the low difference, high measured Q point:
+
 ```{r}
 French1comb.2022 <- French1comb.2022 %>% filter(difference > 4 | MeasuredQ_Ls < 500)
 
@@ -958,11 +999,14 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
   #xlim(216, 216.4) +
   #ylim(0,1500) +
   theme_light() +
-  ggtitle("French1 all measured Q")
+  ggtitle("French all measured Q")
 
 ```
 
-### VAUL ### 
+This may be as good as it gets.
+
+### VAUL ###
+
 ```{r}
 vaul.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQf78OhtBtjvs6HmnEVPJ0PVYSlpIjVAom5VIv12LhZDMbezaFb-LJCGMZUoyVjLJI-pqizM-Be2hbl/pubhtml"
 vaul.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSR7qqdF5BXklT1ocG9bLLUwJ07ha8qmzAVRPaUjm7mUq12VptmViI9NJcW1-jO4cu0KtHBLl90A4DZ/pub?output=csv"
@@ -994,16 +1038,12 @@ vaul.stream.two.2022 <- vaul.stream.two.2022[, -c(2)] # removing columns that ar
 
 names(vaul.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
 
-
-```
-
-
-```{r}
 ggplot(vaul.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
 
 ```
+
 This is the raw record of VAUL pressure. The beginning is airpressure and then there is a gap as we had a relaunch issue. 
 
 ```{r}
@@ -1031,6 +1071,7 @@ vaul.stream.two.2022 %>% ggplot( aes(x = DateTimeAK, y = WaterPressure))+
   theme_classic()
 
 ```
+
 That is better. Crazy how fast the water level comes down at VAUL
 
 ```{r}
@@ -1053,21 +1094,21 @@ VAUL.2022 %>% filter(DateTimeAK > "2022-05-01") %>% ggplot(aes(DateTimeAK, Water
 The Eielson air pressure appear shifted... Our pressure date time zone must be off... I can't find any issue with how the date time zones are reading in. I don't know what else to try to I will manually shift the time of the pressure data for now.
 
 ```{r}
-vaul.final.pressure.2022.2 <- mutate(data = vaul.final.pressure.2022, DateTimeAK = DateTimeAK + 28800) #Shift time by 8 hours - the difference between AK time and GMT
+vaul.final.pressure.2022.2 <- vaul.final.pressure.2022
+vaul.final.pressure.2022.2$DateTimeAK <- vaul.final.pressure.2022.2$DateTimeAK + 28800 #Shift time by 8 hours - the difference between AK time and GMT
 
 VAUL.2022.2 <- left_join(eielson.atmo.2022.compare, vaul.final.pressure.2022.2, by = "DateTimeAK")
 
 # Water pressure - atmospheric pressure 
 VAUL.2022.2$difference <- VAUL.2022.2$WaterPressure - VAUL.2022.2$AirPressureCorrectedVAUL
 
-VAUL.2022.2 <-  VAUL.2022.2[ , -which(names(VAUL.2022) %in% c("TempC"))] # removing columns I do not need
-
-VAUL.2022.2$Site.x <- "VAUL"
 
 # Plot air and water pressure
 VAUL.2022.2 %>% filter(DateTimeAK > "2022-07-28" & DateTimeAK < "2022-08-04") %>% ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedVAUL), color = "red")
 ```
+
 That's better. Onward.
+
 ```{r}
 ### Filter VAUL ###
 # Remove measurements during pressure gap!
@@ -1108,7 +1149,9 @@ Vault1comb.2022  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
   theme_light() +
   ggtitle("Vault all measured Q")
 ```
+
 That very high difference seems accurate, but necessary to remove for curve. The August 29th point also looks much too high, and 6/6 wading rod was much higher than YSI.
+
 ```{r}
 # Remove high difference point
 Vault1comb.2022.2 <- Vault1comb.2022 %>% filter(difference < 6, Notes != "May be high", DateTimeAK != "2022-06-06 10:00:00")
@@ -1126,7 +1169,9 @@ Vault1comb.2022.2  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
   ggtitle("Vault all measured Q")
 
 ```
+
 Let's try curve with wading rod and YSI averaged by date. I removed one point.
+
 ```{r}
 Vault1comb.2022.3 <- Vault1comb.2022.2 %>% group_by(Date) %>% summarise(MeasuredQ_Ls = mean(MeasuredQ_Ls),
 difference = mean(difference))
@@ -1145,6 +1190,7 @@ Vault1comb.2022.3 %>% filter(MeasuredQ_Ls < 150) %>% ggplot(aes(x = difference, 
 ```
 
 Let's try separate curves for YSI and wading rod
+
 ```{r}
 
 # rating curve # 
@@ -1161,4 +1207,5 @@ Vault1comb.2022.2  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
   theme_light() +
   ggtitle("Vault measured Q by method") + facet_wrap(~Method)
 ```
+
 It looks like just using only the wading rods creates our best curve.
