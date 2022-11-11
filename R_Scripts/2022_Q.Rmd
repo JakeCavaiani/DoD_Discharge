@@ -1343,46 +1343,9 @@ FRCH.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q)) +
   ylab("Discharge (L/s)")
 
 ```
+This doesn't fit well at low Q especially.
 
-What if we just use the above curve when the pressure difference is > 8 and the curve with the wading rod measurements and the 3 low YSI points when it is < 8?
 
-```{r, message = FALSE, warning = FALSE}
-## Predict STRT Q for low Q
-FRCH.lm.2022.2 <- lm(French1comb.2022.2$MeasuredQ_Ls ~ French1comb.2022.2$difference)
-summary(FRCH.lm.2022.2)
-
-FRCH.2022.dt$pred.frch.Q.2 <- coef(FRCH.lm.2022.2)[2] * FRCH.2022.dt$difference + coef(FRCH.lm.2022.2)[1]
-
-FRCH.2022.dt$pred.frch.Q.merged <- ifelse(FRCH.2022.dt$difference > 8, FRCH.2022.dt$pred.frch.Q, FRCH.2022.dt$pred.frch.Q.2)
-
-FRCH.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q.merged)) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(data = French1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("FRCH predicted and measured Q") +
-  xlab("Date") +
-  ylab("Discharge (L/s)")
-
-```
-
-Well that looks terrible. What if we average the predicted Q from both?
-
-```{r, message = FALSE, warning = FALSE}
-## Average the first predicted Q and the merged predicted Q
-
-FRCH.2022.dt <- FRCH.2022.dt %>% group_by(DateTimeAK) %>% mutate(pred.frch.Q.merged.2 = (pred.frch.Q + pred.frch.Q.merged)/2)
-
-FRCH.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q.merged.2)) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(data = French1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("FRCH predicted and measured Q") +
-  xlab("Date") +
-  ylab("Discharge (L/s)")
-
-```
-
-There is still a big drop in predicted Q. Is there any way to smooth it out any better than that, or is this a bad idea?
 
 ### VAUL ###
 
@@ -1637,4 +1600,18 @@ VAUL.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.vaul.Q)) +
   xlab("Date") +
   ylab("Discharge (L/s)")
 
+```
+
+
+### Export 2022 predicted Q
+```{r}
+names(FRCH.2022.dt)
+pred_Q.1 <- full_join(VAUL.2022.dt, MOOS.2022.dt)
+pred_Q.2 <- full_join(pred_Q.1, POKE.2022.dt)
+pred_Q.3 <- full_join(STRT.2022.dt[,c(1,10)], FRCH.2022.dt[,c(1,12)])
+pred_Q_2022 <- full_join(pred_Q.2, pred_Q.3)
+
+names(pred_Q_2022) <- c("DateTimeAK", "pred.vaul.Q", "pred.moos.Q", "pred.poke.Q", "pred.strt.Q", "pred.frch.Q")
+write.csv(pred_Q_2022, "Predicted_Q_2022.csv")
+pred_Q_2022 %>% ggplot() + geom_line(aes(DateTimeAK, pred.vaul.Q), col = 1)+ geom_line(aes(DateTimeAK, pred.moos.Q), col = 2)+ geom_line(aes(DateTimeAK, pred.poke.Q), col = 3)+ geom_line(aes(DateTimeAK, pred.strt.Q), col = 4)+ geom_line(aes(DateTimeAK, pred.frch.Q), col = 5) + ylab("Predicted Q")
 ```

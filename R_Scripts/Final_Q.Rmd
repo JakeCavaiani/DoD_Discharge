@@ -32,6 +32,7 @@ library(gridExtra)
 library(ggpmisc)
 library(imputeTS)
 library(itsmr)
+library(here)
 
 ```
 
@@ -52,438 +53,7 @@ Step 5: clean errant points in regression
 Step 6: apply rating curve to generate continuous predicted discharge at each site
 Step 7: Output final discharge as csv.
 
-2015 data is read from DoD->2015 AK sensors->Discharge->discharge->pressure transducer-> "PT_Site_Compiled"
-2015 data was taken att 5 minute intervals
-
-```{r, include=FALSE, warning=FALSE}
-# Import processed Q data
-moos.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTng8WWrBVNB4uN7DHZuq1EfBn8tZ7qA71F7J-2izJUgeTU34LMbyXd_si8ezwscQ/pub?output=csv"
-frch.stream.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT2WNuEj8PTKLO6OkySK--koXwL6h_f3_WmctQTWkTlyB7boYmX1GmbT1HiVle6nA/pub?output=csv"
-
-moos.stream <- read.csv(url(moos.stream.url), skip = 1)
-frch.stream <- read.csv(url(frch.stream.url), skip = 1)
-moos.stream <- moos.stream[,-c(3:4)] # Remove Na columns
-frch.stream <- frch.stream[,-c(3:4)] # Remove Na columns
-
-# Import summary notes from field book
-discharge.2015 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQC9Bk0nS-Cx4Ec8MyLHd2xNuSv8JTobR8SSV_ODQHAvp4cUK8k3z9EmOs/pub?output=csv"
-QSummary <- read.csv(url(discharge.2015))
-
-# Import rain gauge data #
-caribou.2015.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSolN8YGaUlUlcQjw9EaklcgcJu3b5L80X8Y-xX_ePg-CDOzZ07LDpl-aGBYvLwnvIhLB8Gm5Q66BWk/pub?output=csv"
-
-caribou.2015.gauge <- read.csv(url(caribou.2015.url), skip = 4)
-names(caribou.2015.gauge) <- c("DateTimeGMT", "Precip")
-caribou.2015.gauge$DateTimeGMT[caribou.2015.gauge$DateTimeGMT == ""] <- NA
-caribou.2015.gauge$DateTime = as.POSIXct(caribou.2015.gauge$DateTimeGMT, "%m/%d/%y %H:%M", tz="America/Anchorage")
-
-# Rename columns #
-names(moos.stream) <- c("Date", "AbsolutePressure")
-names(frch.stream) <- c("Date", "AbsolutePressure")
-
-#Convert time and put in AK time 
-moos.stream$DateTime <- mdy_hm(moos.stream$Date)
-attributes(moos.stream$DateTime)$tzone <-'America/Anchorage'
-frch.stream$DateTime <- mdy_hm(frch.stream$Date)
-attributes(frch.stream$DateTime)$tzone <-'America/Anchorage'
-
-QSummary$date <- mdy(QSummary$date)
-QSummary$DateTime <- as.POSIXct(paste(QSummary$date, QSummary$time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
-```
-
-##### Checking Raw PT data 
-
-## Raw Moose
-```{r , echo=FALSE, warning=FALSE}
-plot(caribou.2015.gauge$Precip~ caribou.2015.gauge$DateTime, type="h",
-     xlim = as.POSIXct(c("2015-05-14 04:05:00","2015-09-22 02:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
-plot(x = moos.stream$DateTime, y = moos.stream$AbsolutePressure, type = "l")
-```
-There is a big increase in middle to end of may that doesnt seem to be real from precip , and then a lot of vertical drops in middle of June, July, August (potentially cleanning points) and then at the end of september we get a big drop, this is when the site was taken out...(PT was taken out on the 21st)... let the cleaning commence!
-
-## Moose 1.0
-```{r , echo=FALSE, warning=FALSE}
-plot(x = moos.stream$DateTime, y = moos.stream$AbsolutePressure, type = "l")
-moos.stream <- moos.stream %>% subset(moos.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
-
-#june to july
-moos.stream.1 <- moos.stream %>% subset(moos.stream$DateTime < "2015-07-01 00:00:00" & moos.stream$DateTime > "2015-06-01 00:00:00") 
-plot(moos.stream.1$DateTime, moos.stream.1$AbsolutePressure, type = "l")
-which(moos.stream.1$AbsolutePressure < 102)
-moos.stream.1[c(4052, 5270:5277), 2] <- NA
-#july to august
-moos.stream.2 <- moos.stream %>% subset(moos.stream$DateTime < "2015-08-01 00:00:00" & moos.stream$DateTime > "2015-07-01 00:00:00") 
-plot(moos.stream.2$DateTime, moos.stream.2$AbsolutePressure, type = "l")
-which(moos.stream.2$AbsolutePressure < 102)
-moos.stream.2$AbsolutePressure[moos.stream.2$AbsolutePressure == "99.188"] <- NA
-moos.stream.2[2047, 2] <- NA
-#august to September
-moos.stream.3 <- moos.stream %>% subset(moos.stream$DateTime < "2015-09-01 00:00:00" & moos.stream$DateTime > "2015-08-01 00:00:00") 
-plot(moos.stream.3$DateTime, moos.stream.3$AbsolutePressure, type = "l")
-which(moos.stream.3$AbsolutePressure < 102)
-moos.stream.3[c(2679,2680,2681,2683), 2] <- NA
-
-#September to October
-moos.stream.4 <- moos.stream %>% subset(moos.stream$DateTime < "2015-10-01 00:00:00" & moos.stream$DateTime > "2015-09-01 00:00:00") 
-plot(moos.stream.4$DateTime, moos.stream.4$AbsolutePressure, type = "l")
-
-moos.stream[c(9187, 10405:10412, 15822, 25382:25384, 25386), 2] <- NA
-plot(x = moos.stream$DateTime, y = moos.stream$AbsolutePressure, type = "l")
-
-
-```
-1) Clipped off the take out date (anything after 2015-09-20 18:30:00)
-2) Set vertical drops in raw data to NA's
-3) NEED TO DO NA INTERPRET
-
-
-### Impute missing observations in pressure for Moose 
-```{r , echo=FALSE, warning=FALSE}
-moos.stream <- na_kalman(moos.stream)
-
-plot(x = moos.stream$DateTime, y = moos.stream$AbsolutePressure, type = "l")
-
-```
-1) middle of July gap is just connected 
-
-### Export csv to DoD_Discharge->PT_data->2015
-```{r , echo=FALSE, warning=FALSE}
-write.csv(moos.stream, "~/Documents/DoD_Discharge/PT_data/2015/moos.pt.2015.csv", row.names = FALSE)
-```
-
-
-## Raw FRCH
-```{r , echo=FALSE, warning=FALSE}
-plot(caribou.2015.gauge$Precip~ caribou.2015.gauge$DateTime, type="h",
-     xlim = as.POSIXct(c("2015-05-14 04:05:00","2015-09-22 02:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
-plot(x = frch.stream$DateTime, y = frch.stream$AbsolutePressure, type = "l")
-```
-
-Similarily to Moose There is a big increase in middle to end of may that doesnt seem to be real from precip , and then a lot of vertical drops in middle of June, July, August (potentially cleanning points) and then at the end of september we get a big drop, this is when the site was taken out...(PT was taken out on the 21st)... let the cleaning commence!
-
-### French 1.0 
-```{r, echo=FALSE, warning=FALSE}
-frch.stream <- frch.stream %>%  subset(frch.stream$DateTime < "2015-09-20 18:30:00") # PT was taken out on the 21st 
-
-#May to june
-frch.stream.1 <- frch.stream %>% subset(frch.stream$DateTime < "2015-06-01 00:00:00" & frch.stream$DateTime > "2015-05-20 00:00:00") 
-plot(frch.stream.1$DateTime, frch.stream.1$AbsolutePressure, type = "l")
-which(frch.stream.1$AbsolutePressure < 102)
-frch.stream.1[c(1535, 2047:2060), 2] <- NA
-
-#Juneto july
-frch.stream.2 <- frch.stream %>% subset(frch.stream$DateTime < "2015-07-01 00:00:00" & frch.stream$DateTime > "2015-06-01 00:00:00") 
-plot(frch.stream.2$DateTime, frch.stream.2$AbsolutePressure, type = "l")
-which(frch.stream.2$AbsolutePressure < 100)
-frch.stream.2[c(49,2052,4111,5213:5241), 2] <- NA
-#July to August # no cleaning necessary
-frch.stream.3 <- frch.stream %>% subset(frch.stream$DateTime < "2015-08-01 00:00:00" & frch.stream$DateTime > "2015-07-01 00:00:00") 
-plot(frch.stream.3$DateTime, frch.stream.3$AbsolutePressure, type = "l")
-
-#August to September 
-frch.stream.4 <- frch.stream %>% subset(frch.stream$DateTime < "2015-09-01 00:00:00" & frch.stream$DateTime > "2015-08-01 00:00:00") 
-plot(frch.stream.4$DateTime, frch.stream.4$AbsolutePressure, type = "l")
-which(frch.stream.4$AbsolutePressure < 100)
-frch.stream.4[c(2641:2656, 4631:4654), 2] <- NA
-
-#September to October # no cleaning necessary
-frch.stream.5 <- frch.stream %>% subset(frch.stream$DateTime < "2015-10-01 00:00:00" & frch.stream$DateTime > "2015-09-01 00:00:00") 
-plot(frch.stream.5$DateTime, frch.stream.5$AbsolutePressure, type = "l")
-
-frch.stream[c(3215,3727:3740,5185,7188,9247,10349:10377,25340:25355,27328:27353), 2] <- NA
-plot(x = frch.stream$DateTime, y = frch.stream$AbsolutePressure, type = "l")
-```
-1) Clipped off the take out date (anything after 2015-09-20 18:30:00)
-2) Set vertical drops in raw data to NA's
-3) NEED TO DO NA INTERPRET (na_kalman)
-
-
-### Impute missing observations in pressure for Moose 
-```{r , echo=FALSE, warning=FALSE}
-frch.stream <- na_kalman(frch.stream)
-
-plot(caribou.2015.gauge$Precip~ caribou.2015.gauge$DateTime, type="h",
-     xlim = as.POSIXct(c("2015-05-14 04:05:00","2015-09-22 02:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
-plot(x = frch.stream$DateTime, y = frch.stream$AbsolutePressure, type = "l")
-
-```
-
-### Export csv to DoD_Discharge->PT_data->2015
-```{r , echo=FALSE, warning=FALSE}
-write.csv(frch.stream, "~/Documents/DoD_Discharge/PT_data/2015/frch.pt.2015.csv", row.names = FALSE)
-```
-
-
-### Observed Discharge at French and Moose
-
-Slugs were the only method of discharge for 2015 
-
-```{r, echo=FALSE, fig.width=6, fig.height=4, warning=FALSE}
-# ALL Sites #
-all <- ggplot(QSummary) +
-  geom_point(aes(x=date, y=Q..L.s., color=site), size=3) +
-  theme_classic() +
-  scale_color_brewer(palette = "Set1") +
-  ggtitle("ALL SITES")
-all
-
-a <- QSummary %>% filter(site == "Moose") %>% 
-  ggplot() +
-  geom_point(aes(x=date, y=Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("Moose")
-a
-
-b <- QSummary %>% filter(site == "French") %>% 
-  ggplot() +
-  geom_point(aes(x=date, y=Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("Moose")
-b
-
-plot_grid(all, NA,
-          a, b,
-          nrow = 2, ncol = 2)
-```
-This is from the DOD Q Summary csv that is DoD Project->2015 AK sensors ->Discharge
-
-### Raw Rating Curve with Moose 1 Pressure Transducer
-
-```{r, echo=FALSE, warning=FALSE}
-
-QSummary.MO <- QSummary %>% filter(site =="Moose")
-
-# Rating curve for MOOS PT1 # 
-moos.stream$site <- "Moose"
-
-Moose1comb <- full_join(moos.stream, QSummary.MO)
-MOOS1.lm <- lm(Moose1comb$Q..L.s. ~ Moose1comb$AbsolutePressure)
-
-moos.formula <- y ~ x
-
-mrc.1 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = Moose1comb) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = moos.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  theme_classic() +
-  ggtitle("Moose1 all measured Q") 
-
-mrc.1
-
-```
-The most upper measurement is probably bad. I am going to take it out
-
-### Rating Curve with Moose 1 Pressure Transducer 2.0
-
-```{r, echo=FALSE, warning=FALSE}
-QSummary.MO <- QSummary %>% filter(site =="Moose")
-QSummary.MO <- QSummary.MO %>% filter(Q..L.s. < 2500)
-# Rating curve for MOOS PT1 # 
-moos.stream$site <- "Moose"
-
-Moose2comb <- full_join(moos.stream, QSummary.MO)
-MOOS2.lm <- lm(Moose2comb$Q..L.s. ~ Moose2comb$AbsolutePressure)
-
-moos.formula <- y ~ x
-
-mrc.2 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = Moose2comb) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = moos.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  theme_classic() +
-  ggtitle("Moose1 all measured Q") 
-
-mrc.2
-
-QSummary.MO <- QSummary.MO %>% filter(Q..L.s. < 1300)
-# Rating curve for MOOS PT1 # 
-moos.stream$site <- "Moose"
-
-Moose3comb <- full_join(moos.stream, QSummary.MO)
-MOOS3.lm <- lm(Moose3comb$Q..L.s. ~ Moose3comb$AbsolutePressure)
-
-moos.formula <- y ~ x
-
-mrc.3 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = Moose3comb) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = moos.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  theme_classic() +
-  ggtitle("Moose1 all measured Q") 
-
-mrc.3
-plot_grid(mrc.1, mrc.2,
-          mrc.3, NA,
-          ncol = 2, nrow = 2)
-```
-1) Removed the point that had a Q > 3000 L/s - This R^2 value is actually lower
-2) Removed the point that had a Q > 1300 L/s - best R^2 value 
-
-
-### Moose1 (light blue) and Moose2 and Moose3 (brown) with observed Q. 
-#### Black points are observed Q
-
-```{r, echo=FALSE, warning=FALSE}
-Moose1comb$pred.moos1.Q <- coef(MOOS1.lm)[2] * Moose1comb$AbsolutePressure+ coef(MOOS1.lm)[1]
-ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose1comb) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("Moose1 predicted all measured Q") +
-  xlab("Date") +
-  ylab("Predicted Discharge") 
-
-Moose1comb$pred.moos2.Q <- coef(MOOS2.lm)[2] * Moose1comb$AbsolutePressure+ coef(MOOS2.lm)[1]
-ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose1comb) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("Moose1 predicted all measured Q") +
-  xlab("Date") +
-  ylab("Predicted Discharge") 
-
-Moose1comb$pred.moos3.Q <- coef(MOOS3.lm)[2] * Moose1comb$AbsolutePressure+ coef(MOOS3.lm)[1]
-ggplot(aes(x = DateTime, y = pred.moos3.Q), data = Moose1comb) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("Moose1 predicted all measured Q") +
-  xlab("Date") +
-  ylab("Predicted Discharge") 
-
-ggplot(aes(x=DateTime, y=pred.moos1.Q), data=Moose1comb) +
-  geom_line(aes(x=DateTime, y=pred.moos1.Q), data=Moose1comb, color="#A6CEE3", size=1.25) +
-  geom_line(aes(x=DateTime, y=pred.moos2.Q), data=Moose1comb,color="#1F78B4", size=1.25, alpha = 0.75) +
-  geom_line(aes(x=DateTime, y=pred.moos3.Q), data=Moose1comb,color="brown", size=1.25, alpha = 0.75) +
-  geom_point(aes(x=DateTime, y=Q..L.s.), size=2) +
-  theme_classic() +
-  ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
-  scale_y_continuous(name="Predicted discharge L/s") +
-  scale_x_datetime(name = "Time")
-
-```
-This is only from PT rather than waterlevel, is that going to be a problem? Moose1 is from the first RC and Moose2 is from the second RC and Moose3 is from the third RC. It appears that it gets worse to predict the higher discharges as we go through our iteration of RC's.
-
-### Export csv to DoD_Discharge->PT_data->2015
-```{r , echo=FALSE, warning=FALSE}
-Moose1comb_final <- Moose1comb[,-c(1,2,5:15)]
-names(Moose1comb_final) <- c("DateTime", "Site", "Q")
-Moose1comb_final$Site <- "MOOS"
-write.csv(Moose1comb_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/MOOS/MOOS.Q.csv", row.names = FALSE)
-```
-
-
-### Raw Rating Curve with French 1 Pressure Transducer 
-```{r, echo=FALSE, warning=FALSE}
-QSummary.FR <- QSummary %>% filter(site =="French")
-
-### Rating curve for FRCH PT1 ###
-frch.stream$site <- "French" # Add a column identifier 
-
-French1comb <- full_join(frch.stream, QSummary.FR) # Join PT data with Discharge
-French1.lm <- lm(French1comb$Q..L.s. ~ French1comb$AbsolutePressure) # linear model with discharge and water level
-
-frch.formula <- y ~ x
-
-frc.1 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = French1comb) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = frch.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  theme_classic() +
-  ggtitle("French1 all measured Q") 
-
-frc.1
-
-```
-The most upper measurement is probably bad. I am going to take it out
-
-### Rating Curve French PT 2.0
-```{r, echo=FALSE, warning=FALSE}
-QSummary.FR <- QSummary %>% filter(site =="French")
-QSummary.FR <- QSummary.FR %>% filter(Q..L.s. < 2500)
-### Rating curve for FRCH PT1 ###
-frch.stream$site <- "French" # Add a column identifier 
-
-French2comb <- full_join(frch.stream, QSummary.FR) # Join PT data with Discharge
-French2.lm <- lm(French2comb$Q..L.s. ~ French2comb$AbsolutePressure) # linear model with discharge and water level
-
-frch.formula <- y ~ x
-
-frc.2 <- ggplot(aes(x = AbsolutePressure, y = Q..L.s.), data = French2comb) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = frch.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  theme_classic() +
-  ggtitle("French1 all measured Q") 
-
-frc.2
-
-```
-R^2 value goes down 
-
-## French 1 Calculated Q (L/s)
-#### Black points are observed Q
-
-```{r, echo=FALSE, warning=FALSE}
-French1comb$pred.french1.Q <- coef(French1.lm)[2] * French1comb$AbsolutePressure+ coef(French1.lm)[1]
-ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q..L.s.), size=3) +
-  theme_classic() +
-  ggtitle("French1 predicted all measured Q") +
-  xlab("Date") +
-  ylab("Predicted Discharge") 
-```
-This is not great considering there are negative values 
-
-### Export csv to DoD_Discharge->PT_data->2015
-```{r , echo=FALSE, warning=FALSE}
-French1comb_final <- French1comb[,-c(1,2,5:13)]
-names(French1comb_final) <- c("DateTime", "Site", "Q")
-French1comb_final$Site <- "FRCH"
-write.csv(French1comb_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/FRCH/FRCH.Q.csv", row.names = FALSE)
-```
-
-### Export csv to DoD_Discharge->PT_data->2015
-```{r , echo=FALSE, warning=FALSE}
-
-final_discharge_2015 <- rbind(Moose1comb_final, French1comb_final)
-
-Q_2015 <- final_discharge_2015
-Q_2015$day = format(as.POSIXct(Q_2015$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
-Q_2015$day = as.POSIXct(Q_2015$day, "%Y-%m-%d", tz="America/Anchorage")
-#Q_2015$DateTime = NULL
-
-write_csv(Q_2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q_2015.csv")
-
-Q.daily.2015 = with(Q_2015, tapply(Q, list(day, Site), mean))
-Q.daily.2015 = as.data.frame(Q.daily.2015)
-write_csv(Q.daily.2015, "~/Documents/DoD_Discharge/Predicted_Discharge/2015/Q.daily.2015.csv")
-
-```
-
-################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
-
-# French and Moose 2018 Discharge
+### French and Moose 2018 Discharge
 
 2018 data is read from DoD->2018 sesors French Moose->Q->Qprocessing->"French_stream_PT_may-oct2018_20005933.csv" 
 Wading rods and slugs were used to measure discrete Q during site visit
@@ -563,10 +133,12 @@ There looks like an error when we calculated depth. Tom says that we can adjust 
 ### Raw French 1
 ```{r, echo=FALSE, warning=FALSE}
 plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
+
 ```
 The beginning is probably when this was installed, I will remove that. the spije in October is confirmed with French 2 so that is real. let the cleaning commence!
 
-### French PT 1 2.0
+
+# French PT 1 2.0
 ```{r, echo=FALSE, warning=FALSE}
 French1[c(1:47), 3] <- NA
 plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
@@ -574,7 +146,16 @@ plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
 1) set the beginning of the dataframe where PT was taking out of water points to NA
 2) we are dumping French PT2 due to it being too "noisy"
 
-### export PT data to csv to DoD_Discharge->PT_data->2018
+```{r}
+French1 %>% filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>% ggplot() + 
+  geom_point(aes(x=DateTime, y=WaterLevelmeters)) +
+  theme_classic() +
+  ggtitle("French") +
+  scale_color_brewer(palette = "Paired")
+```
+
+
+Export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
 write.csv(French1, "~/Documents/DoD_Discharge/PT_data/2018/frch.pt.2018.csv", row.names = FALSE)
 
@@ -687,36 +268,52 @@ ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose2comb) +
 Moose2.lm <- lm(moose2comb$MeasuredQ_Ls ~ moose2comb$WaterLevelmeters)
 summary(Moose2.lm)
 ```
-1) removed the HOBO ware points 
 
-## Estimated Q from Moose 1 PT. 
-#### Black points are observed Q
+
+*Karen - I will try removing that high water, low measured YSI point.
+```{r, echo=FALSE, warning=FALSE}
+
+Qsummary.MO <- Qsummary  %>% 
+  filter(Site == "Moose") 
+Qsummary.MO.2 <- Qsummary.MO[-c(1, 9:10), ] # removing points
+moose3comb <- full_join(Moose1.pre.middle.post, Qsummary.MO.2) 
+
+
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose3comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = y ~ x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose measured Q") 
+```
+
+# Estimated Q from Moose 1 PT. 
+Black points are observed Q
 
 ```{r, echo=FALSE, warning=FALSE}
-moose2comb$pred.moose1.Q <- coef(Moose2.lm)[2] * moose2comb$WaterLevelmeters + coef(Moose2.lm)[1]
-ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose2comb) +
+Moose3.lm <- lm(moose3comb$MeasuredQ_Ls ~ moose3comb$WaterLevelmeters)
+summary(Moose3.lm)
+
+moose3comb$pred.moose1.Q <- coef(Moose3.lm)[2] * moose3comb$WaterLevelmeters + coef(Moose3.lm)[1]
+
+moose3comb <- na_kalman(moose3comb)
+
+ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose3comb) +
   geom_line(color="#A6CEE3", size=1.25) +
  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=2) +
   theme_classic() +
   ggtitle("Moose1 predicted all measured Q") +
   scale_y_continuous(name = "Predicted Discharge L/s") +
   scale_x_datetime(name = "Time")
-
 ```
 
-This is the final discharge plot from the RC without the HOBO ware points  
-
-### export PT data to csv to DoD_Discharge->Prredicted_Discharge->2018
-```{r, echo=FALSE, warning=FALSE}
-moose2comb_final <- moose2comb[,-c(1:3,5,7:13)]
-names(moose2comb_final) <- c("DateTime", "Site", "Q")
-moose2comb_final$Site <- "MOOS"
-write.csv(moose2comb_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/MOOS/MOOS.Q.csv", row.names = FALSE)
-```
 
 ## French Creek
 
-### Raw Rating Curve French 1 Pressure Transducer
+# Raw Rating Curve French 1 Pressure Transducer
 
 ```{r, echo=FALSE, warning=FALSE}
 Qsummary.FR <- Qsummary  %>% #filter out measured Q at just french
@@ -762,6 +359,9 @@ summary(French1.lm)
 
 ```{r, echo=FALSE, warning=FALSE}
 French2comb$pred.french1.Q <- coef(French2.lm)[2] * French2comb$WaterLevelmeters + coef(French2.lm)[1]
+# Fill in any missing data
+French2comb <- na_kalman(French2comb)
+
 ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
@@ -774,30 +374,14 @@ ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
 ```
 This doesnt look too shabby!
 
-### export PT data to csv to DoD_Discharge->Prredicted_Discharge->2018
-```{r, echo=FALSE, warning=FALSE}
-French2comb_final <- French2comb[,-c(1:3,5,7:13)]
-names(French2comb_final) <- c("DateTime", "Site", "Q")
-French2comb_final$Site <- "FRCH"
-write.csv(French2comb_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/FRCH/FRCH.Q.csv", row.names = FALSE)
-```
-
-### export PT data to csv to DoD_Discharge->Prredicted_Discharge->2018
+# Export 2018 PT data
 ```{r, echo=FALSE, warning=FALSE}
 
-final_discharge_2018 <- rbind(moose2comb_final, French2comb_final)
+final_discharge_2018 <- full_join(moose3comb, French2comb)
 
 Q_2018 <- final_discharge_2018
 Q_2018$day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
 Q_2018$day = as.POSIXct(Q_2018$day, "%Y-%m-%d", tz="America/Anchorage")
-#Q_2015$DateTime = NULL
-
-write_csv(Q_2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q_2018.csv")
-
-Q.daily.2018 = with(Q_2018, tapply(Q, list(day, Site), mean))
-Q.daily.2018 = as.data.frame(Q.daily.2018)
-write_csv(Q.daily.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q.daily.2018.csv")
-
 ```
 
 * We rock at discharge!!!
@@ -805,7 +389,7 @@ write_csv(Q.daily.2018, "~/Documents/DoD_Discharge/Predicted_Discharge/2018/Q.da
 
 
 ################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
-
+### 2019
 2019 data is read from DoD->2019 AK sensors->2019 Sensor data ->PT->DoD 2019 PT depth corrected for atm  
 Wading rods and slugs were used to measure discrete Q during site visit
 Includes all sites (Moose, French, Poker, Vault, Stuart)
@@ -823,17 +407,17 @@ strt.stream.2019.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgVqJm
 strt.stream.2019.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNwL17hN8tMuyzDCDKCTeXGjQ1eN7j881D0-pyi46PhTK7LwoqQ_jrwZWQrSypd3icId9KFpqsuatj/pub?output=csv"
 moos.stream.2019.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQMF0fbfNRwgU-9DfsCJ7LpPd_LoAL01gcSdHzNIFXJ5sSnXwH8Vvsqyj_nZAeWVcXGDWhyJP2TbjZq/pub?output=csv"
 
-FRCH_RainGauge_2019 <- read.csv("~/Documents/DoD_2019/RainGauge/FRCH.RainGauge.2019.csv")
-FRCH_RainGauge_2019$Datetime <-  ymd_hms(FRCH_RainGauge_2019$Datetime)
-attributes(FRCH_RainGauge_2019$Datetime)$tzone <-'America/Anchorage'
+#FRCH_RainGauge_2019 <- read.csv(here("DoD_2019/RainGauge/FRCH.RainGauge.2019.csv"))
+#FRCH_RainGauge_2019$Datetime <-  ymd_hms(FRCH_RainGauge_2019$Datetime)
+#attributes(FRCH_RainGauge_2019$Datetime)$tzone <-'America/Anchorage'
 
-POKE_RainGauge_2019 <- read.csv("~/Documents/DoD_2019/RainGauge/POKE.RainGauge.2019.csv")
-POKE_RainGauge_2019$DateTime <- ymd_hms(POKE_RainGauge_2019$DateTime)
-attributes(POKE_RainGauge_2019$DateTime)$tzone <- 'America/Anchorage'
+#POKE_RainGauge_2019 <- read.csv("~/Documents/DoD_2019/RainGauge/POKE.RainGauge.2019.csv")
+#POKE_RainGauge_2019$DateTime <- ymd_hms(POKE_RainGauge_2019$DateTime)
+#attributes(POKE_RainGauge_2019$DateTime)$tzone <- 'America/Anchorage'
 
-VAUL_RainGauge_2019 <- read.csv("~/Documents/DoD_2019/RainGauge/VAUL.RainGauge.2019.csv")
-VAUL_RainGauge_2019$DateTime <- ymd_hms(VAUL_RainGauge_2019$DateTime)
-attributes(VAUL_RainGauge_2019$DateTime)$tzone <- 'America/Anchorage'
+#VAUL_RainGauge_2019 <- read.csv("~/Documents/DoD_2019/RainGauge/VAUL.RainGauge.2019.csv")
+#VAUL_RainGauge_2019$DateTime <- ymd_hms(VAUL_RainGauge_2019$DateTime)
+#attributes(VAUL_RainGauge_2019$DateTime)$tzone <- 'America/Anchorage'
 
 ### read in data ###
 frch.stream.one.2019 <- read.csv(url(frch.stream.2019.url))
@@ -896,7 +480,7 @@ QSummary.2019$DateTime <- lubridate::round_date(QSummary.2019$DateTime, "15 minu
 ```
 
 
-##### Checking closeness between the two Pressure Transducers
+Checking closeness between the two Pressure Transducers
 ```{r , echo=FALSE, warning=FALSE}
 frch.stream.two.2019 <- frch.stream.two.2019[1:nrow(frch.stream.one.2019),]
 frch.stream.one.2019$Site <- "FRCH1" #add column identifier
@@ -923,35 +507,26 @@ abline(1,1)
 ```
 Looks pretty good
 
-##### Checking Raw PT data 
+Checking Raw PT data 
 
-## Raw Moose
+Raw Moose
 ```{r, echo=FALSE, warning=FALSE}
-plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
-     xlim = as.POSIXct(c("2019-05-31 15:45:00","2019-10-22 09:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+
 plot(moos.stream.one.2019$DateTime, moos.stream.one.2019$AbsPTDepth, type = 'l')
 ```
 let the cleaning commence!
 ## Moose 2.0 ##
 ```{r, echo=FALSE, warning=FALSE}
 moos.stream.one.2019 <- moos.stream.one.2019[-c(3715, 5179,5342), ]
-plot(moos.stream.one.2019$DateTime, moos.stream.one.2019$AbsPTDepth, type = 'l')
+
+moos.stream.one.2019 %>% #filter(DateTime > "2019-09-01" & DateTime < "2019-10-01") %>% 
+  ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 ```
 1)removed vertical bars in dataframe
 ? Spike in early Julyish does have rainfall close to it....is it real?
 Middle of October? Ice on? Should I clip middle of October, French was removed on October 10th according to the field notebook 
 
-### export PT data to csv to DoD_Discharge->PT_data->2019
-```{r, echo=FALSE, warning=FALSE}
-moos.stream.one.2019$Site <- "MOOS"
-moos.stream.one.2019 <- moos.stream.one.2019[,-2]
-write.csv(moos.stream.one.2019, "~/Documents/DoD_Discharge/PT_data/2019/MOOS/moos.pt.2019.csv", row.names = FALSE)
-```
-
-### Observed Discharge at all sites 
+# Observed Discharge at all sites 
 
 Slugs and wading rods were used for 2019 observed Q
 
@@ -963,49 +538,9 @@ all <- ggplot(QSummary.2019) +
   scale_color_brewer(palette = "Set1") +
   ggtitle("ALL SITES")
 all
-
-a <- QSummary.2019 %>% filter(Site == "Moose") %>% 
-  ggplot() +
-  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("Moose")
-a
-
-b <- QSummary.2019 %>% filter(Site == "French") %>% 
-  ggplot() +
-  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("French")
-b
-
-c <- QSummary.2019 %>% filter(Site == "Poker") %>% 
-  ggplot() +
-  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("Poker")
-c
-
-d <- QSummary.2019 %>% filter(Site == "Vault") %>% 
-  ggplot() +
-  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("Vault")
-d
-
-e <- QSummary.2019 %>% filter(Site == "Stuart") %>% 
-  ggplot() +
-  geom_point(aes(x=DateTime, y = Q_Ls, color = Method), size=3) +
-  theme_classic() +
-  ggtitle("Stuart")
-e
-
-plot_grid(all, NA,
-          a, b,
-          c,d,
-          e,
-          nrow = 4, ncol = 2)
 ```
-### Raw Rating Curve with Moose 1 Pressure Transducer
+
+Raw Rating Curve with Moose 1 Pressure Transducer
 
 ```{r, echo=FALSE, warning=FALSE}
 QSummary.MO.2019 <- QSummary.2019 %>% filter(Site =="Moose")
@@ -1059,10 +594,11 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Moose2comb.2019) +
 
 
 ```
+
 That's better, I will use this for the predicted discharge 
 
-### Predicted Q MOOS PT1
-#### Black points are observed Q
+# Predicted Q MOOS PT1
+Black points are observed Q
 
 ```{r, echo=FALSE, warning=FALSE}
 Moose2comb.2019$pred.moos1.Q <- coef(Moose2.lm.2019)[2] * Moose2comb.2019$AbsPTDepth+ coef(Moose2.lm.2019)[1]
@@ -1074,27 +610,22 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose2comb.2019) +
   xlab("Date") +
   ylab("Predicted Discharge") 
 ```
+
 Not too shabby
 
-### export PT data to csv to DoD_Discharge->Predicted_discharge->2019
-```{r, echo=FALSE, warning=FALSE}
-Moose2comb.2019_final <- Moose2comb.2019[,-c(2:3,5:11)]
-names(Moose2comb.2019_final) <- c("Site", "DateTime", "Q")
-write.csv(Moose2comb.2019_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/MOOS/MOOS.Q.csv", row.names = FALSE)
-```
 
 ## Raw French PT1
 ```{r, echo=FALSE, warning=FALSE}
-plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
-     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
+#     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth, type = 'l')
 ```
 Looks good. I am going to replace the noisy-ness of the receding limb in the big august storm with FRCH PT2 as it is less noisy let the cleaning commence!
 
-# FRCH PT1 2.0 #
+# FRCH PT1 2.0
 ```{r, echo=FALSE, warning=FALSE}
 which(frch.stream.one.2019$AbsPTDepth > 2.40) 
 frch.stream.one.2019.1 <- frch.stream.one.2019 %>% subset(frch.stream.one.2019$DateTime < "2019-08-24 00:00:00" & frch.stream.one.2019$DateTime > "2019-08-17 00:00:00") 
@@ -1114,24 +645,26 @@ plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth, type = 'l')
 
 ## Raw French PT2
 ```{r, echo=FALSE, warning=FALSE}
-plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
-     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
+#     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(frch.stream.two.2019$DateTime, frch.stream.two.2019$AbsPTDepth, type = 'l')
 
 ```
+
 Going to clean some of the vertical bars in may but other than that this looks pretty good!
 let the cleaning commence 
-## FRCH PT2 2.0
+
+FRCH PT2 2.0
 ```{r, echo=FALSE, warning=FALSE}
 frch.stream.two.2019 <- frch.stream.two.2019[-c(107,108,389,610,964),] 
-plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
-     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(FRCH_RainGauge_2019$inst_rainfall_mm ~ FRCH_RainGauge_2019$Datetime, type="h",
+#     xlim = as.POSIXct(c("2019-04-29 14:15:00","2019-10-10 09:15:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#ar(new = T)
 plot(frch.stream.two.2019$DateTime, frch.stream.two.2019$AbsPTDepth, type = 'l')
 
 ```
