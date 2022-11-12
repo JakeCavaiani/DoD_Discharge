@@ -1,0 +1,1617 @@
+
+---
+title: "2022 Rating Curves"
+author: "Jake Cavaiani, Karen Jorgenson"
+date: "11/7/2022"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+The purpose of this script is to read in pressure transducer data from 2022 and generate rating curves to ultimately generate predicted continuous discharge records throughout the whole season.
+
+Read in most updated merged files from each site from the google drive (DoD Project->2022 AK sensors->Discharge->site->"merged_date_file" )
+
+
+```{r setup, include = FALSE}
+# Load packages #
+library(tidyverse)
+library(lubridate)
+library(data.table)
+library(rio)
+library(ggplot2)
+library(scales)
+library(psych)
+library(here)
+library(googledrive)
+library(readxl)
+library(cowplot)
+library(zoo)
+library(readr)
+library(dplyr)
+library(RColorBrewer)
+library(gridExtra)
+library(ggpmisc)
+library(birk)
+library(imputeTS)
+```
+
+
+
+### ALL Sites ###
+
+```{r, warning = FALSE, message = FALSE}
+# Import data from google drive #
+discharge.2022 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQR6HHHDpnxc6DmNHfdNLR9-dgDHR5Imt0Ve4_t2DzIF18_8D3O2da5zcWQzJUSoFQfaetPZDeXZ610/pub?gid=0&single=true&output=csv"
+QSummary.2022 <- read.csv(url(discharge.2022))
+
+### Format Time ###
+QSummary.2022$Date <- mdy(QSummary.2022$Date)
+QSummary.2022$DateTimeAK <- as.POSIXct(paste(QSummary.2022$Date, QSummary.2022$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+QSummary.2022$DateTimeAK <- lubridate::round_date(QSummary.2022$DateTimeAK, "60 minutes")
+
+### ALL Sites ###
+QSummary.2022 %>% ggplot() +
+  geom_point(aes(x=DateTimeAK, y=MeasuredQ_Ls, color=Site, shape=Method), size=3) +
+  theme_classic() +
+  scale_color_manual(values=c("#FF7F00","#A6761D", "#6A3D9A", "#66C2A5", "#E7298A")) + ggtitle("ALL SITES") 
+
+
+
+```
+
+Here is all the discrete discharge measurements for 2022
+
+Eielson atmospheric pressure data will be used to fill gaps in air pressure.
+```{r, warning = FALSE, message = FALSE}
+eielson.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQjJbkVdOseFUsTFMDXaHRoKkPiFt6Uvc-9R3tkFZxKFjqSmPPgZzexdbhezBr_qYgGUdVN6ywYR28c/pub?output=csv"
+
+eielson.atmo.2022 <- read.csv(url(eielson.atmo.2022.url), skip = 6) 
+eielson.atmo.2022 <- eielson.atmo.2022[-1,]
+
+names(eielson.atmo.2022) <- c("Site", "DateTimeAK", "sea_level_pressure", "AirPressure")
+
+eielson.atmo.2022$DateTimeAK <- mdy_hm(eielson.atmo.2022$DateTimeAK)
+
+# Correct time zone
+eielson.atmo.2022$DateTimeAK <- eielson.atmo.2022$DateTimeAK - 28800
+eielson.atmo.2022$DateTimeAK <- force_tz(eielson.atmo.2022$DateTimeAK, tzone = "America/Anchorage")
+#attributes(eielson.atmo.2022$DateTimeAK)$tzone <- "America/Anchorage"
+
+eielson.atmo.2022$DateTimeAK <- lubridate::round_date(eielson.atmo.2022$DateTimeAK, "15 minutes")
+
+eielson.atmo.2022$AirPressure <- as.numeric(eielson.atmo.2022$AirPressure)
+eielson.atmo.2022$sea_level_pressure <- as.numeric(eielson.atmo.2022$sea_level_pressure)
+
+# Take average at 15 min interval
+eielson.atmo.2022 <- eielson.atmo.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), AirPressure = mean(AirPressure),
+      sea_level_pressure = mean(sea_level_pressure))
+
+
+eielson.atmo.2022$AirPressure <- eielson.atmo.2022$AirPressure*3.38639 # converting from inHG to kPa
+
+## conversion to elevation at each site
+# MOOS elevation is 574 feet
+# POKE 760.96 ft
+# STRT 820 ft
+# FRCH 601 ft 
+# VAUL 688.8 ft
+
+eielson.atmo.2022.compare <- eielson.atmo.2022
+eielson.atmo.2022.compare$mmHG <- eielson.atmo.2022.compare$sea_level_pressure * 25.44 # converting to mmHG
+
+ 
+# MOOS 
+eielson.atmo.2022.compare$mmHGcorrectedMOOS <- eielson.atmo.2022.compare$mmHG - (2.5*574/100) 
+eielson.atmo.2022.compare$AirPressureCorrectedMOOS <- eielson.atmo.2022.compare$mmHGcorrectedMOOS * 0.133322 # converting this to kPA to compare with MOOS PT
+
+# POKE 
+eielson.atmo.2022.compare$mmHGcorrectedPOKE <- eielson.atmo.2022.compare$mmHG - (2.5*760.96/100) 
+eielson.atmo.2022.compare$AirPressureCorrectedPOKE <- eielson.atmo.2022.compare$mmHGcorrectedPOKE * 0.133322 # converting this to kPA 
+
+# STRT
+eielson.atmo.2022.compare$mmHGcorrectedSTRT <- eielson.atmo.2022.compare$mmHG - (2.5*820/100) 
+eielson.atmo.2022.compare$AirPressureCorrectedSTRT <- eielson.atmo.2022.compare$mmHGcorrectedSTRT * 0.133322 # converting this to kPA 
+
+# FRCH
+eielson.atmo.2022.compare$mmHGcorrectedFRCH <- eielson.atmo.2022.compare$mmHG - (2.5*601/100) 
+eielson.atmo.2022.compare$AirPressureCorrectedFRCH <- eielson.atmo.2022.compare$mmHGcorrectedFRCH * 0.133322 # converting this to kPA 
+
+# VAUL
+eielson.atmo.2022.compare$mmHGcorrectedVAUL <- eielson.atmo.2022.compare$mmHG - (2.5*688.8/100)
+eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$mmHGcorrectedVAUL * 0.133322 # converting this to kPA 
+```
+
+### MOOS #### 
+```{r, warning = FALSE, message = FALSE}
+# Load in water pressure data 
+# urls
+moos.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7QMNWjVX1R43qflIW7lVqkj7wRHouhgQhWK76kfR8zK-UZg9bFSm92ccPy8T0luhFHKwsLNQQjA56/pub?output=csv"
+moos.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRo04g32Yr3DsZbXQiw6VTPfgWuWq5csh1VhxfMy3IT3U6OkJOGvTlofjXwFfugiaRVJ34pPnOUZ3te/pub?output=csv"
+moos.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQRXmAtoP_7I2RYEDZrdCT1LDyD8W3Thjst549srxdlWDMUYUyBjiGABd8pgtZE9Efa8b4Vgb3qtyoc/pub?output=csv"
+
+# load in data
+moos.atmo.2022 <- read.csv(url(moos.atmo.2022.url), skip = 1) 
+moos.stream.one.2022 <- read.csv(url(moos.stream.one.2022.url), skip = 1) 
+moos.stream.two.2022 <- read.csv(url(moos.stream.two.2022.url), skip = 1)
+
+# cleaning df to be able to interpret and merge
+moos.atmo.2022 <- moos.atmo.2022[, -c(5:11)] # removing columns that aren't date/abs pressure and temp
+moos.stream.one.2022 <- moos.stream.one.2022[, -c(5:13)] # removing columns that aren't date/abs pressure and temp
+moos.stream.two.2022 <- moos.stream.two.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
+
+# changing datetime to AK time 
+moos.atmo.2022$DateTimeAK <- mdy_hms(moos.atmo.2022$Date.Time..GMT.08.00)
+
+moos.stream.one.2022$DateTimeAK <- mdy_hms(moos.stream.one.2022$Date.Time..GMT.08.00)
+
+moos.stream.two.2022$DateTimeAK <- mdy_hms(moos.stream.two.2022$Date.Time..GMT.08.00)
+
+moos.stream.two.2022$DateTimeAK <- force_tz(moos.stream.two.2022$DateTimeAK, tzone = "America/Anchorage")
+
+moos.stream.one.2022$DateTimeAK <- force_tz(moos.stream.one.2022$DateTimeAK, tzone = "America/Anchorage")
+
+moos.atmo.2022$DateTimeAK <- force_tz(moos.atmo.2022$DateTimeAK, tzone = "America/Anchorage")
+
+# round date to 5 minute intervals
+moos.atmo.2022$DateTimeAK <- lubridate::round_date(moos.atmo.2022$DateTimeAK, "5 minutes")
+moos.stream.one.2022$DateTimeAK <- lubridate::round_date(moos.stream.one.2022$DateTimeAK, "5 minutes")
+moos.stream.two.2022$DateTimeAK <- lubridate::round_date(moos.stream.two.2022$DateTimeAK, "5 minutes")
+
+# changing the names
+
+# cleaning off original datetime 
+moos.atmo.2022 <- moos.atmo.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+moos.stream.one.2022 <- moos.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+moos.stream.two.2022 <- moos.stream.two.2022[, -c(2)] # removing columns that arent 
+
+names(moos.atmo.2022) <- c("Site", "AirPressure", "TempC", "DateTimeAK")
+
+names(moos.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+names(moos.stream.two.2022) <- c("Site", "WaterPressure", "TempC",  "DateTimeAK")
+
+moos.atmo.2022 %>% filter(AirPressure > 96.8) %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
+  geom_point()
+
+```
+
+This is the raw atmospheric pressure that is located at MOOS. I am going to clean this up a little bit:
+
+```{r, warning = FALSE, message = FALSE}
+# cleaning erroneous points 
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK <= "2022-06-01" & AirPressure < 97.5, NA, .))) %>% filter(AirPressure > 96.5)
+
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-15" & DateTimeAK <= "2022-05-20" & AirPressure < 98.2, NA, .)))
+
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-18" & DateTimeAK <= "2022-05-20" & AirPressure < 99.1, NA, .)))
+
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-10" & DateTimeAK <= "2022-08-12" & AirPressure > 99.5, NA, .)))
+
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-10" & DateTimeAK <= "2022-08-12" & AirPressure < 99, NA, .)))
+
+moos.atmo.2022 <- moos.atmo.2022 %>%
+  mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-10" & AirPressure < 96.8, NA, .)))
+
+moos.atmo.2022 <- moos.atmo.2022 %>% filter(DateTimeAK <= "2022-10-10 12:30:00") %>% mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-10-3"& DateTimeAK <= "2022-10-8" & AirPressure < 98.5, NA, .))) 
+
+moos.atmo.2022 <- moos.atmo.2022 %>% mutate(across(c(AirPressure), 
+                ~ifelse(DateTimeAK >= "2022-10-2"& DateTimeAK <= "2022-10-3" & AirPressure < 98, NA, .))) 
+
+
+moos.atmo.2022 %>% filter(DateTimeAK <= "2022-10-15" & DateTimeAK >= "2022-10-01") %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
+  geom_point()
+
+moos.atmo.2022 %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
+  geom_point()
+
+
+```
+This is a little better. 
+
+
+Here is the uncorrected air pressure comparison between Eielson and MOOS: 
+
+```{r, warning = FALSE, message = FALSE}
+moos.atmo.2022.compare <- moos.atmo.2022
+
+atmo.pt.2022.1 <- left_join(eielson.atmo.2022.compare, moos.atmo.2022.compare, by = "DateTimeAK")
+
+atmo.pt.2022.1 %>% #filter(DateTimeAK >= "2022-05-01" & DateTimeAK <= "2022-05-15") %>% 
+  ggplot(aes(x = DateTimeAK, y = AirPressureCorrectedMOOS)) +
+  geom_line(aes(x=DateTimeAK, y=AirPressureCorrectedMOOS), color="#A6CEE3") +
+  geom_line(aes(x=DateTimeAK, y=AirPressure.x), color="#FF7F00") +
+  geom_line(aes(x=DateTimeAK, y=AirPressure.y), color = "red") +
+  theme_classic() +
+  ggtitle("Eielson Corrected(blue) & Eielson uncorrected(orange) & MOOS(red) Atmo P") 
+
+```
+
+Looks like we have to use the corrected pressure to get what we want for our rating curves.
+
+We will only use pressure transducer 2 at Moose because it is more complete.
+
+```{r, warning = FALSE, message = FALSE}
+ggplot(moos.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure)) +
+  geom_point() +
+  theme_classic()
+
+
+```
+
+This is PT2 that has the step changes due to the cleaning and then it has a gap at the end of July to beginning of August was because the memory filled up. 
+
+
+```{r, warning = FALSE, message = FALSE}
+# adjusting/cleaning moos.stream.two
+#moos.stream.two.2022.b <- moos.stream.two.2022
+#moos.stream.two.2022 <- moos.stream.two.2022.b
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK <= "2022-05-25", NA, .))) # PT wasnt placed into the stream until 5/25
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-06-01" & DateTimeAK <= "2022-07-01" & WaterPressure < 101, NA, .))) %>% filter(WaterPressure > 90)
+
+# shifting the step change 
+moos.2.before <- moos.stream.two.2022[c(1:3913), ] # 6/7 @ 14:05 we cleaned the PVC housing so we are shifting the previous data up to match after the cleaning 
+moos.2.after <- moos.stream.two.2022[c(3914:40000), ]
+moos.stream.two.2022[3914, 2] - moos.stream.two.2022[3913, 2] # 3.573
+moos.2.before$WaterPressure <- moos.2.before[, 2] + 3.573
+moos.stream.two.2022 <- full_join(moos.2.before, moos.2.after)
+
+moos.2.before2 <- moos.stream.two.2022[c(1:25525), ] 
+moos.2.mid2 <- moos.stream.two.2022[c(25531:33593), ]
+moos.2.after2 <- moos.stream.two.2022[c(33593:40000), ]
+moos.stream.two.2022[25525, 2] - moos.stream.two.2022[25531, 2]  # 10.918
+moos.2.mid2$WaterPressure <- moos.2.mid2[, 2] - 10.918
+moos.stream.two.2022.2 <- full_join(moos.2.before2, moos.2.mid2)
+moos.stream.two.2022 <- full_join(moos.stream.two.2022.2, moos.2.after2)
+
+## Bring the last chunk up half way?
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK > "2022-08-01", WaterPressure + 3.897/2, .)))
+#moos.2.before3 <- moos.stream.two.2022[c(1:17192), ] 
+#moos.2.after3 <- moos.stream.two.2022[c(17193:40000), ]
+moos.stream.two.2022[17192, 2] - moos.stream.two.2022[17211, 2] # 3.897
+#moos.2.after3$WaterPressure <- moos.2.after3[, 2] + 5.389/2
+#moos.stream.two.2022 <- full_join(moos.2.before3, moos.2.after3)
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(DateTimeAK < "2022-07-31" | DateTimeAK > "2022-08-02 16:45:00") %>% filter(DateTimeAK <= "2022-10-08 08:15:00")
+
+# shifting small step change 
+moos.2.before4 <- moos.stream.two.2022[c(1:5240), ]
+moos.2.after4 <- moos.stream.two.2022[c(5241:40000), ]
+moos.stream.two.2022[5240, 2] - moos.stream.two.2022[5241, 2] # 0.365
+moos.2.after4$WaterPressure <- moos.2.after4[, 2] - 0.365
+moos.stream.two.2022 <- full_join(moos.2.before4, moos.2.after4)
+
+# shifting small step change 
+moos.2.before5 <- moos.stream.two.2022[c(1:33588), ]
+moos.2.after5 <- moos.stream.two.2022[c(33591:40000), ]
+moos.stream.two.2022[33588, 2] - moos.stream.two.2022[33591, 2] # 0.41
+moos.2.after5$WaterPressure <- moos.2.after5[, 2] - 0.41
+moos.stream.two.2022 <- full_join(moos.2.before5, moos.2.after5)
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(WaterPressure < 110)
+
+moos.stream.two.2022 %>%
+  #filter(DateTimeAK > "2022-09-28 12:00:00" & DateTimeAK < "2022-09-29") %>% 
+  ggplot(aes(x = DateTimeAK, y = WaterPressure)) +
+  geom_point() +
+  theme_classic()
+
+```
+
+This looks much better 
+
+```{r, warning = FALSE, message = FALSE}
+## Combine water and air pressure
+# Final water pressure
+moos.final.pressure.2022 <- moos.stream.two.2022
+
+
+moos.final.pressure.2022 <- moos.final.pressure.2022[,-c(3,5,7)] # removing columns that are unnecessary. I only need both water pressures and mean pressure with a DateTime column 
+
+
+eielson.atmo.2022 <- eielson.atmo.2022[,-c(1,3)] # i dont need site, Temp and sea_level_pressure column
+
+eielson.atmo.2022.compare <-  eielson.atmo.2022.compare[ , -which(names(eielson.atmo.2022.compare) %in% c("Site","TempC", "sea_level_pressure", "AirPressure", "mmHG", "mmHGcorrectedMOOS","mmHGcorrectedPOKE","mmHGcorrectedSTRT","mmHGcorrectedFRCH","mmHGcorrectedVAUL"))] # removing columns I do not need
+
+# Fill gap during end of July for our pressure data with Eielson data
+atmo.pt.2022.1$moos.combo <- ifelse(atmo.pt.2022.1$DateTimeAK > "2022-07-23 17:15:00" & atmo.pt.2022.1$DateTimeAK < "2022-08-02 17:00:00", atmo.pt.2022.1$AirPressureCorrectedMOOS, atmo.pt.2022.1$AirPressure.y)
+
+# Remove outliers
+atmo.pt.2022.1 <- atmo.pt.2022.1 %>%
+  mutate(across(c(moos.combo), 
+                ~ifelse(DateTimeAK >= "2022-09-10" & DateTimeAK <= "2022-09-11" & moos.combo < 98.5, NA, .)))
+
+#atmo.pt.2022.1 %>% filter(DateTimeAK > "2022-05-15") %>% 
+  #filter(DateTimeAK > "2022-06-01" & DateTimeAK < "2022-09-01") %>%
+ # ggplot(aes(DateTimeAK, AirPressureCorrectedMOOS)) + geom_point() #+ geom_vline(xintercept = as.POSIXct("2022-09-10")) + geom_vline(xintercept = as.POSIXct("2022-09-12"))
+```
+
+Our Moose air pressure data is so messy - it is probably more accurate to use Eielson's data.
+
+```{r, warning = FALSE, message = FALSE}
+#join the atmospheric and water pressure together
+
+MOOS.2022 <- left_join(atmo.pt.2022.1, moos.final.pressure.2022, by = "DateTimeAK")
+
+
+# Water pressure - atmospheric pressure
+ MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
+
+ 
+ 
+ MOOS.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
+  #filter(DateTimeAK > "2022-09-18" & DateTimeAK < "2022-09-22") %>%
+  ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedMOOS)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
+ggtitle("MOOS air and water pressure")
+```
+ 
+```{r, warning = FALSE, message = FALSE} 
+# Plot difference
+MOOS.2022 %>% filter(DateTimeAK > "2022-05-20") %>% 
+  ggplot(aes(DateTimeAK, difference)) + geom_point() +
+  ggtitle("MOOS difference")
+
+#MOOS.2022 %>% filter(DateTimeAK > "2022-09-01" & DateTimeAK < "2022-10-15") %>% filter(difference > 5) %>% View()
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+### Plot MOOS measured Q
+QSummary.MO.2022 <- QSummary.2022 %>% filter(Site =="MOOS")
+
+ggplot(QSummary.MO.2022) +
+  geom_point(aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method, color = Site), size=3) +
+  theme_classic() +
+  scale_color_manual(values=c("#A6761D")) + 
+  ggtitle("MOOS") 
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+# trying to merge by nearest date if we have an offset point 
+MOOS.2022.dt <- setDT(MOOS.2022)
+MOOS.2022.dt <- subset(MOOS.2022.dt, DateTimeAK < "2022-10-19 14:00:00") %>% na.omit()# removing rows that had dates corresponding to end of record that messed up the rolling nearest function 
+QSummary.MO.2022.dt <- QSummary.MO.2022
+
+Moose1comb.2022 <- MOOS.2022.dt[QSummary.MO.2022.dt, on = "DateTimeAK", roll = 'nearest']
+
+## ONLY using PT 2
+MOOS1.lm.2022 <- lm(Moose1comb.2022$MeasuredQ_Ls ~ Moose1comb.2022$difference)
+#summary(MOOS1.lm.2022)
+```
+
+```{r, warning = FALSE, message = FALSE}
+
+# plot rating curve 
+moos.formula = y~x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
+  stat_poly_eq(formula = moos.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Moose all measured Q")
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+# Remove outlier Q points
+Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference < 4 | MeasuredQ_Ls > 1000)
+
+# plot rating curve 
+moos.formula = y~x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
+  stat_poly_eq(formula = moos.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Moose measured Q")
+
+```
+I will try removing the two low difference, high measured Q points
+```{r, warning = FALSE, message = FALSE}
+# Remove two low difference, high measured Q points
+Moose1comb.2022.3 <- Moose1comb.2022.2 %>% filter(MeasuredQ_Ls < 1000 | MeasuredQ_Ls > 2000)
+
+# plot rating curve 
+moos.formula = y~x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.3) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
+  stat_poly_eq(formula = moos.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Moose measured Q")
+
+```
+```{r, warning = FALSE, message = FALSE}
+## Predict MOOS Q
+
+MOOS1.lm.2022 <- lm(Moose1comb.2022.3$MeasuredQ_Ls ~ Moose1comb.2022.3$difference)
+
+MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
+
+MOOS.2022.dt <- MOOS.2022.dt %>% select(DateTimeAK, pred.moos1.Q) %>% filter(DateTimeAK >= "2022-05-25 08:05:00" & DateTimeAK <= "2022-10-08 16:15:00")
+MOOS.2022.dt <- na_kalman(MOOS.2022.dt)
+
+MOOS.2022.dt %>% na.omit() %>% ggplot(aes(x = DateTimeAK, y = pred.moos1.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = Moose1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")
+
+```
+
+### POKE ####
+
+```{r, warning = FALSE, message = FALSE}
+
+poke.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8p1pdbkQBMo54XaZinGwxyzojCnlkXeZid3EFvmt9v31PFvpsa1DlWClj8aG0kkJIuU57WXl-cq7Q/pub?output=csv"
+poke.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-wJjf3rO8eC7bMpQZgwqFLHFQpf5qCInyWtUF1PqaCB8Z_EoM1cTHRUmWypjftREIx1rP0V6zYJxL/pub?output=csv"
+
+# load in url
+poke.stream.one.2022 <- read.csv(url(poke.stream.one.2022.url), skip = 1) 
+poke.stream.two.2022 <- read.csv(url(poke.stream.two.2022.url), skip = 1) 
+
+# cleaning df to be able to interpret and merge
+poke.stream.one.2022 <- poke.stream.one.2022[, -c(5:18)] # removing columns that arent date/abs pressure and temp
+
+poke.stream.two.2022 <- poke.stream.two.2022[, -c(5:9)] # removing columns that arent date/abs pressure and temp
+
+# changing to AK time (It reads in as GMT but it is actually AKST )
+poke.stream.one.2022$DateTimeAK <- mdy_hms(poke.stream.one.2022$Date.Time..GMT.08.00)
+
+poke.stream.two.2022$DateTimeAK <- mdy_hms(poke.stream.two.2022$Date.Time..GMT.08.00)
+
+poke.stream.two.2022$DateTimeAK <- force_tz(poke.stream.two.2022$DateTimeAK, tzone = "America/Anchorage")
+
+poke.stream.one.2022$DateTimeAK <- force_tz(poke.stream.one.2022$DateTimeAK, tzone = "America/Anchorage")
+
+# round date to 5 minute intervals
+poke.stream.one.2022$DateTimeAK <- lubridate::round_date(poke.stream.one.2022$DateTimeAK, "5 minutes")
+poke.stream.two.2022$DateTimeAK <- lubridate::round_date(poke.stream.two.2022$DateTimeAK, "5 minutes")
+
+# cleaning off original datetime 
+poke.stream.one.2022 <- poke.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+poke.stream.two.2022 <- poke.stream.two.2022[, -c(2)] # removing columns that arent 
+
+
+names(poke.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+names(poke.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+ggplot(poke.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This is PT1....step change is air pressure and then placed in the stream. Let me clip that out 
+
+```{r, warning = FALSE, message = FALSE}
+#poke.stream.one.2022.b <- poke.stream.one.2022
+#poke.stream.one.2022 <- poke.stream.one.2022.b
+
+#adjusting/cleaning poke.stream.one
+poke.stream.one.2022 <- poke.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-09" & DateTimeAK <= "2022-05-18", NA, .))) # PT wasnt placed into the stream until 5/17
+
+poke.stream.one.2022 <- poke.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-27" & DateTimeAK <= "2022-08-31" & WaterPressure < 98.3, NA, .))) %>% filter( DateTimeAK <= "2022-10-07 15:30:00")
+
+poke.stream.one.2022 <- poke.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-10-05" & DateTimeAK <= "2022-10-07" & WaterPressure < 98, NA, .)))
+
+poke.stream.one.2022 <- poke.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-10-05" & DateTimeAK <= "2022-10-07" & WaterPressure < 98, NA, .))) %>% 
+  filter(DateTimeAK > "2022-08-01 16:15:00" | DateTimeAK < "2022-08-01 00:00:00") %>%
+  filter(DateTimeAK != "2022-08-07 19:00:00") 
+
+# shifting small step change 
+poke.2.before <- poke.stream.one.2022[c(1:16756), ]
+poke.2.after <- poke.stream.one.2022[c(16758:40000), ]
+poke.stream.one.2022[16756, 2] - poke.stream.one.2022[16758, 2] # 0.39
+poke.2.after$WaterPressure <- poke.2.after[, 2] + 0.39
+poke.stream.one.2022 <- full_join(poke.2.before, poke.2.after)
+
+# shifting larger step change 
+poke.1.before2 <- poke.stream.one.2022[c(1:8125), ]
+poke.1.after2 <- poke.stream.one.2022[c(8150:40000), ]
+poke.stream.one.2022[8150, 2] - poke.stream.one.2022[8125, 2] # 1.55
+poke.1.after2$WaterPressure <- poke.1.after2[, 2] + 1.55
+poke.stream.one.2022 <- full_join(poke.1.before2, poke.1.after2)
+
+
+poke.stream.one.2022 %>% #filter(DateTimeAK > "2022-08-07" & DateTimeAK < "2022-08-15") %>%
+  ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+Clean PT2
+```{r, warning = FALSE, message = FALSE}
+poke.stream.two.2022 <- poke.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-09-17" & WaterPressure < 98, NA, .))) %>%
+  filter(DateTimeAK <= "2022-10-07 15:35:00")
+
+poke.stream.two.2022 %>% ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This is PT2...we only have data from 8/1 because of our musical chairs situation. We got two PTs back from onset so we deployed a second PT at POKE.
+
+```{r, warning = FALSE, message = FALSE}
+
+# merge to one 
+poke.final.pressure.2022 <- left_join(poke.stream.one.2022, poke.stream.two.2022, by = c("DateTimeAK"))
+poke.final.pressure.2022$MeanPressure <- rowMeans(poke.final.pressure.2022[,c(2,6)], na.rm = TRUE)
+
+poke.final.pressure.2022 %>% ggplot() + geom_point(aes(DateTimeAK, WaterPressure.x)) + geom_point(aes(DateTimeAK, WaterPressure.y), color = "red", cex = 0.5)
+```
+It looks like we should use PT1 before August 1st (black) and PT2 after August 1st (red).
+```{r, warning = FALSE, message = FALSE}
+## Use PT1 before August 1st and PT2 after August 1st
+# Shift PT2 up to match August PT1
+poke.final.pressure.2022 %>% filter(DateTimeAK > "2022-08-01" & DateTimeAK < "2022-08-15") %>% summarise(mean(WaterPressure.x - WaterPressure.y)) #2.62398	
+
+poke.final.pressure.2022 <- poke.final.pressure.2022 %>%
+  mutate(WaterPressure.merged = ifelse(DateTimeAK <= "2022-08-01", WaterPressure.x, WaterPressure.y))
+
+# September step change
+poke.before <- poke.final.pressure.2022[c(1:37665), ]
+poke.after <- poke.final.pressure.2022[c(37705:40000), ]
+poke.final.pressure.2022[37705, 9] - poke.final.pressure.2022[37665, 9] # 0.374
+poke.after$WaterPressure.merged <- poke.after[, 9] + 0.374
+poke.final.pressure.2022 <- rbind(poke.before, poke.after)
+
+# End of August step change... move after data down all the way?
+poke.before <- poke.final.pressure.2022[c(1:29719), ]
+poke.after <- poke.final.pressure.2022[c(29720:40000), ]
+poke.final.pressure.2022[29720, 9] - poke.final.pressure.2022[29719, 9] # 0.858
+poke.after$WaterPressure.merged <- poke.after[, 9] - 0.858
+poke.final.pressure.2022 <- rbind(poke.before, poke.after)
+
+
+poke.final.pressure.2022 %>% #filter(DateTimeAK > "2022-08-29" & DateTimeAK < "2022-08-29 17:00:00") %>% 
+  ggplot() + geom_point(aes(DateTimeAK, WaterPressure.merged))
+
+#poke.final.pressure.2022 %>% filter(DateTimeAK > "2022-06-05" & DateTimeAK < "2022-06-06 17:00:00") %>% View()
+```
+
+Shift after gap up halfway like I did with Moose?
+
+```{r, warning = FALSE, message = FALSE}
+# Join the two atmospheric and water pressure together
+poke.final.pressure.2022.2 <- poke.final.pressure.2022 %>% filter(!WaterPressure.merged %in% NA)
+POKE.2022 <- left_join(eielson.atmo.2022.compare, poke.final.pressure.2022.2, by = "DateTimeAK") 
+
+## Bring the last chunk up half way?
+101.250-98.134
+POKE.2022 <- POKE.2022 %>%
+ mutate(across(c(WaterPressure.merged), 
+                ~ifelse(DateTimeAK > "2022-07-30", WaterPressure.merged + 3.116*.5, .)))
+
+# Water pressure - atmospheric pressure 
+POKE.2022$difference <- POKE.2022$WaterPressure.merged - POKE.2022$AirPressureCorrectedPOKE
+
+# Plot air and water pressure
+  
+POKE.2022 %>% #filter(DateTimeAK >"2022-09-26 10:00:00" & DateTimeAK < "2022-09-26 20:00:00") %>%
+  filter(DateTimeAK > "2022-05-25") %>%
+  ggplot(aes(DateTimeAK, WaterPressure.merged)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedPOKE), color = "red") + #geom_point(aes(color = Method, x = DateTimeAK, y = WaterPressure.merged), data = Poker1comb.2022[c(19,20),])
+  ggtitle("POKE air and water pressure")
+```
+
+```{r, warning = FALSE, message = FALSE} 
+# Plot difference
+POKE.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
+  ggplot(aes(DateTimeAK, difference)) + geom_point() +
+  ggtitle("POKE difference")
+```
+
+```{r, warning = FALSE, message = FALSE}
+### Filter POKE ###
+QSummary.PO.2022 <- QSummary.2022 %>% filter(Site =="POKE")
+
+ggplot(QSummary.PO.2022) +
+  geom_point(aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method, color = Site), size=3) +
+  theme_classic() +
+  scale_color_manual(values=c("#6A3D9A")) + 
+  ggtitle("POKE") 
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+# Merge by nearest date if we have an offset point 
+POKE.2022.dt <- setDT(POKE.2022) %>% filter(!difference %in% NA)
+QSummary.PO.2022.dt <- QSummary.PO.2022 %>% filter(DateTimeAK > "2022-05-17")
+
+Poker1comb.2022 <- POKE.2022.dt[QSummary.PO.2022.dt, on = "DateTimeAK", roll = 'nearest']
+
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+### Rating Curve ###
+poke.formula <- y ~ x
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Poker all measured Q")
+
+```
+
+This is the rating curve. We are missing 5/9 and 5/17 YSI because we didn't have our Pressure Transducers in yet.
+
+I am not sure what is going on here. I plotted every single pressure point that is matched with a Q measurement and they all look reasonable/are not outliers.
+
+I will remove two points.
+
+```{r, warning = FALSE, message = FALSE}
+# Remove two high Q points points
+Poker1comb.2022.2 <- Poker1comb.2022 %>% filter(MeasuredQ_Ls < 700 | difference > 4)
+### Rating Curve ###
+poke.formula <- y ~ x
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Poker1comb.2022.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Poker measured Q")
+
+```
+
+I will try curves for just wading rod with quadratic relationship.
+
+```{r, warning = FALSE, message = FALSE}
+### Rating Curve ###
+poke.formula <- y ~ poly(x, 2, raw = TRUE)
+Poker1comb.2022.2 %>% filter(Method == "Wading Rod") %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Poker measured Q")
+
+```
+Should we add a few YSI points back in?
+```{r, warning = FALSE, message = FALSE}
+### Rating Curve ###
+
+poke.formula <- y ~ poly(x, 2, raw = TRUE)
+Poker1comb.2022.3 <- Poker1comb.2022.2 %>% filter(difference > 2.5 | MeasuredQ_Ls < 450) 
+Poker1comb.2022.3 %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Poker measured Q")
+
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+## Predict POKE Q
+POKE1.lm.2022 <- lm(Poker1comb.2022.3$MeasuredQ_Ls ~ Poker1comb.2022.3$difference + I(Poker1comb.2022.3$difference^2))
+
+
+POKE.2022.dt$pred.poke.Q <- coef(POKE1.lm.2022)[2] * POKE.2022.dt$difference + I(coef(POKE1.lm.2022)[3] * POKE.2022.dt$difference^2)+coef(POKE1.lm.2022)[1]
+
+POKE.2022.dt <- POKE.2022.dt %>% select(DateTimeAK, pred.poke.Q)
+POKE.2022.dt <- na_kalman(POKE.2022.dt)
+
+POKE.2022.dt %>% na.omit() %>% ggplot(aes(x = DateTimeAK, y = pred.poke.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = Poker1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("Poker predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")
+
+```
+
+### STRT ###
+```{r, warning = FALSE, message = FALSE}
+strt.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vS4XSmuumKD-j1aDhpA1gfyfrpqUiJUTuvcP9UGrgagvIrzlGYWk71hl0zAC8g8GHqOm1ONjWOpO_So/pub?output=csv" # WL
+strt.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRhNn42-Jr1Y3aTFfMPiRxKrNZZjHeBBxkCmVcLVPQEKBf4qg_1Pw4nyUBr3mDwtEE8NKGIbS7kNSrS/pub?output=csv" #WR
+strt.atmo.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxotkNZ6zyvUi51XOjNPumqSvwGfsZMJc7I6-QXBELHY7msBzAaqvEHV41A88Lt0I1Ga-l1343Q1cr/pub?output=csv"
+# load in data 
+strt.stream.one.2022 <- read.csv(url(strt.stream.one.2022.url), skip = 1) 
+strt.stream.two.2022 <- read.csv(url(strt.stream.two.2022.url), skip = 1) 
+strt.atmo.2022 <- read.csv(url(strt.atmo.2022.url), skip = 1) 
+
+# clean for merging purposes
+strt.stream.one.2022 <- strt.stream.one.2022[, -c(4,6:19)] # removing columns that arent date/abs pressure and temp
+
+strt.stream.two.2022 <- strt.stream.two.2022[, -c(5:12)] # removing columns that arent date/abs pressure and temp
+
+strt.atmo.2022 <- strt.atmo.2022[,-c(4:9)]
+
+# changing to AK time (It reads in as GMT but it is actually AKST )
+strt.stream.one.2022$DateTimeAK <- mdy_hms(strt.stream.one.2022$Date.Time..GMT.08.00)
+
+strt.stream.two.2022$DateTimeAK <- mdy_hms(strt.stream.two.2022$Date.Time..GMT.08.00)
+strt.atmo.2022$DateTimeAK <- mdy_hms(strt.atmo.2022$Date.Time..GMT.08.00)
+
+strt.stream.two.2022$DateTimeAK <- force_tz(strt.stream.two.2022$DateTimeAK, tzone = "America/Anchorage")
+
+strt.stream.one.2022$DateTimeAK <- force_tz(strt.stream.one.2022$DateTimeAK, tzone = "America/Anchorage")
+
+strt.atmo.2022$DateTimeAK <- force_tz(strt.atmo.2022$DateTimeAK, tzone = "America/Anchorage")
+
+
+# round date to 5 minute intervals
+#strt.stream.one.2022$DateTimeAK <- lubridate::round_date(strt.stream.one.2022$DateTimeAK, "5 minutes")
+#strt.stream.two.2022$DateTimeAK <- lubridate::round_date(strt.stream.two.2022$DateTimeAK, "5 minutes")
+
+# cleaning off original datetime 
+strt.stream.one.2022 <- strt.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+strt.stream.two.2022 <- strt.stream.two.2022[, -c(2)] # removing columns that arent 
+strt.atmo.2022 <- strt.atmo.2022[,-c(2)]
+
+names(strt.stream.one.2022) <- c("Site","WaterPressure", "TempC", "DateTimeAK")
+
+names(strt.stream.two.2022) <- c("Site","WaterPressure", "TempC", "DateTimeAK")
+
+names(strt.atmo.2022) <- c("Site", "AirPressureSTRT", "DateTimeAK")
+
+ggplot(strt.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This is PT1 for STRT raw. Looking at how low the PT data is I am NOT going to trust this one and take it out of our analysis 
+ 
+ 
+```{r, warning = FALSE, message = FALSE}
+strt.stream.two.2022 %>% filter(DateTimeAK > "2022-06-03" & DateTimeAK < "2022-06-04" ) %>% ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+This PT has SO much noise. I am going to round into 30 minute intervals.
+```{r, warning = FALSE, message = FALSE}
+# Take average at 60 min interval
+strt.stream.two.2022$DateTimeAK <- lubridate::round_date(strt.stream.two.2022$DateTimeAK, "60 minutes")
+# Take average pressure
+strt.stream.two.2022 <- strt.stream.two.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
+
+strt.stream.two.2022 %>% filter(DateTimeAK > "2022-06-03" & DateTimeAK < "2022-06-04" ) %>% ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+```
+That looks more reasonable. I need to remove out of water points (anything before 6/2) and clean any erroneous points
+
+
+```{r, warning = FALSE, message = FALSE}
+#strt.stream.two.2022.b <- strt.stream.two.2022
+#strt.stream.two.2022 <- strt.stream.two.2022.b
+
+#adjusting/cleaning STRT 2
+strt.stream.two.2022 <- strt.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-09" & DateTimeAK <= "2022-06-03", NA, .))) # PT wasnt placed into the stream until 6/3
+
+strt.stream.two.2022 <- strt.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-09" & DateTimeAK <= "2022-10-03" &
+      WaterPressure < 100, NA, .))) %>%
+      filter(WaterPressure > 100)
+
+strt.stream.two.2022 <- strt.stream.two.2022 %>% filter(DateTimeAK < "2022-08-01 00:00:00" | DateTimeAK > "2022-08-10 22:30:00")
+
+strt.stream.two.2022 <- strt.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-15 12:00:00" & DateTimeAK <= "2022-08-17" & WaterPressure > 102.45, NA, .)))
+
+strt.stream.two.2022 %>% #filter(DateTimeAK > "2022-10-01" & DateTimeAK < "2022-10-20" ) %>%
+  ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This looks better
+
+``` {r, warning = FALSE, message = FALSE}
+# merge to one 
+strt.final.pressure.2022 <- strt.stream.two.2022 # the first PT is crap
+
+```
+
+Clean and plot our measured air pressure
+
+```{r, warning = FALSE, message = FALSE, include = FALSE}
+#Clean and plot our measured air pressure
+strt.atmo.2022 <- strt.atmo.2022 %>% filter(AirPressureSTRT > 96)
+
+strt.atmo.2022 <- strt.atmo.2022 %>%
+  mutate(across(c(AirPressureSTRT), 
+                ~ifelse(DateTimeAK <= "2022-06-01" & AirPressureSTRT < 98, NA, .))) %>% filter( DateTimeAK <= "2022-09-10")
+
+strt.atmo.2022 %>% ggplot() +  geom_point(aes(DateTimeAK, AirPressureSTRT), color = "red")
+```
+
+```{r, warning = FALSE, message = FALSE}
+# Plot STRT measured and Eilson air pressure
+STRT.atmo.2022.compare <- full_join(eielson.atmo.2022.compare, strt.atmo.2022, by = "DateTimeAK")
+
+STRT.atmo.2022.compare %>% filter(DateTimeAK > "2022-05-01") %>% ggplot() + geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT)) + 
+  geom_point(aes(DateTimeAK, AirPressureSTRT), color = "red") +
+  ggtitle("STRT air and water pressure")
+```
+
+```{r, include = FALSE}
+## Use measured air pressure when possible
+#STRT.atmo.2022.compare <- STRT.atmo.2022.compare %>% select(DateTimeAK, AirPressureCorrectedSTRT, AirPressureSTRT )
+
+  ### Using mostly our air pressure data with gap filled in by Eilson:
+#STRT.atmo.2022.compare$strt.combo <- c()
+#STRT.atmo.2022.compare<- STRT.atmo.2022.compare %>%
+#  mutate(strt.combo = ifelse(DateTimeAK <= "2022-05-18" | DateTimeAK >= "2022-06-03", #AirPressureSTRT, AirPressureCorrectedSTRT))
+
+#STRT.atmo.2022.compare<- STRT.atmo.2022.compare %>%
+#  mutate(across(c(strt.combo), 
+#                ~ifelse(DateTimeAK >= "2022-07-18" & DateTimeAK <= "2022-09-03" | DateTimeAK >= "2022-09-08", AirPressureCorrectedSTRT, .)))
+
+#STRT.atmo.2022.compare %>% filter(DateTimeAK > "2022-05-01") %>% ggplot() + geom_point(aes(DateTimeAK, strt.combo)) #+ geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT), color = "red", cex = 0.5)
+```
+
+Our air pressure is so messy: lets use Eielson air pressure
+```{r, warning = FALSE, message = FALSE}
+# join the two atmospheric and water pressure together
+STRT.2022 <- left_join(eielson.atmo.2022.compare, strt.final.pressure.2022, by = "DateTimeAK")
+
+# Water pressure - atmospheric pressure 
+STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$AirPressureCorrectedSTRT
+
+STRT.2022 <-  STRT.2022 %>% filter(!difference %in% NA)
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+### Filter STRT ###
+QSummary.ST.2022 <- QSummary.2022 %>% filter(Site =="STRT")
+
+ggplot(QSummary.ST.2022) +
+  geom_point(aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("STRT") 
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+# trying to merge by nearest date if we have an offset point 
+STRT.2022.dt <- setDT(STRT.2022)
+QSummary.ST.2022.dt <- QSummary.ST.2022
+
+Stuart1comb.2022 <- STRT.2022.dt[QSummary.ST.2022.dt, on = "DateTimeAK", roll = 'nearest']
+
+```
+
+```{r}
+### Filter STRT ###
+strt.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart all measured Q")
+
+```
+
+Not so bad. Stuart looks like a quadratic relationship might fit better.
+
+```{r}
+strt.formula <- y ~ poly(x, 2, raw = TRUE)
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart measured Q")
+```
+
+The relationship is not strong at low Q. Lets remove the two points with difference > 4.8 and MeasuredQ_Ls < 800.
+
+```{r}
+strt.formula <- y ~ poly(x, 2, raw = TRUE)
+Stuart1comb.2022.2 <- Stuart1comb.2022 %>% filter(difference < 4.8 | MeasuredQ_Ls > 800)
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart measured Q")
+```
+
+```{r, message = FALSE, warning = FALSE}
+## Predict STRT Q
+STRT1.lm.2022 <- lm(Stuart1comb.2022.2$MeasuredQ_Ls ~ Stuart1comb.2022.2$difference + I(Stuart1comb.2022.2$difference^2))
+summary(STRT1.lm.2022)
+
+STRT.2022.dt$pred.strt1.Q <- coef(STRT1.lm.2022)[2] * STRT.2022.dt$difference + coef(STRT1.lm.2022)[3] * I(STRT.2022.dt$difference^2) + coef(STRT1.lm.2022)[1]
+
+STRT.2022.dt %>% na.omit() %>% ggplot(aes(x = DateTimeAK, y = pred.strt1.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = Stuart1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("STRT predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)") 
+
+```
+
+
+
+
+I'll try a curve with just wading rod points.
+
+```{r}
+strt.formula <- y ~ poly(x, 2, raw = TRUE)
+Stuart1comb.2022.3 <- Stuart1comb.2022 %>% filter(difference < 4.8 | MeasuredQ_Ls > 800, Method == "Wading Rod")
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.3) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart measured Q")
+```
+
+Have we cheated? Let me check how low the R2 is when difference < 5.
+
+```{r}
+strt.formula <- y ~ x
+Stuart1comb.2022.4 <- Stuart1comb.2022 %>% filter(difference < 4.8 | MeasuredQ_Ls > 800, difference < 5, Method == "Wading Rod")
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.4) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Stuart measured Q")
+```
+
+Here is the predicted Q using the Q curve with all but one wading rod point.
+
+```{r, message = FALSE, warning = FALSE}
+## Predict STRT Q
+STRT1.lm.2022.2 <- lm(Stuart1comb.2022.3$MeasuredQ_Ls ~ Stuart1comb.2022.3$difference + I(Stuart1comb.2022.3$difference^2))
+summary(STRT1.lm.2022.2)
+
+STRT.2022.dt$pred.strt1.Q.2 <- coef(STRT1.lm.2022.2)[2] * STRT.2022.dt$difference + coef(STRT1.lm.2022.2)[3] * I(STRT.2022.dt$difference^2) + coef(STRT1.lm.2022.2)[1]
+
+STRT.2022.dt %>% na.omit() %>% ggplot(aes(x = DateTimeAK, y = pred.strt1.Q.2)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = Stuart1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("STRT predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)") 
+
+```
+Is this better than the first one?
+
+
+### FRCH ###
+
+```{r, message = FALSE, warning = FALSE}
+frch.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRkT5GIhFY4nLblzPi4Upc8y6Pk2k4vXLSGAkFyMhLowsCmct0fZ5rxm-vd85RfFr7YLrCuuSiOqQbL/pub?output=csv"
+frch.stream.two.2022.url <-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiDAbzBj_jHk1Hd3iM7fFvzMrRCSF9fbKTcmQD_dUFGOjoIQuBZBKV4KdNhfevLOq0Udch0LbWiKXw/pub?output=csv"
+
+# load in url
+frch.stream.one.2022 <- read.csv(url(frch.stream.one.2022.url), skip = 1) 
+frch.stream.two.2022 <- read.csv(url(frch.stream.two.2022.url), skip = 1) 
+
+# clean for merging purposes
+frch.stream.one.2022 <- frch.stream.one.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
+
+frch.stream.two.2022 <- frch.stream.two.2022[, -c(5:14)] # removing columns that arent date/abs pressure and temp
+
+# changing to AK time (It reads in as GMT but it is actually AKST )
+frch.stream.one.2022$DateTimeAK <- mdy_hms(frch.stream.one.2022$Date.Time..GMT.08.00)
+
+frch.stream.two.2022$DateTimeAK <- mdy_hms(frch.stream.two.2022$Date.Time..GMT.08.00)
+
+frch.stream.two.2022$DateTimeAK <- force_tz(frch.stream.two.2022$DateTimeAK, tzone = "America/Anchorage")
+
+frch.stream.one.2022$DateTimeAK <- force_tz(frch.stream.one.2022$DateTimeAK, tzone = "America/Anchorage")
+
+# cleaning off original datetime 
+frch.stream.one.2022 <- frch.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+frch.stream.two.2022 <- frch.stream.two.2022[, -c(2)] # removing columns that arent 
+
+names(frch.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+names(frch.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+# Take average at 30 min interval
+frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "30 minutes")
+frch.stream.one.2022$DateTimeAK <- lubridate::round_date(frch.stream.one.2022$DateTimeAK, "30 minutes")
+frch.stream.two.2022 <- frch.stream.two.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
+frch.stream.one.2022 <- frch.stream.one.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
+
+
+# merge to one 
+frch.final.pressure.2022 <- left_join(frch.stream.one.2022, frch.stream.two.2022, by = c("DateTimeAK"))
+
+
+```
+
+
+```{r, , message = FALSE, warning = FALSE}
+ggplot(frch.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This looks like the best one yet...we need to remove the out of water points 
+
+```{r, message = FALSE, warning = FALSE}
+frch.stream.one.2022 <- frch.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-05-09" & DateTimeAK <= "2022-05-12", NA, .))) # PT wasnt placed into the stream until 5/12
+
+frch.stream.one.2022 <- frch.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-01" & DateTimeAK <= "2022-08-15" &
+  WaterPressure < 102, NA, .))) %>% filter(WaterPressure > 98.4) # PT wasnt placed into the stream until 5/12
+
+frch.stream.one.2022 <- frch.stream.one.2022 %>% filter(DateTimeAK < "2022-10-10 10:30:00")
+
+ggplot(frch.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This looks better 
+
+```{r, message = FALSE, warning = FALSE}
+ggplot(frch.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+PT2 also looks good...let me remove that one point in august that is below everything else
+
+```{r, message = FALSE, warning = FALSE}
+frch.stream.two.2022 <- frch.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-01" & DateTimeAK <= "2022-08-15" &
+  WaterPressure < 100, NA, .))) %>% filter(WaterPressure > 98.4)# PT wasnt placed into the stream until 5/12
+
+# Shift step in August
+frch2.before <- frch.stream.two.2022[c(1:2685), ]
+frch2.after <- frch.stream.two.2022[c(2687:40000), ]
+frch.stream.two.2022[2685, 2] - frch.stream.two.2022[2687, 2] # 1.5485
+frch2.after$WaterPressure <- frch2.after$WaterPressure + 1.5485
+frch.stream.two.2022 <- rbind(frch2.before, frch2.after)
+
+frch.stream.two.2022 <- frch.stream.two.2022 %>% filter(DateTimeAK < "2022-10-10 10:30:00")
+
+frch.stream.two.2022 %>% #filter(DateTimeAK > "2022-10-05") %>% 
+  ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+# Checking closeness between two PTs
+frch.pt.both <- full_join(frch.stream.one.2022, frch.stream.two.2022, by = "DateTimeAK")
+
+ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = frch.pt.both) +
+  geom_point(aes(x=DateTimeAK, y=WaterPressure.x), data = frch.pt.both, color="#A6CEE3") +
+  geom_point(aes(x=DateTimeAK, y=WaterPressure.y), data = frch.pt.both, color="#FF7F00") +
+  theme_classic() +
+  ggtitle("FRCH PT1(blue) & FRCH PT2(orange) Water Pressure") 
+
+```
+
+They look the same. Lets use PT1 except to fill the gap in July.
+
+```{r, message = FALSE, warning = FALSE}
+frch.pt.both$WaterPressure.merged <- ifelse(frch.pt.both$DateTimeAK >= "2022-07-23 17:00:00" & frch.pt.both$DateTimeAK <= "2022-08-02 12:00:00", frch.pt.both$WaterPressure.y, frch.pt.both$WaterPressure.x)
+
+
+frch.pt.both %>% filter(DateTimeAK > "2022-07-01" & DateTimeAK < "2022-08-01") %>%
+  ggplot(aes(x = DateTimeAK, y = WaterPressure.merged)) +
+  geom_point()
+```
+
+```{r, message = FALSE, warning = FALSE}
+## Clean merged water pressure data
+
+# Shift step in July
+frch.before <- frch.pt.both[c(1:3488), ]
+frch.after <- frch.pt.both[c(3489:40000), ]
+frch.pt.both[3488, 4] - frch.pt.both[3489, 4] # 1.914
+frch.after$WaterPressure.merged <- frch.after$WaterPressure.merged + 1.914
+frch.pt.both <- rbind(frch.before, frch.after)
+
+frch.pt.both <- frch.pt.both %>% filter(!DateTimeAK %in% NA)
+
+frch.pt.both %>% #filter(DateTimeAK > "2022-08-01" & DateTimeAK < "2022-08-05") %>%
+  ggplot(aes(x = DateTimeAK, y = WaterPressure.merged)) +
+  geom_point()
+```
+
+```{r, message = FALSE, warning = FALSE}
+# join the two atmospheric and water pressure together
+
+frch.final.pressure.2022 <- frch.pt.both
+
+FRCH.2022 <- left_join(eielson.atmo.2022.compare, frch.final.pressure.2022, by = "DateTimeAK")
+
+
+# Water pressure - atmospheric pressure 
+FRCH.2022$difference <- FRCH.2022$WaterPressure.merged - FRCH.2022$AirPressureCorrectedFRCH
+
+names(FRCH.2022)[names(FRCH.2022) == 'Site.x'] <- 'Site'
+
+FRCH.2022$Site <- "FRCH"
+
+FRCH.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
+  #filter(DateTimeAK > "2022-09-18" & DateTimeAK < "2022-09-22") %>%
+  ggplot(aes(DateTimeAK, WaterPressure.merged)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedFRCH)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
+ggtitle("FRCH air and water pressure")
+```
+
+```{r, message = FALSE, warning = FALSE}
+### Filter FRCH ###
+QSummary.FR.2022 <- QSummary.2022 %>% filter(Site =="FRCH")
+
+ggplot(QSummary.FR.2022) +
+  geom_point(aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method, color = Site), size=3) +
+  theme_classic() +
+  scale_color_manual(values=c("#FF7F00")) + 
+  ggtitle("FRCH") 
+
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+# trying to merge by nearest date if we have an offset point 
+FRCH.2022.dt <- setDT(FRCH.2022)
+QSummary.FR.2022.dt <- QSummary.FR.2022
+
+French1comb.2022 <- FRCH.2022.dt[QSummary.FR.2022.dt, on = "DateTimeAK", roll = 'nearest']
+
+FRCH1.lm.2022 <- lm(French1comb.2022$MeasuredQ_Ls ~ French1comb.2022$difference)
+
+```
+
+```{r, message = FALSE, warning = FALSE}
+# rating curve # 
+frch.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("French1 all measured Q")
+
+```
+
+Lets try seperate rating curves by method.
+
+```{r, message = FALSE, warning = FALSE}
+# rating curve # 
+frch.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  #xlim(216, 216.4) +
+  #ylim(0,1500) +
+  theme_light() +
+  ggtitle("French all measured Q") + facet_wrap(~Method)
+
+```
+
+Not good. How about a rating curve just with the wading rod measurements and the 3 low YSI points?
+
+```{r, message = FALSE, warning = FALSE}
+French1comb.2022.2 <- French1comb.2022 %>% filter(MeasuredQ_Ls < 430)
+# rating curve # 
+frch.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  #xlim(216, 216.4) +
+  #ylim(0,1500) +
+  theme_light() +
+  ggtitle("French measured Q")
+
+```
+
+Not good at low Q, but lets add back in the two high difference YSI points.
+
+```{r, message = FALSE, warning = FALSE}
+French1comb.2022.3 <- French1comb.2022 %>% filter(MeasuredQ_Ls < 430 | difference > 10)
+# rating curve # 
+frch.formula <- y ~ x
+
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022.3) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  #xlim(216, 216.4) +
+  #ylim(0,1500) +
+  theme_light() +
+  ggtitle("French measured Q")
+
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+## Predict STRT Q
+FRCH.lm.2022 <- lm(French1comb.2022.3$MeasuredQ_Ls ~ French1comb.2022.3$difference)
+summary(FRCH.lm.2022)
+
+FRCH.2022.dt$pred.frch.Q <- coef(FRCH.lm.2022)[2] * FRCH.2022.dt$difference + coef(FRCH.lm.2022)[1]
+
+FRCH.2022.dt <- FRCH.2022.dt %>% filter(!pred.frch.Q %in% NA)
+
+FRCH.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = French1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("FRCH predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")
+
+```
+This doesn't fit well at low Q especially.
+
+
+
+### VAUL ###
+
+```{r, message = FALSE, warning = FALSE}
+vaul.stream.one.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQf78OhtBtjvs6HmnEVPJ0PVYSlpIjVAom5VIv12LhZDMbezaFb-LJCGMZUoyVjLJI-pqizM-Be2hbl/pubhtml"
+vaul.stream.two.2022.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSR7qqdF5BXklT1ocG9bLLUwJ07ha8qmzAVRPaUjm7mUq12VptmViI9NJcW1-jO4cu0KtHBLl90A4DZ/pub?output=csv"
+
+# load in url
+vaul.stream.one.2022 <- read.csv(url(vaul.stream.one.2022.url), skip = 1) 
+vaul.stream.two.2022 <- read.csv(url(vaul.stream.two.2022.url), skip = 1) 
+
+# clean for merging purposes
+vaul.stream.one.2022 <- vaul.stream.one.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
+
+vaul.stream.two.2022 <- vaul.stream.two.2022[, -c(5:13)] # removing columns that arent date/abs pressure and temp
+
+# changing to AK time (It reads in as GMT but it is actually AKST )
+
+vaul.stream.two.2022$DateTimeAK <- mdy_hms(vaul.stream.two.2022$Date.Time..GMT.08.00)
+
+vaul.stream.two.2022$DateTimeAK <- force_tz(vaul.stream.two.2022$DateTimeAK, "America/Anchorage")
+
+#vaul.stream.one.2022$DateTimeAK <- mdy_hms(vaul.stream.one.2022$Date.Time..GMT.08.00)
+
+#vaul.stream.one.2022$DateTimeAK <- force_tz(vaul.stream.one.2022$DateTimeAK, "America/Anchorage")
+
+
+# round date to 5 minute intervals
+#vaul.stream.one.2022$DateTimeAK <- lubridate::round_date(vaul.stream.one.2022$DateTimeAK, "5 minutes")
+vaul.stream.two.2022$DateTimeAK <- lubridate::round_date(vaul.stream.two.2022$DateTimeAK, "5 minutes")
+
+# cleaning off original datetime 
+#vaul.stream.one.2022 <- vaul.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
+vaul.stream.two.2022 <- vaul.stream.two.2022[, -c(2)] # removing columns that arent 
+
+#names(vaul.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+names(vaul.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
+
+ggplot(vaul.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+This is the raw record of VAUL pressure. The beginning is airpressure and then there is a gap as we had a relaunch issue. 
+
+```{r, message = FALSE, warning = FALSE}
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK <= "2022-05-26", NA, .))) # PT wasnt placed into the stream until 5/26
+
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-15" & DateTimeAK <= "2022-08-31" &
+  WaterPressure < 98, NA, .)))
+
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-09-20" & DateTimeAK <= "2022-10-01" &
+  WaterPressure < 98, NA, .)))
+
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-10-10" &
+  WaterPressure < 99, NA, .)))
+
+# Clear up strange messiness on 10/11
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK > "2022-10-11 13:55:00" & DateTimeAK < "2022-10-11 19:10:00", NA, .)))
+a <- vaul.stream.two.2022 %>% filter(DateTimeAK == "2022-10-11 13:55:00")
+b<- vaul.stream.two.2022 %>% filter(DateTimeAK == "2022-10-11 19:10:00")
+a$WaterPressure-b$WaterPressure # 0.924
+
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK < "2022-10-11 19:10:00", WaterPressure, WaterPressure + 0.924)))
+
+vaul.stream.two.2022 %>% 
+  #filter(DateTimeAK > "2022-10-10") %>% 
+  ggplot( aes(x = DateTimeAK, y = WaterPressure))+
+  geom_point() +
+  theme_classic()
+
+```
+
+That is better. Crazy how fast the water level comes down at VAUL
+
+```{r, message = FALSE, warning = FALSE}
+# Join the atmospheric and water pressure together
+vaul.final.pressure.2022 <- vaul.stream.two.2022
+# Eielson atmosphere data
+VAUL.2022 <- left_join(eielson.atmo.2022.compare, vaul.final.pressure.2022 , by = "DateTimeAK")
+
+# Water pressure - atmospheric pressure 
+VAUL.2022$difference <- VAUL.2022$WaterPressure - VAUL.2022$AirPressureCorrectedVAUL
+
+VAUL.2022 <-  VAUL.2022[ , -which(names(VAUL.2022) %in% c("TempC"))] # removing columns I do not need
+
+VAUL.2022$Site <- "VAUL"
+
+# Plot air and water pressure
+VAUL.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
+  ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedVAUL), color = "red") +
+  ggtitle("VAUL air and water pressure")
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+vaul.final.pressure.2022.2 <- vaul.final.pressure.2022
+
+VAUL.2022.2 <- left_join(eielson.atmo.2022.compare, vaul.final.pressure.2022.2, by = "DateTimeAK") %>% filter(DateTimeAK > "2022-05-24")
+
+# Water pressure - atmospheric pressure 
+VAUL.2022.2$difference <- VAUL.2022.2$WaterPressure - VAUL.2022.2$AirPressureCorrectedVAUL
+
+
+# Plot difference
+VAUL.2022.2 %>% ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("VAUL difference")
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+### Filter VAUL ###
+# Remove measurements during pressure gap!
+QSummary.VA.2022 <- QSummary.2022 %>% filter(Site =="VAUL") %>% filter(DateTimeAK < "2022-06-07" | DateTimeAK > "2022-08-01")
+
+ggplot(QSummary.VA.2022) +
+  geom_point(aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method, color = Site), size=3) +
+  theme_classic() +
+  scale_color_manual(values=c("#E7298A")) + 
+  ggtitle("VAUL") 
+
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+# Merge by nearest date if we have an offset point 
+VAUL.2022.dt <- setDT(VAUL.2022.2) %>% filter(!WaterPressure %in% NA)
+QSummary.VA.2022.dt <- QSummary.VA.2022 %>% filter(DateTimeAK > "2022-05-25" & DateTimeAK < "2022-10-01")
+
+Vault1comb.2022 <- VAUL.2022.dt[QSummary.VA.2022.dt, on = "DateTimeAK", roll = 'nearest']
+```
+
+```{r}
+# rating curve # 
+vaul.formula <- y ~ x
+
+Vault1comb.2022  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Vault all measured Q")
+```
+
+That very high difference could be accurate, but necessary to remove for curve. Let's also remove the two low difference, high Q points.
+
+```{r}
+# Remove high difference point
+Vault1comb.2022.2 <- Vault1comb.2022 %>% filter(MeasuredQ_Ls < 200)
+
+# rating curve # 
+vaul.formula <- y ~ x
+
+Vault1comb.2022.2  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Vault measured Q")
+
+```
+
+Let's try curve with wading rod and YSI averaged by date.
+
+```{r}
+Vault1comb.2022.3 <- Vault1comb.2022.2 %>% group_by(Date) %>% summarise(MeasuredQ_Ls = mean(MeasuredQ_Ls),
+difference = mean(difference))
+
+# rating curve # 
+vaul.formula <- y ~ x
+
+Vault1comb.2022.3 %>% filter(MeasuredQ_Ls < 150) %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Vault measured Q averaged by date")
+```
+
+Let's try separate curves for YSI and wading rod
+
+```{r}
+
+# rating curve # 
+vaul.formula <- y ~ x
+
+Vault1comb.2022.2  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  #xlim(216, 216.4) +
+  #ylim(0,1500) +
+  theme_light() +
+  ggtitle("Vault measured Q by method") + facet_wrap(~Method)
+```
+
+Maybe the best we can do is using the wading rod points with a couple low YSI points.
+
+```{r}
+# Remove high difference point
+Vault1comb.2022.3 <- Vault1comb.2022 %>% filter(MeasuredQ_Ls < 130)
+
+# rating curve # 
+vaul.formula <- y ~ x
+
+Vault1comb.2022.3  %>% ggplot(aes(x = difference, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula,
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+               parse = TRUE) +
+  theme_light() +
+  ggtitle("Vault measured Q")
+
+```
+
+```{r, message = FALSE, warning = FALSE}
+## Predict VAUL Q
+VAUL.lm.2022 <- lm(Vault1comb.2022.3$MeasuredQ_Ls ~ Vault1comb.2022.3$difference)
+summary(VAUL.lm.2022)
+
+VAUL.2022.dt$pred.vaul.Q <- coef(VAUL.lm.2022)[2] * VAUL.2022.dt$difference + coef(VAUL.lm.2022)[1]
+
+VAUL.2022.dt <- VAUL.2022.dt %>% select(DateTimeAK, pred.vaul.Q) %>% na.omit()
+
+VAUL.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.vaul.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = Vault1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("VAUL predicted and measured Q") +
+  xlab("Date") +
+  ylab("Discharge (L/s)")
+
+```
+
+
+### Export 2022 predicted Q
+```{r}
+names(FRCH.2022.dt)
+pred_Q.1 <- full_join(VAUL.2022.dt, MOOS.2022.dt)
+pred_Q.2 <- full_join(pred_Q.1, POKE.2022.dt)
+pred_Q.3 <- full_join(STRT.2022.dt[,c(1,10)], FRCH.2022.dt[,c(1,12)])
+pred_Q_2022 <- full_join(pred_Q.2, pred_Q.3)
+
+names(pred_Q_2022) <- c("DateTimeAK", "pred.vaul.Q", "pred.moos.Q", "pred.poke.Q", "pred.strt.Q", "pred.frch.Q")
+write.csv(pred_Q_2022, "Predicted_Q_2022.csv")
+pred_Q_2022 %>% ggplot() + geom_line(aes(DateTimeAK, pred.vaul.Q), col = 1)+ geom_line(aes(DateTimeAK, pred.moos.Q), col = 2)+ geom_line(aes(DateTimeAK, pred.poke.Q), col = 3)+ geom_line(aes(DateTimeAK, pred.strt.Q), col = 4)+ geom_line(aes(DateTimeAK, pred.frch.Q), col = 5) + ylab("Predicted Q")
+```
