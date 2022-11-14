@@ -1,0 +1,1423 @@
+---
+title: "2020 Q"
+author: "Jake Cavaiani"
+date: "11/13/2020"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(TZ='America/Anchorage')
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(lubridate)
+library(rio)
+library(neonUtilities)
+library(raster)
+library(data.table)
+library(scales)
+library(psych)
+library(here)
+library(googledrive)
+library(readxl)
+library(cowplot)
+library(zoo)
+library(RColorBrewer)
+library(gridExtra)
+library(ggpmisc)
+library(imputeTS)
+library(itsmr)
+library(here)
+
+```
+
+### 2020
+2020 (Moose, French, Poker, Vault, Stuart), and 2021 (Moose, French, Poker, Vault, Stuart), clean out of water points, potentially erroneous points collected, beaver dams, etc. and prepare to convert to continuous predicted discharge (Q) throuhgout the year. 
+
+2020 data is read in from DoD Project->2020 AK sensors->Discharge->Pressure Transducer->Water Level->"site"
+
+```{r, include=FALSE, warning=FALSE}
+# Import processed Q data
+### Import Data ###
+moos.stream.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_IoyPoUK6tDeBoPsTibXES49eORxi6SUzt5Df3iSmMmIXncaIAQWlsmzKwjecJelrcKDL3rryyKjS/pub?output=csv"
+moos.stream.2020.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRb88DUzb4g2wJjmw0wfBatqS6Hg90epELO1sMlnQfzuI0t7aTWuqXYIY18r-T8mt0koTH4gc041PxL/pub?output=csv"
+frch.stream.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ0F4a3e4MTwKTChJmS3GTwC_ENETsM_CoJNq6awdnXzXnl1nQKizm63JjFg3WUbXZusXBLt_DNcMX/pub?output=csv"
+frch.stream.2020.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJhzv4dunVMRCmolhShz29XDicFk2wFafUUC4ZDWaOs7z-5Q--vEJWCcYJsVEikjXYql6fc3TZV63/pub?output=csv"
+strt.stream.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSE57c7ol5XBElx6nIOm4fl4UFB5qgffo49nSw2RuJ_kIZAC43vLusqtjQy5h2h3bNikmJwDvIBEO7X/pub?output=csv"
+strt.stream.2020.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vSPRQxqqKl_N36uEzbMC1_T5v8k67aUyJhhMYZvsmwJKafU2NmL1NtbmOW8BvtqWqxSTY3ndYnjzy_f/pub?output=csv"
+vaul.stream.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVA4AxNNaYJY6hJCD7c7Y4jloR68x1Zols2Grg7xiKx-gVQlqh5yb3e3L5XkFUXyRn0GnD1nRi_XXJ/pub?output=csv"
+poke.stream.2020.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwtaiz8D9c4QelUMsM5BwCMu4lu_Eqlo6IwTC0s-MXE-a075hQ4xgEvMovGrrMuv9_qX7cCYJvISrN/pub?output=csv"
+poke.stream.2020.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQuyeltwK25QUepwlUKTSL9SAFCwgTtxs6YscILt_npSKjFV1mY5DVrs-RxGivvpg7ZCKfGuej0DOJO/pub?output=csv"
+
+# Load Data#
+moos.stream.one.2020 <- read.csv(url(moos.stream.2020.url), skip = 491) # started in lab it looks like 
+moos.stream.two.2020 <- read.csv(url(moos.stream.2020.url.two), skip = 1)
+
+frch.stream.one.2020 <- read.csv(url(frch.stream.2020.url), skip = 1)
+frch.stream.two.2020 <- read.csv(url(frch.stream.2020.url.two), skip = 4)
+
+
+strt.stream.one.2020 <- read.csv(url(strt.stream.2020.url), skip = 1)
+strt.stream.two.2020 <- read.csv(url(strt.stream.2020.url.two), skip = 1)
+
+vaul.stream.2020 <- read.csv(url(vaul.stream.2020.url), skip = 1)
+
+poke.stream.one.2020 <- read.csv(url(poke.stream.2020.url), skip = 1)
+poke.stream.two.2020 <- read.csv(url(poke.stream.2020.url.two), skip = 1)
+
+# Rename columns #
+names(moos.stream.one.2020) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(moos.stream.two.2020) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+names(frch.stream.one.2020) <- c("Site", "DateTimeGMT", "Absolute Pressure", "WaterLevel")
+names(frch.stream.two.2020) <- c("Site", "DateTimeGMT", "Absolute Pressure", "WaterLevel")
+
+names(strt.stream.one.2020) <- c("Site", "DateTimeGMT", "Absolute Pressure", "WaterLevel")
+names(strt.stream.two.2020) <- c("Site", "DateTimeGMT", "Absolute Pressure", "WaterLevel")
+
+names(vaul.stream.2020) <- c("Site", "DateTimeGMT", "Absolute Pressure", "WaterLevel")
+
+names(poke.stream.one.2020) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+names(poke.stream.two.2020) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WaterLevel")
+
+# Input NA for missing time #
+moos.stream.one.2020$DateTimeGMT[moos.stream.one.2020$DateTimeGMT == ""] <- NA
+moos.stream.two.2020$DateTimeGMT[moos.stream.two.2020$DateTimeGMT == ""] <- NA
+
+frch.stream.one.2020$DateTimeGMT[frch.stream.one.2020$DateTimeGMT == ""] <- NA
+frch.stream.two.2020$DateTimeGMT[frch.stream.two.2020$DateTimeGMT == ""] <- NA
+
+strt.stream.one.2020$DateTimeGMT[strt.stream.one.2020$DateTimeGMT == ""] <- NA
+strt.stream.two.2020$DateTimeGMT[strt.stream.two.2020$DateTimeGMT == ""] <- NA
+
+vaul.stream.2020$DateTimeGMT[vaul.stream.2020$DateTimeGMT == ""] <- NA
+
+poke.stream.one.2020$DateTimeGMT[poke.stream.one.2020$DateTimeGMT == ""] <- NA
+poke.stream.two.2020$DateTimeGMT[poke.stream.two.2020$DateTimeGMT == ""] <- NA
+
+
+# Convert time and put in AK time #
+moos.stream.one.2020$DateTime <- mdy_hms(moos.stream.one.2020$DateTimeGMT, tz = "GMT")
+attributes(moos.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
+moos.stream.two.2020$DateTime <- mdy_hms(moos.stream.two.2020$DateTimeGMT, tz = "GMT")
+attributes(moos.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+
+frch.stream.one.2020$DateTime <- mdy_hms(frch.stream.one.2020$DateTimeGMT, tz = "GMT")
+attributes(frch.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
+frch.stream.two.2020$DateTime <- mdy_hms(frch.stream.two.2020$DateTimeGMT, tz = "GMT")
+attributes(frch.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+
+strt.stream.one.2020$DateTime <- mdy_hms(strt.stream.one.2020$DateTimeGMT, tz = "GMT")
+attributes(strt.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
+strt.stream.two.2020$DateTime <- mdy_hms(strt.stream.two.2020$DateTimeGMT, tz = "GMT")
+attributes(strt.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+
+vaul.stream.2020$DateTime <- mdy_hms(vaul.stream.2020$DateTimeGMT, tz = "GMT")
+attributes(vaul.stream.2020$DateTime)$tzone <- 'America/Anchorage'
+
+poke.stream.one.2020$DateTime <- mdy_hms(poke.stream.one.2020$DateTimeGMT, tz = "GMT")
+attributes(poke.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
+poke.stream.two.2020$DateTime <- mdy_hms(poke.stream.two.2020$DateTimeGMT, tz = "GMT")
+attributes(poke.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+
+# Observed discharge
+# Import data from google drive #
+
+discharge.2020 <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTPrFKu3yyEDEDkxPVJW2vIWznwmSUcwuNlHInDmrD4EjOQYAkHmtnWJXRT1toDa74ptmHj4O1My3xw/pub?output=csv"
+QSummary.2020 <- read.csv(url(discharge.2020))
+QSummary.2020 <-  subset(QSummary.2020, select = -c(X2019, Notes, Average, X, Observations, X.1, X2020, average.as.of.8.29., X.2, observations.as.of.8.29.)) # Cleaning columns that are not important to the dataset
+QSummary.2020$date <- mdy(QSummary.2020$Date)
+QSummary.2020$DateTime <- as.POSIXct(paste(QSummary.2020$date, QSummary.2020$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+
+#FRCH_RainGauge_2020 <- read.csv("~/Documents/DoD_2020/RainGauge/FRCH.RainGauge.2020.csv")
+#FRCH_RainGauge_2020$DateTime <-  ymd_hms(FRCH_RainGauge_2020$DateTime)
+#attributes(FRCH_RainGauge_2020$DateTime)$tzone <-'America/Anchorage'
+
+#POKE_RainGauge_2020 <- read.csv("~/Documents/DoD_2020/RainGauge/POKE.RainGauge.2020.csv")
+#POKE_RainGauge_2020$DateTime <-  ymd_hms(POKE_RainGauge_2020$DateTime)
+#attributes(POKE_RainGauge_2020$DateTime)$tzone <-'America/Anchorage'
+
+#STRT_RainGauge_2020 <- read.csv("~/Documents/DoD_2020/RainGauge/STRT.RainGauge.2020.csv")
+#STRT_RainGauge_2020$DateTime <-  ymd_hms(STRT_RainGauge_2020$DateTime)
+#attributes(STRT_RainGauge_2020$DateTime)$tzone <-'America/Anchorage'
+
+#VAUL_RainGauge_2020 <- read.csv("~/Documents/DoD_2020/RainGauge/VAUL.RainGauge.2020.csv")
+#VAUL_RainGauge_2020$DateTime <-  ymd_hms(VAUL_RainGauge_2020$DateTime)
+#attributes(VAUL_RainGauge_2020$DateTime)$tzone <-'America/Anchorage'
+
+```
+
+## Comparing PTs
+
+```{r, echo=FALSE, warning=FALSE}
+# Combine the two PT into one #
+moos.stream.two.2020 <- moos.stream.two.2020[1:nrow(moos.stream.one.2020),]
+moos.stream.one.2020$Site <- "MOOS1" #add column identifier
+moos.stream.two.2020$Site <- "MOOS2"
+moos.pt.2020 <- bind_rows(moos.stream.one.2020, moos.stream.two.2020)
+
+frch.stream.two.2020 <- frch.stream.two.2020[1:nrow(frch.stream.one.2020),]
+frch.stream.one.2020$Site <- "FRCH1" #add column identifier
+frch.stream.two.2020$Site <- "FRCH2"
+frch.pt.2020 <- bind_rows(frch.stream.one.2020, frch.stream.two.2020)
+
+strt.stream.two.2020 <- strt.stream.two.2020[1:nrow(strt.stream.one.2020),]
+strt.stream.one.2020$Site <- "STRT1" #add column identifier
+strt.stream.two.2020$Site <- "STRT2"
+strt.pt.2020 <- bind_rows(strt.stream.one.2020, strt.stream.two.2020)
+
+vaul.stream.2020$Site <- "VAUL" #add column identifier
+vaul.pt.2020 <- vaul.stream.2020
+names(vaul.pt.2020) <- c("Site", "DateTimeGMT", "AbsolutePressure", "MeanWL", "DateTime")
+
+poke.stream.two.2020 <- poke.stream.two.2020[1:nrow(poke.stream.one.2020),]
+poke.stream.one.2020$Site <- "POKE1" #add column identifier
+poke.stream.two.2020$Site <- "POKE2"
+poke.pt.2020 <- bind_rows(poke.stream.one.2020, poke.stream.two.2020)
+
+# Checking closeness between two PT #
+plot(x = moos.stream.one.2020$WaterLevel, y = moos.stream.two.2020$WaterLevel, main = "Moose PT comparison",
+     xlab = "Moose1PT", 
+     ylab = "Moose2PT")
+
+```
+
+Some erroneous points but not bad. a slight shift 
+
+## Comparing FRCH
+
+```{r, echo=FALSE, warning=FALSE}
+plot(x = frch.stream.one.2020$WaterLevel, y = frch.stream.two.2020$WaterLevel, main = "French PT comparison",
+     xlab = "French1 PT", 
+     ylab = "French2 PT")
+
+```
+
+Pretty good, have to clean some of those points 
+
+## Comparing FRCH
+
+```{r, echo=FALSE, warning=FALSE}
+plot(x = strt.stream.one.2020$WaterLevel, y = strt.stream.two.2020$WaterLevel, main = "Stuart PT comparison",
+     xlab = "Stuart1 PT", 
+     ylab = "Stuart2 PT")
+
+```
+
+Same as French, some erroneous points that will need to be cleaned 
+
+```{r, echo=FALSE, warning=FALSE}
+plot(x = poke.stream.one.2020$WaterLevel, y = poke.stream.two.2020$WaterLevel, main = "Poker PT comparison",
+     xlab = "Poker1 PT", 
+     ylab = "Poker2 PT")
+
+```
+
+One PT is definitely more noisy 
+
+
+## Observed Discharge at all sites for 2020
+
+Slugs and wading rods were used for 2020 observed Q
+
+```{r, echo=FALSE, fig.width=6, fig.height=4, warning=FALSE}
+# ALL Sites #
+all <- ggplot(QSummary.2020) +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, color=Site), size=3) +
+  theme_classic() +
+  scale_color_brewer(palette = "Set1") +
+  ggtitle("ALL SITES")
+all
+
+a <- QSummary.2020 %>% filter(Site == "MOOS") %>% 
+  ggplot() +
+  geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose")
+a
+
+b <- QSummary.2020 %>% filter(Site == "FRCH") %>% 
+  ggplot() +
+  geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("French")
+b
+
+c <- QSummary.2020 %>% filter(Site == "POKE") %>% 
+  ggplot() +
+  geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("Poker")
+c
+
+d <- QSummary.2020 %>% filter(Site == "VAUL") %>% 
+  ggplot() +
+  geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vault")
+d
+
+e <- QSummary.2020 %>% filter(Site == "STRT") %>% 
+  ggplot() +
+  geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
+  theme_classic() +
+  ggtitle("Stuart")
+e
+
+plot_grid(all, NA,
+          a, b,
+          c,d,
+          e,
+          nrow = 4, ncol = 2)
+```
+
+## Raw Moose PT1
+```{r, echo=FALSE, warning=FALSE}
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(moos.stream.one.2020$DateTime, moos.stream.one.2020$WaterLevel, type = 'l')
+
+```
+
+Noisy on the falling limb of first storm, potentially some out of water points in August and at the end of the season...Let the cleaning commence!
+
+
+```{r, echo=FALSE, warning=FALSE}
+moos.stream.one.2020 <- moos.stream.one.2020 %>% subset(moos.stream.one.2020$DateTime < "2020-10-14") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out
+moos.stream.one.2020[c(1115:1499, 6032:6038 ), 4] <- NA # Setting NA to noisy part of the data set from the 27th to 30th
+
+plot(moos.stream.one.2020$DateTime, moos.stream.one.2020$WaterLevel, type = 'l')
+
+# shifting the back end of the data up
+moos.stream.one.2020[6031, 4] # Last measurement before cleaning on 8/17 @ 04:45
+moos.stream.one.2020[6039, 4]# First measurement after cleaning on 8/17 @7:00
+moos.stream.one.2020[6031, 4] - moos.stream.one.2020[6039, 4] #0.116
+
+
+moos.stream.one.before <- moos.stream.one.2020[-c(6032:11578), ] # clipping off after cleaning
+moos.stream.one.after <- moos.stream.one.2020[-c(1:6031),] # clipping off before cleaning
+moos.stream.one.after$difference <- moos.stream.one.after[, 4] + 0.116
+names(moos.stream.one.after) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WLB4", "DateTime", "WaterLevel")
+moos.stream.one.2020.final <- full_join(moos.stream.one.before, moos.stream.one.after)
+
+moos.stream.one.2020.final <- na_kalman(moos.stream.one.2020.final)
+
+
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(moos.stream.one.2020.final$DateTime, moos.stream.one.2020.final$WaterLevel, type = 'l')
+
+
+
+
+```
+
+1) Clipped off data after 10/14 because thats when we took the PTs out
+2) Set receding limb of first big storm in June to NA due to "noisy-ness"
+3) clipped off errant points - vertical bars
+4) After clipping off errant points the back half of the data after August 8/17 @ 07:00 needed to be shifted up so I took the difference of the not matched points of the data and added the difference to the data following the clip 
+
+## Raw Moose PT2
+```{r, echo=FALSE, warning=FALSE}
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(moos.stream.two.2020$DateTime, moos.stream.two.2020$WaterLevel, type = 'l')
+
+```
+
+Need to adjust middle of August on and clip off out of water points associated with install or decomission 
+
+
+```{r, echo=FALSE, warning=FALSE}
+moos.stream.two.2020 <- moos.stream.two.2020 %>% subset(moos.stream.two.2020$DateTime < "2020-10-14") # cleaning data that is below 165.5 because those are errant and then before 10/14 because thats when we took the PTs out
+
+# shifting the back end of the data up
+moos.stream.two.2020[6030, 4] # Last measurement before cleaning
+moos.stream.two.2020[6038, 4] # first measurement after cleaning
+moos.stream.two.2020[6030, 4] - moos.stream.two.2020[6038, 4] #0.19 is the difference 
+
+moos.stream.two.before <- moos.stream.two.2020[-c(6031:11578), ]
+moos.stream.two.after <- moos.stream.two.2020[-c(1:6030), ]
+moos.stream.two.after$difference <- moos.stream.two.after[, 4] + 0.19
+names(moos.stream.two.after) <- c("Site", "DateTimeGMT", "AbsolutePressure", "WLB4", "DateTime", "WaterLevel")
+moos.stream.two.2020.final <- full_join(moos.stream.two.before, moos.stream.two.after)
+
+moos.stream.two.2020.final <- na_kalman(moos.stream.two.2020.final)
+
+
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(moos.stream.two.2020.final$DateTime, moos.stream.two.2020.final$WaterLevel, type = 'l')
+
+
+
+
+```
+
+1) Clipped off data after 10/14 because thats when we took the PTs out
+2) clipped off errant points (vertical bars)
+3) After clipping off errant points the back half of the data after August 8/17 @ 07:00 needed to be shifted up so I took the difference of the not matched points of the data and added the difference to the data following the clip 
+
+Export PT data to csv in DoD_Discharge->PT_data->2020
+```{r, echo=FALSE, warning=FALSE}
+moos.pt.2020 <- rbind(moos.stream.one.2020.final, moos.stream.two.2020.final)
+write.csv(moos.pt.2020, here("PT_data/2020/MOOS/moos.pt.2020.csv"))
+```
+
+Raw Rating Curve with MOOS PT1 
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.MO.2020 <- QSummary.2020 %>% filter(Site =="MOOS")
+
+moos.stream.one.2020.final$Site <- "MOOS"
+
+Moose1comb.2020 <- full_join(moos.stream.one.2020.final, QSummary.MO.2020)
+MOOS1.lm.2020 <- lm(Moose1comb.2020$MeasuredQ_Ls ~ Moose1comb.2020$WaterLevel)
+
+moos.formula <- y ~ x
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(165.75,166.5) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+
+```
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.MO.2020.1 <- QSummary.MO.2020[-c(1, 9,13,18), ]
+
+Moose2comb.2020 <- full_join(moos.stream.one.2020.final, QSummary.MO.2020.1)
+MOOS2.lm.2020 <- lm(Moose2comb.2020$MeasuredQ_Ls ~ Moose2comb.2020$WaterLevel)
+
+moos.formula <- y ~ x
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(165.75,166.5) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+
+```
+
+1) Removed the two highest YSI's, lowest YSI and one of high flowmeter that wasnt a very high waterlevel
+
+## Predict PT1 Q
+
+```{r, echo=FALSE, warning=FALSE}
+Moose2comb.2020$pred.moos1.Q <- coef(MOOS2.lm.2020)[2] * Moose2comb.2020$WaterLevel+ coef(MOOS2.lm.2020)[1]
+
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose2comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose1 predicted measured Q") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+```
+
+## Raw Rating Curve with MOOS PT2
+
+```{r, echo=FALSE, warning=FALSE}
+
+moos.stream.two.2020.final$Site <- "MOOS"
+
+Moose3comb.2020 <- full_join(moos.stream.two.2020.final, QSummary.MO.2020)
+MOOS3.lm.2020 <- lm(Moose3comb.2020$MeasuredQ_Ls ~ Moose3comb.2020$WaterLevel)
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose3comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(165.75,166.75) +
+  theme_classic() +
+  ggtitle("Moose2 all measured Q") 
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.MO.2020.2 <- QSummary.MO.2020[-c(13), ]
+
+
+Moose4comb.2020 <- full_join(moos.stream.two.2020.final, QSummary.MO.2020.2)
+MOOS4.lm.2020 <- lm(Moose4comb.2020$MeasuredQ_Ls ~ Moose4comb.2020$WaterLevel)
+
+moos.formula <- y ~ x
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose4comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+   xlim(165.75,166.75) +
+  theme_classic() +
+  ggtitle("Moose2 measured Q") 
+
+```
+
+1) Removed the highest and lowest YSI
+
+What about a curve with just wading rod points?
+
+```{r, echo=FALSE, warning=FALSE}
+Moose5comb.2020 <- Moose3comb.2020 %>% filter(!Method %in% "YSI") 
+MOOS5.lm.2020 <- lm(Moose5comb.2020$MeasuredQ_Ls ~ Moose5comb.2020$WaterLevel)
+
+moos.formula <- y ~ x
+Moose5comb.2020 %>% ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls)) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = moos.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+   xlim(165.75,166.75) +
+  theme_classic() +
+  ggtitle("Moose2 measured Q") 
+
+```
+
+That looks the best for MOOS PT2
+
+## Final Q for MOOS PT2
+```{r, echo=FALSE, warning=FALSE}
+Moose5comb.2020$pred.moos2.Q <- coef(MOOS5.lm.2020)[2] * Moose5comb.2020$WaterLevel+ coef(MOOS5.lm.2020)[1]
+
+ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose5comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose2 predicted all measured Q") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+```
+
+Looks pretty good 
+
+
+## Average of MOOS PT1 and PT2
+```{r, echo=FALSE, warning=FALSE}
+
+moos.final.discharge.2020 <- full_join(Moose2comb.2020, Moose5comb.2020, by = c("DateTime"))
+names(moos.final.discharge.2020)
+moos.final.discharge.2020$MeanDischarge <- rowMeans(moos.final.discharge.2020[,c(14,27)], na.rm = TRUE)
+
+moos.final.discharge.2020 <- moos.final.discharge.2020[,-c(2:4, 6:11,13, 15:26)]
+names(moos.final.discharge.2020) <- c("Site", "DateTime", "MeasuredQ_Ls", "pred.moos1.Q", "pred.moos2.Q", "MeanDischarge")
+
+### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
+
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
+  geom_line(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.moos2.Q), data = moos.final.discharge.2020,color="#1F78B4", size=1.25, alpha = 0.75) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
+  theme_classic() +
+  ylim(0, 5000) +
+  ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time")
+
+
+```
+
+Red is the average that should be used and exported as csv.
+
+##Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+moos.final.discharge.2020_final <- moos.final.discharge.2020[,-c(3:5)]
+names(moos.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
+write.csv(moos.final.discharge.2020_final, here("Predicted_Discharge/2020/MOOS/MOOS.Q.csv"), row.names = FALSE)
+```
+
+
+# French
+## Raw French PT1
+```{r, echo=FALSE, warning=FALSE}
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-11 04:45:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+frch.stream.one.2020.b <- frch.stream.one.2020
+plot(frch.stream.one.2020$DateTime, frch.stream.one.2020$WaterLevel, type = 'l')
+frch.stream.one.2020 %>% #filter(DateTime >"2020-06-20" & DateTime < "2020-07-15") %>%
+  ggplot(aes(DateTime, WaterLevel)) + geom_point()
+```
+
+Needs cleaning for out of water points that are associated with install and decommission. Noisy on the falling limb of these storms! Let the cleaning commence!
+
+## French PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+frch.stream.one.2020 <- frch.stream.one.2020  %>%  subset(frch.stream.one.2020$DateTime < "2020-10-14") #cleaning data that is before the 14th (Site was taken down the 15th)
+frch.stream.one.2020[c(1,2,3,1039:3822,1699,1769), 4] <- NA # Setting NA to noisy part of the data set and errant points
+
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-11 04:45:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(frch.stream.one.2020$DateTime, frch.stream.one.2020$WaterLevel, type = 'l')
+
+
+```
+
+1) Removed points after October 14th (when we took out PTs) and out of water points in the beginning of the dataset
+2) Removed noisy points on receding limb of big storm events in the beginning of the dataframe 
+
+## Raw French PT2
+```{r, echo=FALSE, warning=FALSE}
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-11 05:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(frch.stream.two.2020$DateTime, frch.stream.two.2020$WaterLevel, type = 'l')
+
+```
+Receding limb of first initial storm is noisy on this one too 
+
+## French PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+frch.stream.two.2020 <- frch.stream.two.2020  %>%  subset(frch.stream.two.2020$DateTime < "2020-10-14") #cleaning data that is before the 14th (Site was taken down the 15th)
+#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-11 04:45:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(frch.stream.two.2020$DateTime, frch.stream.two.2020$WaterLevel, type = 'l')
+
+```
+
+1) removed out of water points from taking out on the 14th of October 
+
+## Export PT data to csv in DoD_Discharge->PT_data->2020
+```{r, echo=FALSE, warning=FALSE}
+frch.pt.2020 <- rbind(frch.stream.one.2020, frch.stream.two.2020)
+write.csv(frch.pt.2020, here("PT_data/2020/FRCH/frch.pt.2020.csv"))
+```
+
+
+## Raw Rating curve FRCH PT1
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.FR.2020 <- QSummary.2020 %>% filter(Site =="FRCH")
+
+### Rating curve for FRCH PT1 ###
+frch.stream.one.2020$Site <- "FRCH"
+
+French1comb.2020 <- full_join(frch.stream.one.2020, QSummary.FR.2020) # Join PT data with Discharge
+French1.lm.2020 <- lm(French1comb.2020$MeasuredQ_Ls ~ French1comb.2020$WaterLevel) # linear model with discharge and water level
+
+
+frch.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = French1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+
+```
+
+Lets remove two high YSI points.
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.FR.2020.1 <- QSummary.FR.2020[-c(1,9), ]
+
+### Rating curve for FRCH PT1 ###
+frch.stream.one.2020$Site <- "FRCH"
+
+French2comb.2020 <- full_join(frch.stream.one.2020, QSummary.FR.2020.1) # Join PT data with Discharge
+French2.lm.2020 <- lm(French2comb.2020$MeasuredQ_Ls ~ French2comb.2020$WaterLevel) # linear model with discharge and water level
+French2comb.2020 %>% filter(MeasuredQ_Ls > 750)
+
+frch.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = French2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(184,185.5) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+
+```
+
+I would guess that the YSI is a little high and the wading rod is a little low. What if we average them by date? That may be more accurate than just taking the Wading rod points.
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.FR.2020.2 <- QSummary.FR.2020.1 %>% group_by(Date) %>% summarise(MeasuredQ_Ls = mean(MeasuredQ_Ls, na.rm = TRUE))
+QSummary.FR.2020.2 <- left_join(QSummary.FR.2020.2, QSummary.FR.2020.1, by = "Date")
+QSummary.FR.2020.2 <- QSummary.FR.2020.2[-c(4,8,10,13,15,17,19),]  
+
+
+French3comb.2020 <- full_join(frch.stream.one.2020, QSummary.FR.2020.2) # Join PT data with Discharge
+French3.lm.2020 <- lm(French3comb.2020$MeasuredQ_Ls.x ~ French3comb.2020$WaterLevel + I(French3comb.2020$WaterLevel^2))
+
+
+frch.formula <- y ~ poly(x, 2)
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls.x), data = French3comb.2020) +
+  geom_point(aes(), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(184,185.5) +
+  theme_classic() +
+  ggtitle("French1 measured Q") 
+
+```
+
+Seems reasonable. A quadratic relationship improved the R2.
+
+## Final Q for FRCH PT1
+```{r, echo=FALSE, warning=FALSE}
+
+French3comb.2020$pred.french1.Q <- coef(French3.lm.2020)[2] * French3comb.2020$WaterLevel+ coef(French3.lm.2020)[1] + coef(French3.lm.2020)[3] * I(French3comb.2020$WaterLevel^2)
+
+ggplot(aes(x = DateTime, y = pred.french1.Q), data=French3comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = QSummary.FR.2020, aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls.x), size=3, col = "red") +
+  theme_classic() +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  ggtitle("French1 predicted measured Q") +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+```
+
+Red are the points used in the rating curve (if they had pressure data).
+
+## Raw Rating curve FRCH PT2
+```{r, echo=FALSE, warning=FALSE}
+
+frch.stream.two.2020$Site <- "FRCH"
+
+French2comb.2020 <- full_join(frch.stream.two.2020, QSummary.FR.2020)
+French2.lm.2020 <- lm(French2comb.2020$MeasuredQ_Ls ~ French2comb.2020$WaterLevel)
+
+
+ggplot(aes(x= WaterLevel, y = MeasuredQ_Ls), data = French2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("French2 all measured Q") 
+
+```
+
+Lets remove the highest YSI points, then only use the wading rod and next highest YSI point.
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.FR.2020.3 <- QSummary.FR.2020 %>% filter(Method == "Wading rod" | MeasuredQ_Ls %in% c(919.03))
+
+French2comb.2020.2 <- full_join(frch.stream.two.2020, QSummary.FR.2020.3)
+French2.lm.2020 <- lm(French2comb.2020.2$MeasuredQ_Ls ~ French2comb.2020.2$WaterLevel)
+
+frch.formula = y ~ x
+ggplot(aes(x= WaterLevel, y = MeasuredQ_Ls), data = French2comb.2020.2) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("French2 measured Q") 
+
+```
+
+Lets try the same averaging proccess as before.
+
+```{r, echo=FALSE, warning=FALSE}
+French2comb.2020.2 <- full_join(frch.stream.two.2020, QSummary.FR.2020.2[-4,])
+French2.lm.2020.2 <- lm(French2comb.2020.2$MeasuredQ_Ls.x ~ French2comb.2020.2$WaterLevel + I(French2comb.2020.2$WaterLevel))
+
+frch.formula = y~ poly(x,2)
+ggplot(aes(x= WaterLevel, y = MeasuredQ_Ls.x), data = French2comb.2020.2) +
+  geom_point( size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(184, 185.5) +
+  theme_classic() +
+  ggtitle("French2 all measured Q") 
+
+```
+
+This has the same R2, but maybe it is more accurate because it incorporates both the YSI and wading rod data.
+
+## Final Q for FRCH PT2
+```{r, echo=FALSE, warning=FALSE}
+French2comb.2020.2$pred.french2.Q <- coef(French2.lm.2020.2)[2] * French2comb.2020.2$WaterLevel + coef(French2.lm.2020.2)[1] + coef(French2.lm.2020.2)[3] * I(French2comb.2020.2$WaterLevel^2)
+
+ggplot(aes(x = DateTime, y = pred.french2.Q), data=French2comb.2020.2) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  
+  geom_point(data = French2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls.x), size=3, color = "red") +
+  theme_classic() +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  ggtitle("French") +
+  xlab("") +
+  ylab("Discharge (L/s)") 
+
+```
+Looks pretty good 
+
+## Average Q for FRCH PT1
+```{r, echo=FALSE, warning=FALSE}
+
+frch.final.discharge.2020 <- full_join(French3comb.2020, French2comb.2020.2, by = "DateTime")
+
+frch.final.discharge.2020$MeanDischarge <- rowMeans(frch.final.discharge.2020[,c(14,27)], na.rm = TRUE)
+
+frch.final.discharge.2020 <- frch.final.discharge.2020[,c(1,5,14,27,28)]
+
+
+names(frch.final.discharge.2020) <- c("Site", "DateTime", "PT1", "PT2", "MeanDischarge")
+
+# French1 (light blue), French2 (dark blue), and mean (red) with observed Q.
+ggplot() +
+  geom_line(aes(x = DateTime, y = pred.french1.Q), data = French3comb.2020, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.french2.Q), data = French2comb.2020.2,color="#1F78B4", size=1.25, alpha = 0.75) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = frch.final.discharge.2020, color = "red", size = 1) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), data = French1comb.2020, size=2) +
+  theme_classic() +
+  ggtitle("French1(light) & French2(dark) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time")
+
+```
+Red is the average and should be exported to a csv. 
+
+## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+frch.final.discharge.2020_final <- frch.final.discharge.2020[,-c(3:4)]
+names(frch.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
+write.csv(frch.final.discharge.2020_final, here("Predicted_Discharge/2020/FRCH/FRCH.Q.csv"), row.names = FALSE)
+```
+
+# Poker
+## Raw Poker PT1
+```{r, echo=FALSE, warning=FALSE}
+#plot(POKE_RainGauge_2020$inst_rainfall_mm ~ POKE_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-04 05:30:00","2020-10-14 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(poke.stream.one.2020$DateTime, poke.stream.one.2020$WaterLevel, type = 'l')
+
+```
+It looks like I need to remove out of water points at the end of the year and potentially shift middle of september-on up....let the cleaning commence!
+
+Poker PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+poke.stream.one.2020 <- poke.stream.one.2020 %>% subset(poke.stream.one.2020$DateTime < "2020-10-10") # Cleaning data that is before October 10th due to ice (Site was taken down Oct 14th)
+
+poke.stream.one.2020[9799, 4] - poke.stream.one.2020[9800, 4] # 0.068
+poke.stream.one.before <- poke.stream.one.2020[-c(9800:12256), ] # before
+poke.stream.one.after <- poke.stream.one.2020[-c(1:9799), ] # after
+poke.stream.one.after$WaterLevel <- poke.stream.one.after[, 4] + 0.068
+poke.one.final <- full_join(poke.stream.one.before, poke.stream.one.after)
+
+#plot(POKE_RainGauge_2020$inst_rainfall_mm ~ POKE_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-04 05:30:00","2020-10-14 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(poke.one.final$DateTime, poke.one.final$WaterLevel, type = 'l')
+
+```
+
+1) removed data after 10/10/20 due to decommission
+2) shifted mid september-on up due to dip 
+
+## Raw Poker PT2
+```{r, echo=FALSE, warning=FALSE}
+#plot(POKE_RainGauge_2020$inst_rainfall_mm ~ POKE_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-04 05:00:00","2020-10-14 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(poke.stream.two.2020$DateTime, poke.stream.two.2020$WaterLevel, type = 'l')
+
+```
+
+PT2 seems a lot "noisier"....this is the PT that is located on the wetttetd edge left side tucked by the meander so it is more susecptible to shaking....It also needs to be filtered out at the end of the season due to out of water points....let the cleaning commence!
+
+Poker PT2 2.0
+```{r, echo=FALSE, warning=FALSE}
+poke.stream.two.2020 <- poke.stream.two.2020 %>% subset(poke.stream.two.2020$DateTime < "2020-10-10") # Cleaning data that is before October 10th due to ice (Site was taken down Oct 14th)
+
+#plot(POKE_RainGauge_2020$inst_rainfall_mm ~ POKE_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-04 05:00:00","2020-10-14 12:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(poke.stream.two.2020$DateTime, poke.stream.two.2020$WaterLevel, type = 'l')
+
+```
+
+## Export PT data to csv in DoD_Discharge->PT_data->2020
+```{r, echo=FALSE, warning=FALSE}
+poke.pt.2020 <- rbind(poke.stream.one.2020, poke.stream.two.2020)
+write.csv(poke.pt.2020, here("PT_data/2020/POKE/poke.pt.2020.csv"), row.names = FALSE)
+```
+
+## Raw Rating curve POKE PT1
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.PO.2020 <- QSummary.2020 %>% filter(Site =="POKE")
+
+### Rating curve for POKE PT1 ###
+poke.stream.one.2020$Site <- "POKE"
+
+Poke1comb.2020 <- full_join(poke.stream.one.2020, QSummary.PO.2020)
+POKE1.lm.2020 <- lm(Poke1comb.2020$MeasuredQ_Ls ~ Poke1comb.2020$WaterLevel)
+
+poke.formula <- y ~ x
+
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Poke1 all measured Q") 
+
+
+```
+
+top YSI point has got to go 
+
+
+Rating curve POKE PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.PO.2020.1 <- QSummary.PO.2020[-4, ]
+
+### Rating curve for POKE PT1 ###
+poke.one.final$Site <- "POKE"
+
+Poke1comb.2020 <- full_join(poke.one.final, QSummary.PO.2020.1)
+POKE1.lm.2020 <- lm(Poke1comb.2020$MeasuredQ_Ls ~ Poke1comb.2020$WaterLevel)
+
+poke.formula <- y ~ x
+
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
+  stat_poly_eq(formula = poke.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(216, 216.5) + 
+  theme_classic() +
+  ggtitle("Poke1 all measured Q") 
+
+
+```
+
+1) removed the top YSI point
+
+## Raw Rating curve POKE PT2
+```{r, echo=FALSE, warning=FALSE}
+
+poke.stream.two.2020$Site <- "POKE"
+
+Poke2comb.2020 <- full_join(poke.stream.two.2020, QSummary.PO.2020)
+POKE2.lm.2020 <- lm(Poke2comb.2020$MeasuredQ_Ls ~ Poke2comb.2020$WaterLevel)
+
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = poke.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Poker2 all measured Q")  
+
+```
+
+Need to remove the top YSI point 
+
+## Raw Rating curve POKE PT2
+```{r, echo=FALSE, warning=FALSE}
+Poke2comb.2020 <- full_join(poke.stream.two.2020, QSummary.PO.2020.1)
+POKE2.lm.2020 <- lm(Poke2comb.2020$MeasuredQ_Ls ~ Poke2comb.2020$WaterLevel)
+
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = poke.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Poker2 all measured Q")  
+
+```
+
+1) removed the top YSI point 
+
+## Final Q for POKE PT1
+```{r, echo=FALSE, warning=FALSE}
+Poke1comb.2020$pred.poke1.Q <- coef(POKE1.lm.2020)[2] * Poke1comb.2020$WaterLevel+ coef(POKE1.lm.2020)[1]
+Poke1comb.2020 <- Poke1comb.2020 %>% subset(Poke1comb.2020$DateTime < "2020-10-09")
+  
+ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Poker1 predicted all measured Q") +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+```
+
+Seems like the predicted overshoots our discrete measurements
+
+## Final Q for POKE PT2
+```{r, echo=FALSE, warning=FALSE}
+Poke2comb.2020$pred.poke2.Q <- coef(POKE2.lm.2020)[2] * Poke2comb.2020$WaterLevel+ coef(POKE2.lm.2020)[1]
+ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Poker") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("") +
+  ylim(0, 2500) +
+  ylab("Discharge(L/s)") +
+  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
+
+```
+
+A lot noisier then PT1.
+
+## Final Q POKE average
+```{r, echo=FALSE, warning=FALSE}
+
+poke.final.discharge.2020 <- left_join(Poke1comb.2020, Poke2comb.2020, by = "DateTime")
+poke.final.discharge.2020$MeanDischarge <- rowMeans(poke.final.discharge.2020[,c('pred.poke1.Q', 'pred.poke2.Q')], na.rm = TRUE) 
+
+poke.final.discharge.2020 <- poke.final.discharge.2020[,-c(2,3,4,6,7,8,9,10,11,12,14,15,16,17,18,19,20,21,22,23,24)]
+
+
+ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2020) +
+  geom_line(aes(x = DateTime, y = pred.poke1.Q), data = Poke1comb.2020, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2020,color="#1F78B4", size=1.25, alpha = 0.75) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = poke.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
+  theme_classic() +
+  ylim(0, 3000) +
+  ggtitle("Poker1(light) & Poker2(dark) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time")
+
+```
+
+I think we should go with PT1
+
+## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+Poke1comb.2020_final <- Poke1comb.2020[,-c(2:4, 6:12)]
+names(Poke1comb.2020_final) <- c("Site", "DateTime", "Q")
+write.csv(Poke1comb.2020_final, here("Predicted_Discharge/2020/POKE/POKE.Q.csv"), row.names = FALSE)
+```
+
+# Vault
+## Raw Vault PT1
+There is only one Vault PT
+```{r, echo=FALSE, warning=FALSE}
+#plot(VAUL_RainGauge_2020$inst_rainfall_mm~ VAUL_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-05 07:00:00","2020-10-14 12:30:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(vaul.stream.2020$DateTime, vaul.stream.2020$WaterLevel, type = 'l')
+
+```
+
+Hard to see what else we need to clean besides the end of the year out of water points....let the cleaning commence!
+
+## Vault PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+vaul.stream.2020 <- vaul.stream.2020 %>% subset(vaul.stream.2020$DateTime < "2020-10-05") # Cleaning data that is before October 5th due to ice in channel (Site was taken down Oct 14th)
+
+#plot(VAUL_RainGauge_2020$inst_rainfall_mm~ VAUL_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-05 07:00:00","2020-10-14 12:30:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(vaul.stream.2020$DateTime, vaul.stream.2020$WaterLevel, type = 'l')
+
+```
+
+1) removed data after 10/5/20 due to out of water points 
+
+## Export PT data to csv in DoD_Discharge->PT_data->2020
+```{r, echo=FALSE, warning=FALSE}
+write.csv(vaul.stream.2020, here("PT_data/2020/VAUL/vaul.pt.2020.csv"), row.names = FALSE)
+```
+
+## Raw rating curve for VAUL PT1
+```{r, echo=FALSE, warning=FALSE}
+### Filter Vault ### 
+QSummary.VA.2020 <- QSummary.2020 %>% filter(Site =="VAUL") %>% filter(MeasuredQ_Ls < 2000)
+
+### Rating curve for VAUL PT2 ###
+vaul.stream.2020$Site <- "VAUL"
+
+Vaul2comb.2020 <- full_join(vaul.stream.2020, QSummary.VA.2020)
+VAUL2.lm.2020 <- lm(Vaul2comb.2020$MeasuredQ_Ls ~ Vaul2comb.2020$WaterLevel + I(Vaul2comb.2020$WaterLevel^2))
+
+vaul.formula <- y ~ poly(x, 2)
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Vaul2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = vaul.formula) +
+  stat_poly_eq(formula = vaul.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(197.5, 198.5) + 
+  theme_classic() +
+  ggtitle("Vault2 all measured Q")  
+
+```
+
+
+## Predicted Q for VAUL
+```{r, echo=FALSE, warning=FALSE}
+Vaul2comb.2020$pred.vaul2.Q <- coef(VAUL2.lm.2020)[2] * Vaul2comb.2020$WaterLevel+ coef(VAUL2.lm.2020)[1] + coef(VAUL2.lm.2020)[3] * I(Vaul2comb.2020$WaterLevel^2)
+
+ggplot(aes(x = DateTime, y = pred.vaul2.Q), data = Vaul2comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Vault") +
+  scale_shape_discrete(name = "Mehtod", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("") +
+  ylab("Discharge (L/s)") +
+  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
+
+
+```
+
+Not too shabby!
+
+## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+Vaul2comb.2020_final <- Vaul2comb.2020[,-c(2:4, 6:12)]
+names(Vaul2comb.2020_final) <- c("Site", "DateTime", "Q")
+write.csv(Vaul2comb.2020_final, here("Predicted_Discharge/2020/VAUL/VAUL.Q.csv"), row.names = FALSE)
+```
+
+# Stuart
+## Raw STRT PT1
+```{r, echo=FALSE, warning=FALSE}
+#plot(STRT_RainGauge_2020$inst_rainfall_mm~ STRT_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-17 08:30:00","2020-10-13 14:00:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(strt.stream.one.2020$DateTime, strt.stream.one.2020$WaterLevel, type = 'l')
+
+```
+
+Needs end of season out of water points to be removed....let the cleaning commence!
+
+
+STRT PT1 2.0
+```{r, echo=FALSE, warning=FALSE}
+strt.stream.one.2020 <- strt.stream.one.2020 %>% subset(strt.stream.one.2020$DateTime < "2020-10-8") # cleaning data that is before October 8th due to ice in channel (Site was taken down Oct 13th)
+strt.stream.one.2020[6452,4] <- NA
+
+#plot(STRT_RainGauge_2020$inst_rainfall_mm~ STRT_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-17 08:30:00","2020-10-13 14:00:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(strt.stream.one.2020$DateTime, strt.stream.one.2020$WaterLevel, type = 'l')
+
+```
+
+1) Removed data after 10/8/20 due to ice on the channel...PT was taken out on the 13th
+2) removed vertical bar errant point in middle of August
+
+## Raw STRT PT2
+```{r, echo=FALSE, warning=FALSE}
+#plot(STRT_RainGauge_2020$inst_rainfall_mm~ STRT_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-17 08:30:00","2020-10-13 14:00:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(strt.stream.two.2020$DateTime, strt.stream.two.2020$WaterLevel, type = 'l')
+
+```
+
+Same procedure as previous PT....let the cleaning commence!
+
+STRT PT2 2.0
+```{r, echo=FALSE, warning=FALSE}
+strt.stream.two.2020 <- strt.stream.two.2020 %>% subset(strt.stream.two.2020$DateTime < "2020-10-08") # cleaning data that is before October 8th due to ice in channel (Site was taken down Oct 13th)
+strt.stream.two.2020[674, 4] <- NA
+
+#plot(STRT_RainGauge_2020$inst_rainfall_mm~ STRT_RainGauge_2020$DateTime, type="h",
+#     xlim = as.POSIXct(c("2020-06-17 08:30:00","2020-10-13 14:00:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+plot(strt.stream.two.2020$DateTime, strt.stream.two.2020$WaterLevel, type = 'l')
+
+
+```
+
+1) Removed vertical errant point at the top of first big storm
+2) Removed data after 10/8 due to ice on the channel...PT was taken out on the 13th
+
+## Export PT data to csv in DoD_Discharge->PT_data->2020
+```{r, echo=FALSE, warning=FALSE}
+strt.pt.2020 <- rbind(strt.stream.one.2020, strt.stream.two.2020)
+write.csv(strt.pt.2020, here("PT_data/2020/STRT/strt.pt.2020.csv"), row.names = FALSE)
+```
+
+## Raw rating curve for STRT PT1
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+QSummary.ST.2020 <- QSummary.2020 %>% filter(Site =="STRT")
+
+### Rating curve for STRT PT1 ### 
+
+strt.stream.one.2020$Site <- "STRT"
+
+Strt1comb.2020 <- full_join(strt.stream.one.2020, QSummary.ST.2020)
+STRT1.lm.2020 <- lm(Strt1comb.2020$MeasuredQ_Ls ~ Strt1comb.2020$WaterLevel)
+
+strt.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+   xlim(248.4, 248.7) +
+  theme_classic() +
+  ggtitle("Strt1 all measured Q")
+
+```
+
+Does not look pretty
+
+## Rating curve for STRT PT1 2.0 
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+QSummary.ST.2020.1 <- QSummary.ST.2020[-c(8,14,7), ]
+
+Strt1comb.2020 <- full_join(strt.stream.one.2020, QSummary.ST.2020.1)
+STRT1.lm.2020 <- lm(Strt1comb.2020$MeasuredQ_Ls ~ Strt1comb.2020$WaterLevel)
+
+summary(STRT1.lm.2020)
+
+strt.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(248.4, 248.7) +
+  theme_classic() +
+  ggtitle("Strt1 measured Q")  # I think this worked
+
+
+``` 
+
+1) removed the lowest YSI and YSI's over 1000Ls, and the low measured Q, high water level wading rod point.
+
+
+## Raw rating curve for STRT PT2
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+strt.stream.two.2020$Site <- "STRT"
+
+Strt2comb.2020 <- full_join(strt.stream.two.2020, QSummary.ST.2020)
+STRT2.lm.2020 <- lm(Strt2comb.2020$MeasuredQ_Ls ~ Strt2comb.2020$WaterLevel)
+
+strt.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(248.4, 248.7) +
+  theme_classic() +
+  ggtitle("Strt2 all measured Q") 
+
+```
+
+Negative slope is definitely bad 
+
+Rating curve for STRT PT2 2.0 
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+QSummary.ST.2020.2 <- QSummary.ST.2020[-c(8,14,7), ]
+
+Strt2comb.2020 <- full_join(strt.stream.two.2020, QSummary.ST.2020.2)
+STRT2.lm.2020 <- lm(Strt2comb.2020$MeasuredQ_Ls ~ Strt2comb.2020$WaterLevel)
+
+strt.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt2comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  xlim(248.4, 248.7) +
+  theme_classic() +
+  ggtitle("Strt2 all measured Q") 
+
+``` 
+
+Yikes.
+
+## Predicted Q for STRT PT1 
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+Strt1comb.2020$pred.strt1.Q <- coef(STRT1.lm.2020)[2] * Strt1comb.2020$WaterLevel+ coef(STRT1.lm.2020)[1]
+
+ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Stuart") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("") +
+  ylab("Discharge (L/s)") +
+  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-09")))
+
+``` 
+
+Not too shabby
+
+## Predicted Q for STRT PT2
+```{r, echo=FALSE, warning=FALSE}
+Strt2comb.2020$pred.strt2.Q <- coef(STRT2.lm.2020)[2] * Strt2comb.2020$WaterLevel+ coef(STRT2.lm.2020)[1]
+ggplot(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2020) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Stuart2 predicted all measured Q") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("Date") +
+  ylab("Predicted Discharge") 
+
+``` 
+
+Not as good as PT1.
+
+## Predicted Q for STRT
+```{r, echo=FALSE, warning=FALSE}
+strt.final.discharge.2020 <- full_join(Strt2comb.2020, Strt1comb.2020, by = "DateTime")
+
+strt.final.discharge.2020 <- strt.final.discharge.2020 %>% subset(strt.stream.one.2020$DateTime > "2020-06-16")
+
+strt.final.discharge.2020$MeanDischarge <- rowMeans(strt.final.discharge.2020[,c('pred.strt1.Q', 'pred.strt2.Q')], na.rm = TRUE) 
+
+strt.final.discharge.2020 <- strt.final.discharge.2020[, c(1,5,13, 25, 26)]
+
+### Stuart1 (light blue), Stuart2 (dark blue), and Stuart1 (red) because STRT2 seems bad with observed Q.
+
+strt.final.discharge.2020 %>% ggplot()+
+  geom_line(aes(x = DateTime, y = pred.strt1.Q), color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.strt2.Q),color="#1F78B4", size=1.25, alpha = 0.75) +
+   geom_line(aes(x = DateTime, y = MeanDischarge), data = strt.final.discharge.2020, color = "red", size = 1) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), data = Strt1comb.2020, size=2) +
+  theme_classic() +
+  ggtitle("Stuart1(light) & Stuart2(dark) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time")
+
+
+``` 
+
+## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+strt.final.discharge.2020_final <- strt.final.discharge.2020[,-c(3:4)]
+names(strt.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
+write.csv(strt.final.discharge.2020_final, here("Predicted_Discharge/2020/STRT/STRT.Q.csv"), row.names = FALSE)
+```
+
+## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
+```{r, echo=FALSE, warning=FALSE}
+Q_2020 <- rbind(moos.final.discharge.2020_final,frch.final.discharge.2020_final,
+                Poke1comb.2020_final,Vaul2comb.2020_final,
+                strt.final.discharge.2020_final)
+Q_2020$day = format(as.POSIXct(Q_2020$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2020$day = as.POSIXct(Q_2020$day, "%Y-%m-%d", tz="America/Anchorage")
+
+
+Q.daily.2020 = with(Q_2020, tapply(Q, list(day, Site), mean))
+Q.daily.2020 = as.data.frame(Q.daily.2020)
+
+write_csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"))
+write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
+
+write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
+
+```
+
+
+

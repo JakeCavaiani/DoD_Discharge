@@ -36,10 +36,6 @@ library(here)
 
 ```
 
-## French and Moose 2015 Discharge
-
-The purpose of this script is to import raw PT data from each of our sites in 2015 (Moose, French), clean (out of water points, potential beaver dams, noisy data, remove a PT if data is bad etc.) and prepare to convert to continuous predicted discharge (Q)
-
 Important NOTES:
 1) Water level data is obtained from HOBO pressure transducers (PTs) that were installed in PVC pipes in streams, with the PT sitting on top of a rebar piece at bottom of pipe. Raw pressure from PTs were processed in HOBOware to correct for atmospheric pressure to get water depth. Atmospheric pressure was obtained from a PT installed at each site in a tree. HOWEVER, water depth is absolute PT depth, NOT actual water depth. To get actual water depth, we need a reference water depth from a time point in the water depth time series that is an accurate measure of the depth of the pt from the water surface. We do not have these (depth measurements from flow meter measurements were not done sufficiently close to PT locations to use).We have waterlevel surveys from Kate Broberg in 2020 and 2021  We must therefore rely on the rating curve to convert absolute water depth to continuous Q.
 
@@ -477,16 +473,12 @@ QSummary.2019 <- read.csv(url(myurl))
 QSummary.2019$Time[QSummary.2019$Time == ""] <- NA
 QSummary.2019$Q_Ls[QSummary.2019$Q_Ls == ""] <- NA
 
-### Format Time ###
+### Format Time
 QSummary.2019$Date <- mdy(QSummary.2019$Date)
 QSummary.2019$DateTime <- as.POSIXct(paste(QSummary.2019$Date, QSummary.2019$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
 QSummary.2019$DateTime <- lubridate::round_date(QSummary.2019$DateTime, "15 minutes")
 
-```
-
-
-Checking closeness between the two Pressure Transducers
-```{r , echo=FALSE, warning=FALSE}
+# Site names
 frch.stream.two.2019 <- frch.stream.two.2019[1:nrow(frch.stream.one.2019),]
 frch.stream.one.2019$Site <- "FRCH1" #add column identifier
 frch.stream.two.2019$Site <- "FRCH2"
@@ -502,6 +494,11 @@ poke.pt.2019 <- bind_rows(poke.stream.one.2019, poke.stream.two.2019)
 
 moos.pt.2019 <- moos.stream.one.2019
 moos.pt.2019$Site <- "MOOS1"
+```
+
+
+Checking closeness between the two Pressure Transducers
+```{r , echo=FALSE, warning=FALSE}
 
 # Checking closeness between two PT #
 plot(x = frch.stream.one.2019$AbsPTDepth, y = frch.stream.two.2019$AbsPTDepth, main = "French PT comparison",
@@ -642,7 +639,7 @@ frch.stream.one.2019.after <- frch.stream.one.2019[-c(1:11162), ]  # clipping of
 frch.stream.one.all <- rbind(frch.stream.one.2019.before, frch.stream.two.middle, frch.stream.one.2019.after)
 plot(frch.stream.one.all$DateTime, frch.stream.one.all$AbsPTDepth, type = "l")
 frch.stream.one.2019 <- frch.stream.one.all
-plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth)
+plot(frch.stream.one.2019$DateTime, frch.stream.one.2019$AbsPTDepth, type = "l")
 ```
 1) replaced the noisy receding limb in the big end of August storm of PT1 with the more constant data of PT2
 
@@ -737,7 +734,51 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French2comb.2019) +
 ```
 Not as good of an R^2. 
 
-### Raw Rating Curve with French 2 Pressure Transducer
+Rating curve with two high Q points.
+```{r, echo=FALSE, warning=FALSE}
+QSummary.FR.2019 <- QSummary.2019 %>% filter(Site =="French") %>% drop_na(Q_Ls) %>% filter(Q_Ls < 1500)
+QSummary.FR.2019$Site <- "FRCH"
+frch.stream.one.2019$Site <- "FRCH"
+
+French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019) 
+French1.lm.2019 <- lm(French1comb.2019$Q_Ls ~ French1comb.2019$AbsPTDepth)
+summary(French1.lm.2019)  # Worked
+
+frch.formula <- y ~ x
+
+ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French1comb.2019) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = frch.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("French1 measured Q")
+
+
+```
+# Predict Q French1
+
+```{r, echo=FALSE, warning=FALSE}
+French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019) %>% filter(!AbsPTDepth %in% NA)
+French1.lm.2019 <- lm(French1comb.2019$Q_Ls ~ French1comb.2019$AbsPTDepth)
+
+French1comb.2019$pred.french1.Q <- coef(French1.lm.2019)[2] * French1comb.2019$AbsPTDepth+ coef(French1.lm.2019)[1]
+
+ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb.2019) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size = 3) +
+  theme_classic() +
+  ggtitle("French") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("") +
+  ylab("Discharge (L/s)")
+
+
+
+```
+
+# Raw Rating Curve with French 2 Pressure Transducer
 
 ```{r, echo=FALSE, warning=FALSE}
 frch.stream.two.2019$Site<- "FRCH"
@@ -831,13 +872,13 @@ p1
 
 This is the RC I will use for predicted Q.
 
-# Predicted Q FRCH PT1
+# Predicted Q FRCH PT2
 Black points are observed Q
 
 ```{r, echo=FALSE, warning=FALSE}
-French6comb.2019$pred.french1.Q <- coef(French6.lm.2019)[2] * French6comb.2019$AbsPTDepth+ coef(French6.lm.2019)[1]
+French6comb.2019$pred.french2.Q <- coef(French6.lm.2019)[2] * French6comb.2019$AbsPTDepth+ coef(French6.lm.2019)[1]
 
-p2 <- ggplot(aes(x = DateTime, y = pred.french1.Q), data=French6comb.2019) +
+p2 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French6comb.2019) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size = 3) +
   theme_classic() +
@@ -845,9 +886,9 @@ p2 <- ggplot(aes(x = DateTime, y = pred.french1.Q), data=French6comb.2019) +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
   ylab("Discharge (L/s)") +
-  #ylim(0, 1000) +
+  #ylim(50, 200) +
   scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-10-10")))
-
+#scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-8-03")))
 p2
 
 ```
@@ -859,11 +900,11 @@ Most of the water level is above the water level for our Q measurements. Maybe i
 
 QSummary.FR.2019.4 <- QSummary.FR.2019[-c(12), ]
 
-French7comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.4) 
+French7comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.4)  %>% filter(!AbsPTDepth %in% NA)
 French7.lm.2019 <- lm(French7comb.2019$Q_Ls ~ French7comb.2019$AbsPTDepth)
 summary(French7.lm.2019)
 
-frch.formula <- y ~ poly(x, 2, raw = TRUE)
+frch.formula <- y ~ x
 
 p3 <- ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French7comb.2019) +
   geom_point(aes(color = Method), size = 3) +
@@ -880,11 +921,11 @@ p3
 Lets plot and compare with previous prediction.
 
 ```{r, echo=FALSE, warning=FALSE}
-French7comb.2019$pred.french1.Q <- coef(French7.lm.2019)[2] * French7comb.2019$AbsPTDepth+ coef(French7.lm.2019)[1]
+French7comb.2019$pred.french2.Q <- coef(French7.lm.2019)[2] * French7comb.2019$AbsPTDepth+ coef(French7.lm.2019)[1]
 
-p4 <- ggplot(aes(x = DateTime, y = pred.french1.Q), data=French7comb.2019) +
+p4 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French7comb.2019) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_line(data = French6comb.2019, aes(DateTime, pred.french1.Q), color= "light green", size=1.25) +
+  geom_line(data = French6comb.2019, aes(DateTime, pred.french2.Q), color= "light green", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("French") +
@@ -900,9 +941,9 @@ Lets zoom in on the low Q
 
 ```{r}
 
-p5 <- ggplot(aes(x = DateTime, y = pred.french1.Q), data=French7comb.2019) +
+p5 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French7comb.2019) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_line(data = French6comb.2019, aes(DateTime, pred.french1.Q), color= "light green", size=1.25) +
+  geom_line(data = French6comb.2019, aes(DateTime, pred.french2.Q), color= "light green", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("French") +
@@ -915,74 +956,54 @@ p5 <- ggplot(aes(x = DateTime, y = pred.french1.Q), data=French7comb.2019) +
 p5
 ```
 ```{r}
-install.packages("gridExtra")
 library(gridExtra)
 grid.arrange(p1, p3, p4, p5)
 
 ```
+It looks to me (Karen) that the prediction using the regression including the two high Q points fits better. I will use this to predict discharge.
 
-### Predicted Q FRCH PT2
-#### Black points are observed Q
-
-```{r, echo=FALSE, warning=FALSE}
-French5comb.2019$pred.french1.Q <- coef(French5.lm.2019)[2] * French5comb.2019$AbsPTDepth+ coef(French5.lm.2019)[1]
-ggplot(aes(x = DateTime, y = pred.french1.Q), data=French5comb.2019) +
-  geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
-  theme_classic() +
-  ggtitle("French") +
-  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
-  xlab("") +
-  ylab("Discharge (L/s)") +
-  ylim(0, 4000) +
-  scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-10-10")))
-
-```
-This gives us much higher Q
 
 ### Compare FRCH PT1 and PT2
 ```{r, echo=FALSE, warning=FALSE}
 
-French2comb.2019$DateTime <- lubridate::round_date(French2comb.2019$DateTime, "15 minutes")
-French2comb.2019 <- French2comb.2019[-c(15721:15723), ]
+frch.final.discharge.2019 <- full_join(French1comb.2019[,c(1, 5,13)], French7comb.2019[,c(5,13)], by = "DateTime")
 
-frch.final.discharge.2019 <- data.frame(French5comb.2019$Site, French5comb.2019$DateTime, French2comb.2019$pred.french1.Q, French5comb.2019$pred.french1.Q)
 
-frch.final.discharge.2019$MeanDischarge <- rowMeans(frch.final.discharge.2019[,c(3:4)], na.rm = TRUE)
-names(frch.final.discharge.2019) <- c("Site", "DateTime", "PT1Q", "PT2Q", "MeanDischarge")
+frch.final.discharge.2019$MeanDischarge <- rowMeans(frch.final.discharge.2019[,3:4], na.rm = FALSE)
 
-ggplot(aes(x = DateTime, y = pred.french1.Q), data = French2comb.2019) +
-  geom_line(aes(x = DateTime, y = pred.french1.Q), data = French2comb.2019, color="#A6CEE3", size=1.25) +
-  geom_line(aes(x = DateTime, y = pred.french1.Q), data = French5comb.2019,color="#1F78B4", size=1.25, alpha = 0.75) +
-  geom_line(aes(x = DateTime, y = MeanDischarge), data = frch.final.discharge.2019, color = "red", size = 1.25, alpha = 0.25) +
-  geom_point(aes(x = DateTime, y = Q_Ls), size=2) +
+frch.final.discharge.2019 %>% ggplot(aes(x = DateTime, y = pred.french1.Q)) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.french2.Q),color="#1F78B4", size=1.25, alpha = 0.75)+
+  geom_line(aes(x = DateTime, y = MeanDischarge),color="red", size=1.25, alpha = 0.75)+
+  geom_point(aes(x = DateTime, y = Q_Ls), data = French1comb.2019, size=2) +
   theme_classic() +
-  ylim(0, 5000) +
-  ggtitle("Frecnh1(light) French2(dark) & MeanDischarge (red) predicted all measured Q") +
+  ggtitle("Frecnh1(light) French2(dark) & MeanDischarge (red) predicted and measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time")
 
 ```
-When it comes to the higher Q they are way off. 
 
-### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
+# Export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
 ```{r, echo=FALSE, warning=FALSE}
-frch.final.discharge.2019.final <- frch.final.discharge.2019[,-c(3:4)]
+frch.final.discharge.2019.final <- frch.final.discharge.2019[,-c(3,4)]
 names(frch.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
-write.csv(frch.final.discharge.2019.final, "~/Documents/DoD_Discharge/Predicted_Discharge/2019/FRCH/FRCH.Q.csv", row.names = FALSE)
+write.csv(frch.final.discharge.2019.final, here("Predicted_Discharge/2019/FRCH/FRCH.Q.csv"), row.names = FALSE)
 ```
 
-## Raw Poker PT1
+## Raw Poker PT1 2019
 ```{r, echo=FALSE, warning=FALSE}
-plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
-     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
+#     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+
+poke.stream.one.2019.b <- poke.stream.one.2019
+
 plot(poke.stream.one.2019$DateTime, poke.stream.one.2019$AbsPTDepth, type = 'l')
 
 ```
-THe beginning increase appears to be real with the precip on top. I need to remove some of the "vertical bars within the data frame and check take out date. I am also going to take out the beaver dam tha is there from late august to middle of september  Let the cleaning commence!
+The beginning increase appears to be real with the precip on top. I need to remove some of the "vertical bars within the data frame and check take out date. I am also going to take out the beaver dam that is there from late august to middle of september  Let the cleaning commence!
 
 ```{r, echo=FALSE, warning=FALSE}
 poke.stream.one.2019 <- poke.stream.one.2019[-c(15015:15439), ] # remove out of water points - PT removed on the 14th
@@ -993,12 +1014,14 @@ poke.stream.one.2019 <- poke.stream.one.2019[-c(10406:11611), ] # remove beaver 
 poke.stream.one.2019 <- na_kalman(poke.stream.one.2019)
 
 
-plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
-     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
-plot(poke.stream.one.2019$DateTime, poke.stream.one.2019$AbsPTDepth, type = 'l')
+#plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
+#     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
+
+poke.stream.one.2019 %>% #filter(DateTime > "2019-08-01" & DateTime < "2019-09-01") %>%
+  ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 
 ```
 1) Removed vertical bars early on in dataset
@@ -1007,13 +1030,14 @@ plot(poke.stream.one.2019$DateTime, poke.stream.one.2019$AbsPTDepth, type = 'l')
 
 ## Raw Poker PT2
 ```{r, echo=FALSE, warning=FALSE}
-plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
-     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
+#     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth, type = 'l')
 ```
+
 Same procedure as PT1....let the cleaning commence!
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -1022,14 +1046,13 @@ poke.stream.two.2019[c(4, 2978:2983, 5578:5587,6137:6150, 6913:6920), 4] <- NA  
 
 poke.stream.two.2019 <- na_kalman(poke.stream.two.2019)
 
-plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
-     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
+#     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth, type = 'l')
 
-# 
 ```
 1) Removed vertical bars early on in dataset
 2) Removed beaver dam related data entirely
@@ -1039,7 +1062,7 @@ plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth, type = 'l')
 ```{r, echo=FALSE, warning=FALSE}
 poke.pt.2019 <- rbind(poke.stream.one.2019, poke.stream.two.2019)
 poke.pt.2019.final <- poke.pt.2019[,-2]
-write.csv(poke.pt.2019.final, "~/Documents/DoD_Discharge/PT_data/2019/POKE/poke.pt.2019.csv", row.names = FALSE)
+write.csv(poke.pt.2019.final, here("PT_data/2019/POKE/poke.pt.2019.csv"), row.names = FALSE)
 ```
 
 

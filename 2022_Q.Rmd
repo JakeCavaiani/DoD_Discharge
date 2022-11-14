@@ -434,6 +434,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
   ggtitle("Moose measured Q")
 
 ```
+
 I will try removing the two low difference, high measured Q points
 ```{r, warning = FALSE, message = FALSE}
 # Remove two low difference, high measured Q points
@@ -452,6 +453,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.3) +
   ggtitle("Moose measured Q")
 
 ```
+
 ```{r, warning = FALSE, message = FALSE}
 ## Predict MOOS Q
 
