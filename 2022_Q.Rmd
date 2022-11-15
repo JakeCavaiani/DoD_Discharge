@@ -726,6 +726,7 @@ Poker1comb.2022.2 %>% filter(Method == "Wading Rod") %>% ggplot(aes(x = differen
   ggtitle("Poker measured Q")
 
 ```
+
 Should we add a few YSI points back in?
 ```{r, warning = FALSE, message = FALSE}
 ### Rating Curve ###
