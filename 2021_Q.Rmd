@@ -3,8 +3,8 @@ title: "2021 Q"
 author: "Jake Cavaiani"
 date: "12/9/2021"
 output:
-  word_document: default
   html_document: default
+  word_document: default
   pdf_document: default
 ---
 
@@ -239,7 +239,7 @@ moos.stream.one.2021 <- na_kalman(moos.stream.one.2021)
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
-plot(moos.stream.one.2021$DateTime, moos.stream.one.2021$WaterLevel, type = 'l')
+plot(moos.stream.one.2021$DateTime, moos.stream.one.2021$WaterLevel)
 
 ```
 1) removed out of water points during decommission on 9/28/21
@@ -635,40 +635,41 @@ Not too shabby
 
 ### Predicted Q FRCH PT2
 ```{r, echo=FALSE, warning=FALSE}
-frch.final.discharge.2021 <- full_join(Frch1comb.2021, Frch2comb.2021, by = "DateTime")
+frch.final.discharge.2021 <- full_join(frch.stream.one.2021, frch.stream.two.2021, by = "DateTime")
 frch.final.discharge.2021$MeanDischarge <- rowMeans(frch.final.discharge.2021[,c ("pred.frch1.Q", 'pred.frch2.Q')], na.rm = TRUE) # taking the average of the two PTs
-frch.final.discharge.2021 <- frch.final.discharge.2021[,-c(1:4,6:13,15:26)] # remove unnecesary columns
+
 
 # French1 (light blue) and French2 (dark blue) with observed Q.
-ggplot(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021) +
-  geom_line(aes(x = DateTime, y = pred.frch1.Q), data = Frch1comb.2021, color="#A6CEE3", size=1.25) +
-  geom_line(aes(x = DateTime, y = pred.frch2.Q), data = Frch2comb.2021,color="#1F78B4", size=1.25, alpha = 0.75) +
+ggplot(aes(x = DateTime, y = pred.frch1.Q), data = frch.final.discharge.2021) +
+  geom_line(aes(x = DateTime, y = pred.frch1.Q), data = frch.final.discharge.2021, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.frch2.Q), data = frch.final.discharge.2021,color="#1F78B4", size=1.25, alpha = 0.75) +
   geom_line(aes(x = DateTime, y = MeanDischarge), data = frch.final.discharge.2021, color = "red", size = 1.25, alpha = 0.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
+  geom_point(data =Frch2comb.2021, aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
   ylim(0, 1500) +
   ggtitle("French1(light) & French2(dark) predicted all measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time")
 ```
+
 Red should be exported as a csv
 
 ## Export PT data to csv in DoD_Discharge->Predicted_discharge->2021
 ```{r, echo=FALSE, warning=FALSE}
-frch.final.discharge.2021_final <- frch.final.discharge.2021[,-c(2:3)]
-frch.final.discharge.2021_final$Site <- "FRCH"
-names(frch.final.discharge.2021_final) <- c("DateTime", "Q", "Site")
-write.csv(frch.final.discharge.2021_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/FRCH/FRCH.Q.csv", row.names = FALSE)
+frch.final.discharge.2021_final <- frch.final.discharge.2021[,c(7,5,12)]
+frch.final.discharge.2021_final$Site.y <- "FRCH"
+names(frch.final.discharge.2021_final) <- c( "Site", "DateTime", "Q")
+write.csv(frch.final.discharge.2021_final, here("Predicted_Discharge/2021/FRCH/FRCH.Q.csv"), row.names = FALSE)
 ```
 
 
 ### Raw Poker PT1
 ```{r, echo=FALSE, warning=FALSE}
-plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:25:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:25:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.one.2021$DateTime, poke.stream.one.2021$WaterLevel, type = 'l')
 
 ```
@@ -681,11 +682,11 @@ poke.stream.one.2021[c(5957:7397, 8261:9773,17247,23665:25616), 4] <- NA
 
 poke.stream.one.2021 <- na_kalman(poke.stream.one.2021)
 
-plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:25:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:25:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.one.2021$DateTime, poke.stream.one.2021$WaterLevel, type = 'l')
 
 ```
@@ -695,11 +696,11 @@ plot(poke.stream.one.2021$DateTime, poke.stream.one.2021$WaterLevel, type = 'l')
 
 ### Raw Poker PT2
 ```{r, echo=FALSE, warning=FALSE}
-plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:20:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.two.2021$DateTime, poke.stream.two.2021$WaterLevel, type = 'l')
 
 ```
@@ -711,11 +712,11 @@ poke.stream.two.2021[c(3725, 5957:7175,7973:9145,17247,23733:25600), 4] <- NA
 
 poke.stream.two.2021 <- na_kalman(poke.stream.two.2021)
 
-plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:20:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(poke.stream.two.2021$DateTime, poke.stream.two.2021$WaterLevel, type = 'l')
 
 ```
@@ -725,7 +726,7 @@ plot(poke.stream.two.2021$DateTime, poke.stream.two.2021$WaterLevel, type = 'l')
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
 poke.pt.2021 <- rbind(poke.stream.one.2021, poke.stream.two.2021)
-write.csv(poke.pt.2021, "~/Documents/DoD_Discharge/PT_data/2021/POKE/poke.pt.2021.csv", row.names = FALSE)
+write.csv(poke.pt.2021, here("PT_data/2021/POKE/poke.pt.2021.csv"), row.names = FALSE)
 ```
 
 
@@ -887,17 +888,17 @@ I think I should clip off the beginning of PT1 as the snowmelt signature makes m
 poke.final.discharge.2021_final <- poke.final.discharge.2021[,-c(2:3)]
 poke.final.discharge.2021_final$Site <- "POKE"
 names(poke.final.discharge.2021_final) <- c("DateTime", "Q", "Site")
-write.csv(poke.final.discharge.2021_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/POKE/POKE.Q.csv", row.names = FALSE)
+write.csv(poke.final.discharge.2021_final, here("Predicted_Discharge/2021/POKE/POKE.Q.csv"), row.names = FALSE)
 ```
 
 
 ### Raw Vault PT1
 ```{r, echo=FALSE, warning=FALSE}
-plot(VAUL_RainGauge_2021$inst_rainfall_mm ~ VAUL_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-10 09:00:00","2021-09-27 08:10:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(VAUL_RainGauge_2021$inst_rainfall_mm ~ VAUL_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-10 09:00:00","2021-09-27 08:10:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(vaul.stream.one.2021$DateTime, vaul.stream.one.2021$WaterLevel, type = 'l')
 
 ```
@@ -909,11 +910,11 @@ Need to remove vertical bars associated with out of water points such as the beg
 ```{r, echo=FALSE, warning=FALSE}
 vaul.stream.one.2021[c(4777:4994, 16861, 30756:30759), 4] <- NA
 vaul.stream.one.2021 <- na_kalman(vaul.stream.one.2021)
-plot(VAUL_RainGauge_2021$inst_rainfall_mm ~ VAUL_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-10 09:00:00","2021-09-27 08:10:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(VAUL_RainGauge_2021$inst_rainfall_mm ~ VAUL_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-10 09:00:00","2021-09-27 08:10:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(vaul.stream.one.2021$DateTime, vaul.stream.one.2021$WaterLevel, type = 'l')
 
 ```
@@ -921,7 +922,7 @@ plot(vaul.stream.one.2021$DateTime, vaul.stream.one.2021$WaterLevel, type = 'l')
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
-write.csv(vaul.stream.one.2021, "~/Documents/DoD_Discharge/PT_data/2021/VAUL/vaul.pt.2021.csv", row.names = FALSE)
+write.csv(vaul.stream.one.2021, here("PT_data/2021/VAUL/vaul.pt.2021.csv"), row.names = FALSE)
 ```
 
 ### Raw VAUL rating curve 
@@ -967,16 +968,16 @@ Not too shabby
 ```{r, echo=FALSE, warning=FALSE}
 vaul.final.discharge.2021_final <- Vaul1comb.2021[,-c(2:4, 6:13)]
 names(vaul.final.discharge.2021_final) <- c("Site", "DateTime", "Q")
-write.csv(vaul.final.discharge.2021_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/VAUL/VAUL.Q.csv", row.names = FALSE)
+write.csv(vaul.final.discharge.2021_final, here("Predicted_Discharge/2021/VAUL/VAUL.Q.csv"), row.names = FALSE)
 ```
 
 ### Raw STRT PT1
 ```{r, echo=FALSE, warning=FALSE}
-plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:30:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:30:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(strt.stream.one.2021$DateTime, strt.stream.one.2021$WaterLevel, type = 'l')
 
 ```
@@ -1001,11 +1002,11 @@ strt.stream.one.2021[17339, 4] <- NA
 
 strt.stream.one.2021 <- na_kalman(strt.stream.one.2021)
 
-plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:30:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:30:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(strt.stream.one.2021$DateTime, strt.stream.one.2021$WaterLevel, type = "l")
 
 ```
@@ -1015,11 +1016,11 @@ Quick snowmelt period and then not a lot of waterlevel change in June.
 
 ### Raw STRT PT2
 ```{r, echo=FALSE, warning=FALSE}
-plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:35:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:35:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(strt.stream.two.2021$DateTime, strt.stream.two.2021$WaterLevel, type = 'l')
 
 ```
@@ -1029,11 +1030,11 @@ plot(strt.stream.two.2021$DateTime, strt.stream.two.2021$WaterLevel, type = 'l')
 strt.stream.two.2021[c(5257:10460, 12997:13911, 17349:17380), 4] <- NA
 strt.stream.two.2021[c(10461:17381), 4] <- strt.stream.two.2021[c(10461:17381), 4] + 0.407
 
-plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
-     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:35:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
+#plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
+#     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:35:00"), tz="America/Anchorage"),
+#     ylim = c(20,0), 
+#     axes=F, xlab="", ylab="")
+#par(new = T)
 plot(strt.stream.two.2021$DateTime, strt.stream.two.2021$WaterLevel, type = "l")
 
 ```
@@ -1044,7 +1045,7 @@ plot(strt.stream.two.2021$DateTime, strt.stream.two.2021$WaterLevel, type = "l")
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
 strt.pt.2021 <- rbind(strt.stream.one.2021, strt.stream.two.2021)
-write.csv(strt.pt.2021, "~/Documents/DoD_Discharge/PT_data/2021/STRT/strt.pt.2021.csv", row.names = FALSE)
+write.csv(strt.pt.2021, here("PT_data/2021/STRT/strt.pt.2021.csv"), row.names = FALSE)
 ```
 
 ### Raw STRT rating curve 
@@ -1191,7 +1192,7 @@ ICKY
 strt.final.discharge.2021_final <- strt.final.discharge.2021[,-c(2:3)]
 strt.final.discharge.2021_final$Site <- "STRT"
 names(strt.final.discharge.2021_final) <- c("DateTime", "Q", "Site")
-write.csv(strt.final.discharge.2021_final, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/STRT/STRT.Q.csv", row.names = FALSE)
+write.csv(strt.final.discharge.2021_final, here("Predicted_Discharge/2021/STRT/STRT.Q.csv"), row.names = FALSE)
 ```
 
 ## Export PT data to csv in DoD_Discharge->Predicted_discharge->2021
@@ -1202,12 +1203,12 @@ Q_2021 <- rbind(moos.final.discharge.2021_final, frch.final.discharge.2021_final
 Q_2021$day = format(as.POSIXct(Q_2021$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
 Q_2021$day = as.POSIXct(Q_2021$day, "%Y-%m-%d", tz="America/Anchorage")
 
-write_csv(Q_2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q_2021.csv")
+write_csv(Q_2021, here("Predicted_Discharge/2021/Q_2021.csv"))
 
 Q.daily.2021 = with(Q_2021, tapply(Q, list(day, Site), mean))
 Q.daily.2021 = as.data.frame(Q.daily.2021)
 
-write_csv(Q.daily.2021, "~/Documents/DoD_Discharge/Predicted_Discharge/2021/Q.daily.2021.csv")
+write_csv(Q.daily.2021, here("Predicted_Discharge/2021/Q.daily.2021.csv"))
 ```
 
 
