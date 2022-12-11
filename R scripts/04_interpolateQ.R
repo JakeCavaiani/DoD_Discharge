@@ -25,6 +25,16 @@ Q21 <- read.csv(here("Predicted_Discharge", "2021", "Q_2021.csv"))
 Q21d <- read.csv(here("Predicted_Discharge", "2021", "Q.daily.2021.csv"))
 
 Q21fr <- read.csv(here("Predicted_Discharge", "2021", "FRCH", "FRCH.Q.csv"))
+Q21mo <- read.csv(here("Predicted_Discharge", "2021", "MOOS", "MOOS.Q.csv"))
+Q21po <- read.csv(here("Predicted_Discharge", "2021", "POKE", "POKE.Q.csv"))
+Q21st <- read.csv(here("Predicted_Discharge", "2021", "STRT", "STRT.Q.csv"))
+Q21va <- read.csv(here("Predicted_Discharge", "2021", "VAUL", "VAUL.Q.csv"))
+
+names(Q21fr)[names(Q21fr) == 'Q'] <- 'pred.frch.Q'
+names(Q21mo)[names(Q21mo) == 'Q'] <- 'pred.moos.Q'
+names(Q21po)[names(Q21po) == 'Q'] <- 'pred.poke.Q'
+names(Q21st)[names(Q21st) == 'Q'] <- 'pred.strt.Q'
+names(Q21va)[names(Q21va) == 'Q'] <- 'pred.vaul.Q'
 
 #####################
 ### Interpolation ###
@@ -242,3 +252,73 @@ Q22.pred %>% ggplot(aes(x = DateTimeAK, y = strt.Q.int)) +
   scale_x_datetime(limits = as.POSIXct(c("2022-07-01", "2022-08-15"))) +
   ylim(c(500, 1500))
 # Possibly raise interpolated piece to match
+
+## 2021 ##
+# Merge site files
+Q21 <- full_join(Q21fr, Q21mo, by = "DateTime")
+Q21 <- full_join(Q21, Q21po, by = "DateTime")
+Q21 <- full_join(Q21, Q21st, by = "DateTime")
+Q21 <- full_join(Q21, Q21va, by = "DateTime")
+names(Q21)[names(Q21) == 'DateTime'] <- 'DateTimeAK'
+
+# remove sites
+Q21 <- Q21 %>% select(-contains("Site"))
+
+# Manage dates
+Q21$DateTimeAK <- as.POSIXct(Q21$DateTimeAK, format = "%Y-%m-%d %H:%M:%S", tz = "America/Anchorage")
+Q21$julian <- sapply(Q21$DateTimeAK, function(x) julian(x, origin = as.POSIXct(paste0(format(x, "%Y"),'-01-01'), tz = 'America/Anchorage')))
+
+Q21 %>% pivot_longer(pred.vaul.Q:pred.frch.Q) %>%
+  ggplot(aes(x = DateTimeAK, y = value)) +
+  geom_point() +
+  facet_wrap(~name, scales = "free_y")
+
+# May-Jul missing: FRCH, MOOS, VAUL
+# early Jul missing; STRT
+
+# FRCH:
+#
+
+# MOOS: 
+# 2022-07-23 17:00:00, 2022-08-02 16:00:00
+
+# STRT:
+# 2022-07-23 18:00:00, 2022-08-10 22:00:00
+
+# VAUL:
+# 
+
+# FRCH
+Q21 %>% ggplot(aes(x = log(pred.poke.Q), y = log(pred.frch.Q))) +
+  geom_point()
+
+Q21 %>% ggplot(aes(x = log(pred.strt.Q), y = log(pred.frch.Q))) +
+  geom_point()
+# POKE
+
+# MOOS
+Q21 %>% ggplot(aes(x = pred.poke.Q, y = pred.moos.Q)) +
+  geom_point()
+
+Q21 %>% ggplot(aes(x = pred.strt.Q, y = pred.moos.Q)) +
+  geom_point()
+# POKE is better
+
+# STRT
+Q21 %>% ggplot(aes(x = pred.poke.Q, y = pred.strt.Q)) +
+  geom_point()
+
+Q21 %>% ggplot(aes(x = pred.frch.Q, y = pred.strt.Q)) +
+  geom_point()
+
+Q21 %>% ggplot(aes(x = pred.moos.Q, y = pred.strt.Q)) +
+  geom_point()
+# MOOS?
+
+# VAUL
+Q21 %>% ggplot(aes(x = pred.poke.Q, y = pred.vaul.Q)) +
+  geom_point()
+
+Q21 %>% ggplot(aes(x = pred.strt.Q, y = pred.vaul.Q)) +
+  geom_point()
+# POKE?
