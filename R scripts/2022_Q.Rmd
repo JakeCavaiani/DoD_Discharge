@@ -79,7 +79,7 @@ eielson.atmo.2022$DateTimeAK <- eielson.atmo.2022$DateTimeAK - 28800
 eielson.atmo.2022$DateTimeAK <- force_tz(eielson.atmo.2022$DateTimeAK, tzone = "America/Anchorage")
 #attributes(eielson.atmo.2022$DateTimeAK)$tzone <- "America/Anchorage"
 
-eielson.atmo.2022$DateTimeAK <- lubridate::round_date(eielson.atmo.2022$DateTimeAK, "15 minutes")
+eielson.atmo.2022$DateTimeAK <- lubridate::round_date(eielson.atmo.2022$DateTimeAK, "5 minutes")
 
 eielson.atmo.2022$AirPressure <- as.numeric(eielson.atmo.2022$AirPressure)
 eielson.atmo.2022$sea_level_pressure <- as.numeric(eielson.atmo.2022$sea_level_pressure)
@@ -155,7 +155,7 @@ moos.stream.one.2022$DateTimeAK <- force_tz(moos.stream.one.2022$DateTimeAK, tzo
 moos.atmo.2022$DateTimeAK <- force_tz(moos.atmo.2022$DateTimeAK, tzone = "America/Anchorage")
 
 # round date to 5 minute intervals
-moos.atmo.2022$DateTimeAK <- lubridate::round_date(moos.atmo.2022$DateTimeAK, "5 minutes")
+#moos.atmo.2022$DateTimeAK <- lubridate::round_date(moos.atmo.2022$DateTimeAK, "5 minutes")
 moos.stream.one.2022$DateTimeAK <- lubridate::round_date(moos.stream.one.2022$DateTimeAK, "5 minutes")
 moos.stream.two.2022$DateTimeAK <- lubridate::round_date(moos.stream.two.2022$DateTimeAK, "5 minutes")
 
@@ -209,10 +209,11 @@ moos.atmo.2022 <- moos.atmo.2022 %>% filter(DateTimeAK <= "2022-10-10 12:30:00")
                 ~ifelse(DateTimeAK >= "2022-10-3"& DateTimeAK <= "2022-10-8" & AirPressure < 98.5, NA, .))) 
 
 moos.atmo.2022 <- moos.atmo.2022 %>% mutate(across(c(AirPressure), 
-                ~ifelse(DateTimeAK >= "2022-10-2"& DateTimeAK <= "2022-10-3" & AirPressure < 98, NA, .))) 
+                ~ifelse(DateTimeAK >= "2022-10-2"& DateTimeAK <= "2022-10-3" & AirPressure < 98, NA, .))) %>% filter(DateTimeAK < "2022-08-01" | DateTimeAK > "2022-08-02 19:00")
 
 
-moos.atmo.2022 %>% filter(DateTimeAK <= "2022-10-15" & DateTimeAK >= "2022-10-01") %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
+moos.atmo.2022 %>% filter(DateTimeAK <= "2022-08-10" & DateTimeAK >= "2022-08-03") %>% 
+  ggplot(aes(x = DateTimeAK, y = AirPressure)) +
   geom_point()
 
 moos.atmo.2022 %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
@@ -220,9 +221,8 @@ moos.atmo.2022 %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
 
 
 ```
+
 This is a little better. 
-
-
 Here is the uncorrected air pressure comparison between Eielson and MOOS: 
 
 ```{r, warning = FALSE, message = FALSE}
@@ -230,11 +230,11 @@ moos.atmo.2022.compare <- moos.atmo.2022
 
 atmo.pt.2022.1 <- left_join(eielson.atmo.2022.compare, moos.atmo.2022.compare, by = "DateTimeAK")
 
-atmo.pt.2022.1 %>% #filter(DateTimeAK >= "2022-05-01" & DateTimeAK <= "2022-05-15") %>% 
+atmo.pt.2022.1 %>% filter(DateTimeAK <= "2022-08-10" & DateTimeAK >= "2022-08-02") %>%
   ggplot(aes(x = DateTimeAK, y = AirPressureCorrectedMOOS)) +
-  geom_line(aes(x=DateTimeAK, y=AirPressureCorrectedMOOS), color="#A6CEE3") +
-  geom_line(aes(x=DateTimeAK, y=AirPressure.x), color="#FF7F00") +
-  geom_line(aes(x=DateTimeAK, y=AirPressure.y), color = "red") +
+  geom_point(aes(x=DateTimeAK, y=AirPressureCorrectedMOOS), color="#A6CEE3") +
+  geom_point(aes(x=DateTimeAK, y=AirPressure.x), color="#FF7F00") +
+  geom_point(aes(x=DateTimeAK, y=AirPressure.y), color = "red") +
   theme_classic() +
   ggtitle("Eielson Corrected(blue) & Eielson uncorrected(orange) & MOOS(red) Atmo P") 
 
@@ -311,7 +311,16 @@ moos.stream.two.2022 <- full_join(moos.2.before5, moos.2.after5)
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(WaterPressure < 110)
 
-moos.stream.two.2022 %>%
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-09-28" & DateTimeAK <= "2022-09-28 17:00" & WaterPressure > 100.8, NA, .)))
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-09-28" & DateTimeAK <= "2022-09-28 17:00" & WaterPressure < 100.2, NA, .)))
+
+
+moos.stream.two.2022 %>%  #filter(DateTimeAK > "2022-09-28 12:00") %>%
   #filter(DateTimeAK > "2022-09-28 12:00:00" & DateTimeAK < "2022-09-29") %>% 
   ggplot(aes(x = DateTimeAK, y = WaterPressure)) +
   geom_point() +
@@ -352,8 +361,12 @@ Our Moose air pressure data is so messy - it is probably more accurate to use Ei
 ```{r, warning = FALSE, message = FALSE}
 #join the atmospheric and water pressure together
 
-MOOS.2022 <- left_join(atmo.pt.2022.1, moos.final.pressure.2022, by = "DateTimeAK")
+MOOS.2022 <- full_join(moos.final.pressure.2022, atmo.pt.2022.1, by = "DateTimeAK") %>% select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
+MOOS.2022$AirPressureCorrectedMOOS <- na_kalman(MOOS.2022$AirPressureCorrectedMOOS)
 
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-09 10:00"),ymd_hm("2022-10-10 16:00"), by = '15 mins'))
+MOOS.2022 <- full_join(MOOS.2022, DateTimeFill, by = "DateTimeAK")
+MOOS.2022$WaterPressure <- na_kalman(MOOS.2022$WaterPressure, maxgap = 9)
 
 # Water pressure - atmospheric pressure
  MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
@@ -368,11 +381,20 @@ ggtitle("MOOS air and water pressure")
  
 ```{r, warning = FALSE, message = FALSE} 
 # Plot difference
-MOOS.2022 %>% filter(DateTimeAK > "2022-05-20") %>% 
+MOOS.2022 %>% filter(DateTimeAK > "2022-10-08") %>% 
+  filter(DateTimeAK > "2022-09-25") %>%
   ggplot(aes(DateTimeAK, difference)) + geom_point() +
   ggtitle("MOOS difference")
 
-#MOOS.2022 %>% filter(DateTimeAK > "2022-09-01" & DateTimeAK < "2022-10-15") %>% filter(difference > 5) %>% View()
+# Clean the late season points
+MOOS.2022 <- MOOS.2022 %>%
+  mutate(across(c(difference), 
+                ~ifelse(DateTimeAK >= "2022-10-08" & difference > 1.45, NA, .)))
+
+# Plot difference
+MOOS.2022 %>% filter(DateTimeAK > "2022-05-20") %>% 
+  ggplot(aes(DateTimeAK, difference)) + geom_point() +
+  ggtitle("MOOS difference")
 ```
 
 
@@ -435,6 +457,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
 
 ```
 
+
 I will try removing the two low difference, high measured Q points
 ```{r, warning = FALSE, message = FALSE}
 # Remove two low difference, high measured Q points
@@ -462,10 +485,10 @@ MOOS1.lm.2022 <- lm(Moose1comb.2022.3$MeasuredQ_Ls ~ Moose1comb.2022.3$differenc
 MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
 
 MOOS.2022.dt <- MOOS.2022.dt %>% select(DateTimeAK, pred.moos1.Q) %>% filter(DateTimeAK >= "2022-05-25 08:05:00" & DateTimeAK <= "2022-10-08 16:15:00")
-MOOS.2022.dt <- na_kalman(MOOS.2022.dt)
+MOOS.2022.dt <- na_kalman(MOOS.2022.dt, maxgap = 9)
 
 MOOS.2022.dt %>% na.omit() %>% ggplot(aes(x = DateTimeAK, y = pred.moos1.Q)) +
-  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(color="#A6CEE3", size=1.25) +
   geom_point(data = Moose1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Moose predicted and measured Q") +
