@@ -121,6 +121,7 @@ eielson.atmo.2022.compare$AirPressureCorrectedFRCH <- eielson.atmo.2022.compare$
 # VAUL
 eielson.atmo.2022.compare$mmHGcorrectedVAUL <- eielson.atmo.2022.compare$mmHG - (2.5*688.8/100)
 eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$mmHGcorrectedVAUL * 0.133322 # converting this to kPA 
+
 ```
 
 ### MOOS #### 
@@ -328,7 +329,20 @@ moos.stream.two.2022 %>%  #filter(DateTimeAK > "2022-09-28 12:00") %>%
 
 ```
 
-This looks much better 
+This looks much better. Lets shift the beginning section down.
+```{r}
+# Shift
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK <= "2022-07-28", WaterPressure - 1.6, .))) # 1.6 was a guess
+
+moos.stream.two.2022 %>%  #filter(DateTimeAK > "2022-09-28 12:00") %>%
+  #filter(DateTimeAK > "2022-09-28 12:00:00" & DateTimeAK < "2022-09-29") %>% 
+  ggplot(aes(x = DateTimeAK, y = WaterPressure)) +
+  geom_point() +
+  theme_classic()
+
+```
 
 ```{r, warning = FALSE, message = FALSE}
 ## Combine water and air pressure
@@ -362,16 +376,14 @@ Our Moose air pressure data is so messy - it is probably more accurate to use Ei
 #join the atmospheric and water pressure together
 
 MOOS.2022 <- full_join(moos.final.pressure.2022, atmo.pt.2022.1, by = "DateTimeAK") %>% select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
-MOOS.2022$AirPressureCorrectedMOOS <- na_kalman(MOOS.2022$AirPressureCorrectedMOOS)
+
+# Fill gaps in data
+MOOS.2022$AirPressureCorrectedMOOS <- na.approx(MOOS.2022$AirPressureCorrectedMOOS, rule = 2)
 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-09 10:00"),ymd_hm("2022-10-10 16:00"), by = '15 mins'))
 MOOS.2022 <- full_join(MOOS.2022, DateTimeFill, by = "DateTimeAK")
 MOOS.2022$WaterPressure <- na_kalman(MOOS.2022$WaterPressure, maxgap = 9)
 
-# Water pressure - atmospheric pressure
- MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
-
- 
  
  MOOS.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   #filter(DateTimeAK > "2022-09-18" & DateTimeAK < "2022-09-22") %>%
@@ -380,6 +392,10 @@ ggtitle("MOOS air and water pressure")
 ```
  
 ```{r, warning = FALSE, message = FALSE} 
+# Water pressure - atmospheric pressure
+ MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
+
+
 # Plot difference
 MOOS.2022 %>% filter(DateTimeAK > "2022-10-08") %>% 
   filter(DateTimeAK > "2022-09-25") %>%
@@ -418,9 +434,6 @@ QSummary.MO.2022.dt <- QSummary.MO.2022
 
 Moose1comb.2022 <- MOOS.2022.dt[QSummary.MO.2022.dt, on = "DateTimeAK", roll = 'nearest']
 
-## ONLY using PT 2
-MOOS1.lm.2022 <- lm(Moose1comb.2022$MeasuredQ_Ls ~ Moose1comb.2022$difference)
-#summary(MOOS1.lm.2022)
 ```
 
 ```{r, warning = FALSE, message = FALSE}
@@ -439,12 +452,15 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
 
 ```
 
+
+I will remove three YSI points.
+
 ```{r, warning = FALSE, message = FALSE}
 # Remove outlier Q points
-Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference < 4 | MeasuredQ_Ls > 1000)
+Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference > 4 | MeasuredQ_Ls < 1000) %>% filter(MeasuredQ_Ls > 300)
 
 # plot rating curve 
-moos.formula = y~x
+moos.formula = y~ poly(x,2)
 
 ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
   geom_point(aes(color = Method), size = 3) +
@@ -458,31 +474,13 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
 ```
 
 
-I will try removing the two low difference, high measured Q points
-```{r, warning = FALSE, message = FALSE}
-# Remove two low difference, high measured Q points
-Moose1comb.2022.3 <- Moose1comb.2022.2 %>% filter(MeasuredQ_Ls < 1000 | MeasuredQ_Ls > 2000)
-
-# plot rating curve 
-moos.formula = y~x
-
-ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.3) +
-  geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
-  stat_poly_eq(formula = moos.formula,
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
-               parse = TRUE) +
-  theme_light() +
-  ggtitle("Moose measured Q")
-
-```
 
 ```{r, warning = FALSE, message = FALSE}
 ## Predict MOOS Q
 
-MOOS1.lm.2022 <- lm(Moose1comb.2022.3$MeasuredQ_Ls ~ Moose1comb.2022.3$difference)
+MOOS1.lm.2022 <- lm(Moose1comb.2022.3$MeasuredQ_Ls ~ Moose1comb.2022.3$difference + I(Moose1comb.2022.3$difference^2))
 
-MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
+MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[3] * I(MOOS.2022.dt$difference^2) + coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
 
 MOOS.2022.dt <- MOOS.2022.dt %>% select(DateTimeAK, pred.moos1.Q) %>% filter(DateTimeAK >= "2022-05-25 08:05:00" & DateTimeAK <= "2022-10-08 16:15:00")
 MOOS.2022.dt <- na_kalman(MOOS.2022.dt, maxgap = 9)
@@ -592,6 +590,7 @@ poke.stream.one.2022 %>% #filter(DateTimeAK > "2022-08-07" & DateTimeAK < "2022-
 
 ```
 
+
 Clean PT2
 ```{r, warning = FALSE, message = FALSE}
 poke.stream.two.2022 <- poke.stream.two.2022 %>%
@@ -610,11 +609,13 @@ This is PT2...we only have data from 8/1 because of our musical chairs situation
 ```{r, warning = FALSE, message = FALSE}
 
 # merge to one 
-poke.final.pressure.2022 <- left_join(poke.stream.one.2022, poke.stream.two.2022, by = c("DateTimeAK"))
-poke.final.pressure.2022$MeanPressure <- rowMeans(poke.final.pressure.2022[,c(2,6)], na.rm = TRUE)
+poke.final.pressure.2022 <- full_join(poke.stream.one.2022, poke.stream.two.2022, by = c("DateTimeAK"))
+
 
 poke.final.pressure.2022 %>% ggplot() + geom_point(aes(DateTimeAK, WaterPressure.x)) + geom_point(aes(DateTimeAK, WaterPressure.y), color = "red", cex = 0.5)
 ```
+
+
 It looks like we should use PT1 before August 1st (black) and PT2 after August 1st (red).
 ```{r, warning = FALSE, message = FALSE}
 ## Use PT1 before August 1st and PT2 after August 1st
@@ -622,35 +623,38 @@ It looks like we should use PT1 before August 1st (black) and PT2 after August 1
 poke.final.pressure.2022 %>% filter(DateTimeAK > "2022-08-01" & DateTimeAK < "2022-08-15") %>% summarise(mean(WaterPressure.x - WaterPressure.y)) #2.62398	
 
 poke.final.pressure.2022 <- poke.final.pressure.2022 %>%
-  mutate(WaterPressure.merged = ifelse(DateTimeAK <= "2022-08-01", WaterPressure.x, WaterPressure.y))
+  mutate(WaterPressure.merged = ifelse(DateTimeAK <= "2022-08-01", WaterPressure.x, WaterPressure.y)) %>% 
+  select("DateTimeAK", "WaterPressure.merged")
 
 # September step change
-poke.before <- poke.final.pressure.2022[c(1:37665), ]
-poke.after <- poke.final.pressure.2022[c(37705:40000), ]
-poke.final.pressure.2022[37705, 9] - poke.final.pressure.2022[37665, 9] # 0.374
-poke.after$WaterPressure.merged <- poke.after[, 9] + 0.374
-poke.final.pressure.2022 <- rbind(poke.before, poke.after)
+
+poke.before.2 <- poke.final.pressure.2022 %>% filter(DateTimeAK <= "2022-09-26 14:40" )
+poke.after.2 <- poke.final.pressure.2022 %>% filter(DateTimeAK >= "2022-09-26 16:35")
+poke.after.2$WaterPressure.merged <- poke.after.2$WaterPressure.merged + 0.374
+poke.final.pressure.2022 <- rbind(poke.before.2, poke.after.2)
 
 # End of August step change... move after data down all the way?
-poke.before <- poke.final.pressure.2022[c(1:29719), ]
-poke.after <- poke.final.pressure.2022[c(29720:40000), ]
-poke.final.pressure.2022[29720, 9] - poke.final.pressure.2022[29719, 9] # 0.858
-poke.after$WaterPressure.merged <- poke.after[, 9] - 0.858
+poke.before <- poke.final.pressure.2022 %>% filter(DateTimeAK <= "2022-08-29 14:40")
+poke.after <- poke.final.pressure.2022 %>% filter(DateTimeAK >= "2022-08-29 16:35:00")
+poke.after$WaterPressure.merged <- poke.after$WaterPressure.merged - 0.858
 poke.final.pressure.2022 <- rbind(poke.before, poke.after)
 
 
-poke.final.pressure.2022 %>% #filter(DateTimeAK > "2022-08-29" & DateTimeAK < "2022-08-29 17:00:00") %>% 
+
+
+poke.final.pressure.2022 %>% #filter(DateTimeAK > "2022-09-26 14:40" & DateTimeAK < "2022-09-27") %>% 
   ggplot() + geom_point(aes(DateTimeAK, WaterPressure.merged))
 
-#poke.final.pressure.2022 %>% filter(DateTimeAK > "2022-06-05" & DateTimeAK < "2022-06-06 17:00:00") %>% View()
 ```
 
-Shift after gap up halfway like I did with Moose?
+Shift after gap?
 
 ```{r, warning = FALSE, message = FALSE}
 # Join the two atmospheric and water pressure together
-poke.final.pressure.2022.2 <- poke.final.pressure.2022 %>% filter(!WaterPressure.merged %in% NA)
-POKE.2022 <- left_join(eielson.atmo.2022.compare, poke.final.pressure.2022.2, by = "DateTimeAK") 
+eielson.atmo.2022.compare$AirPressureCorrectedPOKE <- na_kalman(eielson.atmo.2022.compare$AirPressureCorrectedPOKE)
+POKE.2022 <- full_join(eielson.atmo.2022.compare, poke.final.pressure.2022, by = "DateTimeAK") %>% 
+  select(DateTimeAK, AirPressureCorrectedPOKE, WaterPressure.merged)
+
 
 ## Bring the last chunk up half way?
 101.250-98.134
@@ -658,8 +662,18 @@ POKE.2022 <- POKE.2022 %>%
  mutate(across(c(WaterPressure.merged), 
                 ~ifelse(DateTimeAK > "2022-07-30", WaterPressure.merged + 3.116*.5, .)))
 
+
 # Water pressure - atmospheric pressure 
+POKE.2022$AirPressureCorrectedPOKE <- na.approx(POKE.2022$AirPressureCorrectedPOKE, rule = 2)
+
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2022-05-18 00:45"),ymd_hm("2022-10-04 06:00"), by = '15 mins'))
+POKE.2022 <- full_join(POKE.2022, DateTimeFill, by = "DateTimeAK")
+POKE.2022$AirPressureCorrectedPOKE <- na_kalman(POKE.2022$AirPressureCorrectedPOKE, maxgap = 9)
+POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxgap = 9)
+
 POKE.2022$difference <- POKE.2022$WaterPressure.merged - POKE.2022$AirPressureCorrectedPOKE
+
 
 # Plot air and water pressure
   
@@ -670,6 +684,7 @@ POKE.2022 %>% #filter(DateTimeAK >"2022-09-26 10:00:00" & DateTimeAK < "2022-09-
 ```
 
 ```{r, warning = FALSE, message = FALSE} 
+
 # Plot difference
 POKE.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   ggplot(aes(DateTimeAK, difference)) + geom_point() +
@@ -843,25 +858,15 @@ This is PT1 for STRT raw. Looking at how low the PT data is I am NOT going to tr
  
  
 ```{r, warning = FALSE, message = FALSE}
-strt.stream.two.2022 %>% filter(DateTimeAK > "2022-06-03" & DateTimeAK < "2022-06-04" ) %>% ggplot(aes(x = DateTimeAK, y = WaterPressure))+
+strt.stream.two.2022 %>% #filter(DateTimeAK > "2022-06-03" & DateTimeAK < "2022-06-04" ) %>%
+  ggplot(aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
 
 ```
-This PT has SO much noise. I am going to round into 30 minute intervals.
-```{r, warning = FALSE, message = FALSE}
-# Take average at 60 min interval
-strt.stream.two.2022$DateTimeAK <- lubridate::round_date(strt.stream.two.2022$DateTimeAK, "60 minutes")
-# Take average pressure
-strt.stream.two.2022 <- strt.stream.two.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
-
-strt.stream.two.2022 %>% filter(DateTimeAK > "2022-06-03" & DateTimeAK < "2022-06-04" ) %>% ggplot(aes(x = DateTimeAK, y = WaterPressure))+
-  geom_point() +
-  theme_classic()
-```
-That looks more reasonable. I need to remove out of water points (anything before 6/2) and clean any erroneous points
 
 
+I need to remove out of water points (anything before 6/2) and clean any erroneous points
 ```{r, warning = FALSE, message = FALSE}
 #strt.stream.two.2022.b <- strt.stream.two.2022
 #strt.stream.two.2022 <- strt.stream.two.2022.b
@@ -939,12 +944,20 @@ STRT.atmo.2022.compare %>% filter(DateTimeAK > "2022-05-01") %>% ggplot() + geom
 Our air pressure is so messy: lets use Eielson air pressure
 ```{r, warning = FALSE, message = FALSE}
 # join the two atmospheric and water pressure together
-STRT.2022 <- left_join(eielson.atmo.2022.compare, strt.final.pressure.2022, by = "DateTimeAK")
+STRT.2022 <- full_join(eielson.atmo.2022.compare, strt.final.pressure.2022, by = "DateTimeAK") %>% select("DateTimeAK", "AirPressureCorrectedSTRT", "WaterPressure")
+STRT.2022$AirPressureCorrectedSTRT <-  na.approx(STRT.2022$AirPressureCorrectedSTRT, rule = 2) 
 
 # Water pressure - atmospheric pressure 
 STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$AirPressureCorrectedSTRT
 
 STRT.2022 <-  STRT.2022 %>% filter(!difference %in% NA)
+
+# Plot air and water pressure
+  
+STRT.2022 %>% #filter(DateTimeAK >"2022-09-26 10:00:00" & DateTimeAK < "2022-09-26 20:00:00") %>%
+  filter(DateTimeAK > "2022-05-05") %>%
+  ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT), color = "red") + 
+  ggtitle("POKE air and water pressure")
 
 ```
 

@@ -165,54 +165,6 @@ QSummary.2021$DateTime <- lubridate::round_date(QSummary.2021$DateTime, "15 minu
 
 ```
 
-### comparing PTs
-
-```{r, echo=FALSE, warning=FALSE}
-poke.stream.two.2021 <- poke.stream.two.2021[1:nrow(poke.stream.one.2021),]
-poke.stream.one.2021$Site <- "POKE1" #add column identifier
-poke.stream.two.2021$Site <- "POKE2"
-poke.pt.2021 <- bind_rows(poke.stream.one.2021, poke.stream.two.2021)
-
-strt.stream.two.2021 <- strt.stream.two.2021[1:nrow(strt.stream.one.2021),]
-strt.stream.one.2021$Site <- "STRT1" #add column identifier
-strt.stream.two.2021$Site <- "STRT2"
-strt.pt.2021 <- bind_rows(strt.stream.one.2021, strt.stream.two.2021)
-
-frch.stream.two.2021 <- frch.stream.two.2021[1:nrow(frch.stream.one.2021),]
-frch.stream.one.2021$Site <- "FRCH1" #add column identifier
-frch.stream.two.2021$Site <- "FRCH2"
-frch.pt.2021 <- bind_rows(frch.stream.one.2021, frch.stream.two.2021)
-
-moos.stream.two.2021 <- moos.stream.two.2021[1:nrow(moos.stream.one.2021),]
-moos.stream.one.2021$Site <- "MOOS1" #add column identifier
-moos.stream.two.2021$Site <- "MOOS2"
-moos.pt.2021 <- bind_rows(moos.stream.one.2021, moos.stream.two.2021)
-
-# Checking closeness between two PT #
-plot(x = poke.stream.one.2021$WaterLevel, y = poke.stream.two.2021$WaterLevel, main = "Poker PT comparison",
-     xlab = "Poker1PT", 
-     ylab = "Poker2PT")
-```
-### STRT Comp
-```{r, echo=FALSE, warning=FALSE}
-plot(x = strt.stream.one.2021$WaterLevel, y = strt.stream.two.2021$WaterLevel, main = "Stuart PT comparison",
-     xlab = "Stuart1PT", 
-     ylab = "Stuart2PT")
-```
-### FRCH COMP
-```{r, echo=FALSE, warning=FALSE}
-plot(x = frch.stream.one.2021$WaterLevel, y = frch.stream.two.2021$WaterLevel, main = "French PT comparison",
-     xlab = "French1PT", 
-     ylab = "French2PT")
-```
-### MOOS comp
-```{r, echo=FALSE, warning=FALSE}
-plot(x = moos.stream.one.2021$WaterLevel, y = moos.stream.two.2021$WaterLevel, main = "Moose PT comparison",
-     xlab = "Moose1PT", 
-     ylab = "Moose2PT")
-
-```
-
 # Moose
 ### Raw Moose PT1 
 ```{r, echo=FALSE, warning=FALSE}
@@ -231,7 +183,7 @@ Need to clean out of water points at the end of the dataframe...let the cleaning
 moos.stream.one.2021 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime < "2021-09-28") # cleaning data that is before September 28th due to decommission
 moos.stream.one.2021[c(29908:30000), 4] <- NA
 
-moos.stream.one.2021 <- na_kalman(moos.stream.one.2021)
+moos.stream.one.2021 <- na_kalman(moos.stream.one.2021, maxgap = 10)
 
 
 #plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
@@ -264,7 +216,7 @@ moos.stream.two.2021 <- moos.stream.two.2021 %>% subset(moos.stream.two.2021$Dat
 
 moos.stream.two.2021[c(29900:30000), 4] <- NA
 
-moos.stream.two.2021 <- na_kalman(moos.stream.two.2021)
+moos.stream.two.2021 <- na_kalman(moos.stream.two.2021, maxgap = 10)
 
 #plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
 #     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-28 06:15:00"), tz="America/Anchorage"),
@@ -278,6 +230,14 @@ plot(moos.stream.two.2021$DateTime, moos.stream.two.2021$WaterLevel, type = 'l')
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-04 09:00"),ymd_hm("2021-09-27 24:00"), by = '15 mins'))
+moos.stream.one.2021 <- full_join(moos.stream.one.2021, DateTimeFill)
+moos.stream.one.2021 <- na_kalman(moos.stream.one.2021, maxgap = 10)
+
+moos.stream.two.2021 <- full_join(moos.stream.two.2021, DateTimeFill)
+moos.stream.two.2021 <- na_kalman(moos.stream.two.2021, maxgap = 10)
+
 moos.pt.2021 <- rbind(moos.stream.one.2021, moos.stream.two.2021)
 write.csv(moos.pt.2021, here("PT_data/2021/MOOS/moos.pt.2021.csv"), row.names = FALSE)
 ```
@@ -365,6 +325,7 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos2comb.2021) +
   ggtitle("Moos2 all measured Q")
 
 ``` 
+
 1) removed YSI points above 1000 Ls
 
 ### Predicted Q MOOS PT1
@@ -395,7 +356,8 @@ ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moos2comb.2021) +
   ylab("Discharge(L/s)")
 
 ``` 
-Nott too shabby
+
+Not too shabby
 
 ### Average predicted Q MOOS 
 ```{r, echo=FALSE, warning=FALSE}
@@ -420,7 +382,8 @@ Looks good and red should be exported as a csv
 
 ## Export PT data to csv in DoD_Discharge->Predicted_discharge->2021
 ```{r, echo=FALSE, warning=FALSE}
-moos.final.discharge.2021_final <- moos.final.discharge.2021[,-c(2:3)]
+
+moos.final.discharge.2021_final <- moos.final.discharge.2021[,-c(2:3)] %>% filter(DateTime >= "2021-05-04 09:00" & DateTime <= "2021-09-27 24:00")
 moos.final.discharge.2021_final$Site <- "MOOS"
 names(moos.final.discharge.2021_final) <- c("DateTime", "Q", "Site")
 write.csv(moos.final.discharge.2021_final, here("Predicted_Discharge/2021/MOOS/MOOS.Q.csv"), row.names = FALSE)
@@ -484,7 +447,7 @@ frch.stream.two.2021 <- frch.stream.two.2021 %>% subset(frch.stream.two.2021$Dat
 
 frch.stream.two.2021[c(12948, 17535,31360,31361), 4] <- NA
 
-frch.stream.two.2021 <- na_kalman(frch.stream.two.2021)
+frch.stream.two.2021 <- na_kalman(frch.stream.two.2021, maxgap = 10)
 
 
 
@@ -496,10 +459,20 @@ frch.stream.two.2021 <- na_kalman(frch.stream.two.2021)
 plot(frch.stream.two.2021$DateTime, frch.stream.two.2021$WaterLevel, type = 'l')
 
 ```
+
 Not too shabby
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-06-30 03:00"),ymd_hm("2021-09-26 24:00"), by = '15 mins'))
+frch.stream.one.2021 <- full_join(frch.stream.one.2021, DateTimeFill)
+frch.stream.one.2021 <- na_kalman(frch.stream.one.2021, maxgap = 10)
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-04 09:00"),ymd_hm("2021-09-26 24:00"), by = '15 mins'))
+frch.stream.two.2021 <- full_join(frch.stream.two.2021, DateTimeFill)
+frch.stream.two.2021 <- na_kalman(frch.stream.two.2021, maxgap = 10)
+
 frch.pt.2021 <- rbind(frch.stream.one.2021, frch.stream.two.2021)
 write.csv(frch.pt.2021, here("PT_data/2021/FRCH/frch.pt.2021.csv"), row.names = FALSE)
 ```
@@ -680,7 +653,7 @@ plot(poke.stream.one.2021$DateTime, poke.stream.one.2021$WaterLevel, type = 'l')
 ```{r, echo=FALSE, warning=FALSE}
 poke.stream.one.2021[c(5957:7397, 8261:9773,17247,23665:25616), 4] <- NA
 
-poke.stream.one.2021 <- na_kalman(poke.stream.one.2021)
+poke.stream.one.2021 <- na_kalman(poke.stream.one.2021, maxgap = 10)
 
 #plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
 #     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:25:00"), tz="America/Anchorage"),
@@ -710,7 +683,7 @@ Out of water point in June, beaver dams....let the cleaning commence!
 ```{r, echo=FALSE, warning=FALSE}
 poke.stream.two.2021[c(3725, 5957:7175,7973:9145,17247,23733:25600), 4] <- NA
 
-poke.stream.two.2021 <- na_kalman(poke.stream.two.2021)
+poke.stream.two.2021 <- na_kalman(poke.stream.two.2021, maxgap = 10)
 
 #plot(POKE_RainGauge_2021$inst_rainfall_mm ~ POKE_RainGauge_2021$DateTime, type="h",
 #     xlim = as.POSIXct(c("2021-05-06 09:00:00","2021-09-29 06:20:00"), tz="America/Anchorage"),
@@ -725,6 +698,15 @@ plot(poke.stream.two.2021$DateTime, poke.stream.two.2021$WaterLevel, type = 'l')
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-06 09:00"),ymd_hm("2021-09-29 06:30"), by = '15 mins'))
+poke.stream.one.2021 <- full_join(poke.stream.one.2021, DateTimeFill)
+poke.stream.one.2021 <- na_kalman(poke.stream.one.2021, maxgap = 10)
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-06 09:00"),ymd_hm("2021-09-29 06:30"), by = '15 mins'))
+poke.stream.two.2021 <- full_join(poke.stream.two.2021, DateTimeFill)
+poke.stream.two.2021 <- na_kalman(poke.stream.two.2021, maxgap = 10)
+
 poke.pt.2021 <- rbind(poke.stream.one.2021, poke.stream.two.2021)
 write.csv(poke.pt.2021, here("PT_data/2021/POKE/poke.pt.2021.csv"), row.names = FALSE)
 ```
@@ -909,7 +891,7 @@ Need to remove vertical bars associated with out of water points such as the beg
 ### Vault PT1 2.0 
 ```{r, echo=FALSE, warning=FALSE}
 vaul.stream.one.2021[c(4777:4994, 16861, 30756:30759), 4] <- NA
-vaul.stream.one.2021 <- na_kalman(vaul.stream.one.2021)
+vaul.stream.one.2021 <- na_kalman(vaul.stream.one.2021, maxgap = 10)
 #plot(VAUL_RainGauge_2021$inst_rainfall_mm ~ VAUL_RainGauge_2021$DateTime, type="h",
 #     xlim = as.POSIXct(c("2021-05-10 09:00:00","2021-09-27 08:10:00"), tz="America/Anchorage"),
 #     ylim = c(20,0), 
@@ -922,6 +904,11 @@ plot(vaul.stream.one.2021$DateTime, vaul.stream.one.2021$WaterLevel, type = 'l')
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-10 09:00"),ymd_hm("2021-09-27 08:15"), by = '15 mins'))
+vaul.stream.one.2021 <- full_join(vaul.stream.one.2021, DateTimeFill)
+vaul.stream.one.2021 <- na_kalman(vaul.stream.one.2021, maxgap = 10)
+
 write.csv(vaul.stream.one.2021, here("PT_data/2021/VAUL/vaul.pt.2021.csv"), row.names = FALSE)
 ```
 
@@ -1000,7 +987,7 @@ strt.stream.one.2021 <- strt.stream.one.2021.final
 strt.stream.one.2021[c(910:923, 5923:10458, 11837:13900, 17342, 31626:31634), 4] <- NA
 strt.stream.one.2021[17339, 4] <- NA
 
-strt.stream.one.2021 <- na_kalman(strt.stream.one.2021)
+strt.stream.one.2021 <- na_kalman(strt.stream.one.2021, maxgap = 10)
 
 #plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
 #     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-30 06:30:00"), tz="America/Anchorage"),
@@ -1044,6 +1031,16 @@ plot(strt.stream.two.2021$DateTime, strt.stream.two.2021$WaterLevel, type = "l")
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-04 09:00"),ymd_hm("2021-09-30 06:30"), by = '15 mins'))
+strt.stream.one.2021 <- full_join(strt.stream.one.2021, DateTimeFill)
+strt.stream.one.2021 <- na_kalman(strt.stream.one.2021, maxgap = 10)
+
+# Add any missing time steps
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-19 09:00"),ymd_hm("2021-09-28 02:30"), by = '15 mins'))
+strt.stream.two.2021 <- full_join(strt.stream.two.2021, DateTimeFill)
+strt.stream.two.2021 <- na_kalman(strt.stream.two.2021, maxgap = 10)
+
 strt.pt.2021 <- rbind(strt.stream.one.2021, strt.stream.two.2021)
 write.csv(strt.pt.2021, here("PT_data/2021/STRT/strt.pt.2021.csv"), row.names = FALSE)
 ```
@@ -1175,9 +1172,9 @@ strt.final.discharge.2021 <- strt.final.discharge.2021[,-c(1:4,6:13,15:26)] # re
 
 # Stuart1 (light blue) and Stuart2 (dark blue) with observed Q.
 ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
-  geom_line(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021, color="#A6CEE3", size=1.25) +
-  geom_line(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2021,color="#1F78B4", size=1.25, alpha = 0.75) +
-  geom_line(aes(x = DateTime, y = MeanDischarge), data = strt.final.discharge.2021, color = "red", size = 1.25, alpha = 0.25) +
+  geom_point(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021, color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2021,color="#1F78B4", size=1.25, alpha = 0.75) +
+  geom_point(aes(x = DateTime, y = MeanDischarge), data = strt.final.discharge.2021, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
   ylim(0, 3000) +
@@ -1185,6 +1182,7 @@ ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
   ylab("Predicted discharge L/s") +
   xlab("Time")
 ```
+
 ICKY
 
 ## Export PT data to csv in DoD_Discharge->Predicted_discharge->2021
@@ -1211,26 +1209,6 @@ Q.daily.2021 = as.data.frame(Q.daily.2021)
 write_csv(Q.daily.2021, here("Predicted_Discharge/2021/Q.daily.2021.csv"))
 ```
 
-
-
-### Average Q for STRT
-```{r, echo=FALSE, warning=FALSE}
-# Stuart1 (light blue) and Stuart2 (dark blue) with observed Q.
-strt.final.discharge.2021.test <- strt.final.discharge.2021
-
-
-strt.final.discharge.2021.test.1 <- na_kalman(strt.final.discharge.2021.test)
-
-ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2021) +
-  geom_line(aes(x = DateTime, y = MeanDischarge), data = strt.final.discharge.2021.test.1, color = "red", size = 1.25, alpha = 0.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
-  theme_classic() +
-  ylim(0, 3000) +
-  ggtitle("STRT1(light) & STRT2(dark) predicted all measured Q") +
-  ylab("Predicted discharge L/s") +
-  xlab("Time")
-
-```
 
 
 
