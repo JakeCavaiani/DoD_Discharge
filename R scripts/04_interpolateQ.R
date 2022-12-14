@@ -273,17 +273,18 @@ Q21 %>% pivot_longer(pred.vaul.Q:pred.frch.Q) %>%
   geom_point() +
   facet_wrap(~name, scales = "free_y")
 
-# May-Jul missing: FRCH, MOOS, VAUL
-# early Jul missing; STRT
-
 # FRCH:
-#
+# 2021-05-04 09:00:00
 
 # MOOS: 
-# 2022-07-23 17:00:00, 2022-08-02 16:00:00
+# 2021-05-04 09:00:00, 2022-08-02 16:00:00
+
+# POKE:
+# 2021-05-04 09:00:00
+# shorter gaps throughout
 
 # STRT:
-# 2022-07-23 18:00:00, 2022-08-10 22:00:00
+# 
 
 # VAUL:
 # 
