@@ -35,6 +35,7 @@ library(gridExtra)
 library(ggpmisc)
 library(birk)
 library(imputeTS)
+library(neonUtilities)
 ```
 
 
@@ -124,6 +125,62 @@ eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$
 
 ```
 
+NEON air pressure data
+```{r}
+#NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
+ #                          site=c("BONA"),
+#                           startdate="2022-05", 
+#                           enddate="2022-11")
+
+NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
+attr(NEON_bp$startDateTime, "tzone") <- "America/Anchorage"
+NEON_bp$DateTimeAK <- NEON_bp$startDateTime
+
+
+
+## Round time to 5 minutes and take average
+NEON_bp$DateTimeAK <- lubridate::round_date(NEON_bp$DateTimeAK, "5 minutes") 
+NEON_bp <- NEON_bp %>% group_by(DateTimeAK) %>% summarise(bp_sea = mean(corPres, na.rm = TRUE))
+
+# Compare NEON and Eielson sea level pressure
+eielson.atmo.2022.compare$sea_level_pressure_kpa <- eielson.atmo.2022.compare$sea_level_pressure*3.38639
+NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() + geom_point(data = eielson.atmo.2022.compare, aes(DateTimeAK, sea_level_pressure_kpa), color = "red") 
+
+# They are similar, so I will fill in the gaps in NEON with Eielson
+# Fill in gaps
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '5 mins'))
+NEON_bp <- full_join(NEON_bp, DateTimeFill)
+Air_combo <- left_join(NEON_bp, eielson.atmo.2022.compare)
+Air_combo <- Air_combo %>% mutate(bp_combo = ifelse(bp_sea %in% NA, sea_level_pressure_kpa,. ))
+
+NEON_bp <- na_kalman(NEON_bp, type = "level")
+any(is.na(NEON_bp))
+
+NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() # units are kilopascals, corrected to sea level
+
+
+
+# Convert to elevation using formula from "Barometric Pressure conversion for DO calibration.xls"
+# MOOS 
+NEON_bp$AirPressureCorrectedMOOS <- (NEON_bp$bp_sea*7.50062 - (2.5*574/100)) / 7.50062
+
+# POKE 
+NEON_bp$AirPressureCorrectedPOKE <- (NEON_bp$bp_sea*7.50062 - (2.5*760.96/100)) / 7.50062
+
+# STRT
+NEON_bp$AirPressureCorrectedSTRT <- (NEON_bp$bp_sea*7.50062 - (2.5*820/100)) / 7.50062
+
+# FRCH
+NEON_bp$AirPressureCorrectedFRCH <- (NEON_bp$bp_sea*7.50062 - (2.5*601/100)) / 7.50062
+
+# VAUL
+NEON_bp$AirPressureCorrectedVAUL <- (NEON_bp$bp_sea*7.50062 - (2.5*688.8/100)) / 7.50062
+
+any(is.na(NEON_bp))
+```
+
+
 ### MOOS #### 
 ```{r, warning = FALSE, message = FALSE}
 # Load in water pressure data 
@@ -173,8 +230,11 @@ names(moos.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
 
 names(moos.stream.two.2022) <- c("Site", "WaterPressure", "TempC",  "DateTimeAK")
 
+
 moos.atmo.2022 %>% filter(AirPressure > 96.8) %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
-  geom_point()
+  geom_point() 
+
+
 
 ```
 
@@ -238,6 +298,10 @@ atmo.pt.2022.1 %>% filter(DateTimeAK <= "2022-08-10" & DateTimeAK >= "2022-08-02
   geom_point(aes(x=DateTimeAK, y=AirPressure.y), color = "red") +
   theme_classic() +
   ggtitle("Eielson Corrected(blue) & Eielson uncorrected(orange) & MOOS(red) Atmo P") 
+
+# Compare with NEON converted air pressure.
+moos.atmo.2022 %>% filter(AirPressure > 96.8) %>% ggplot(aes(x = DateTimeAK, y = AirPressure)) +
+  geom_point() + geom_point(data = NEON_bp, aes(DateTimeAK, AirPressureCorrectedMOOS), color = "red")
 
 ```
 
@@ -370,20 +434,20 @@ atmo.pt.2022.1 <- atmo.pt.2022.1 %>%
  # ggplot(aes(DateTimeAK, AirPressureCorrectedMOOS)) + geom_point() #+ geom_vline(xintercept = as.POSIXct("2022-09-10")) + geom_vline(xintercept = as.POSIXct("2022-09-12"))
 ```
 
-Our Moose air pressure data is so messy - it is probably more accurate to use Eielson's data.
+Our Moose air pressure data is so messy - we will use NEON's data.
 
 ```{r, warning = FALSE, message = FALSE}
 #join the atmospheric and water pressure together
 
-MOOS.2022 <- full_join(moos.final.pressure.2022, atmo.pt.2022.1, by = "DateTimeAK") %>% select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
+MOOS.2022 <- full_join(moos.final.pressure.2022, NEON_bp, by = "DateTimeAK") %>% select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
 
 # Fill gaps in data
-MOOS.2022$AirPressureCorrectedMOOS <- na.approx(MOOS.2022$AirPressureCorrectedMOOS, rule = 2)
+
 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-09 10:00"),ymd_hm("2022-10-10 16:00"), by = '15 mins'))
 MOOS.2022 <- full_join(MOOS.2022, DateTimeFill, by = "DateTimeAK")
 MOOS.2022$WaterPressure <- na_kalman(MOOS.2022$WaterPressure, maxgap = 9)
-
+MOOS.2022$AirPressureCorrectedMOOS <- na_kalman(MOOS.2022$AirPressureCorrectedMOOS)
  
  MOOS.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   #filter(DateTimeAK > "2022-09-18" & DateTimeAK < "2022-09-22") %>%
@@ -453,11 +517,11 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022) +
 ```
 
 
-I will remove three YSI points.
+I will remove two YSI points.
 
 ```{r, warning = FALSE, message = FALSE}
 # Remove outlier Q points
-Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference > 4 | MeasuredQ_Ls < 1000) %>% filter(MeasuredQ_Ls > 300)
+Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference > 2 | MeasuredQ_Ls < 1000) %>% filter(MeasuredQ_Ls > 300)
 
 # plot rating curve 
 moos.formula = y~ poly(x,2)
@@ -478,7 +542,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
 ```{r, warning = FALSE, message = FALSE}
 ## Predict MOOS Q
 
-MOOS1.lm.2022 <- lm(Moose1comb.2022.3$MeasuredQ_Ls ~ Moose1comb.2022.3$difference + I(Moose1comb.2022.3$difference^2))
+MOOS1.lm.2022 <- lm(Moose1comb.2022.2$MeasuredQ_Ls ~ Moose1comb.2022.2$difference + I(Moose1comb.2022.2$difference^2))
 
 MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[3] * I(MOOS.2022.dt$difference^2) + coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
 
@@ -651,8 +715,8 @@ Shift after gap?
 
 ```{r, warning = FALSE, message = FALSE}
 # Join the two atmospheric and water pressure together
-eielson.atmo.2022.compare$AirPressureCorrectedPOKE <- na_kalman(eielson.atmo.2022.compare$AirPressureCorrectedPOKE)
-POKE.2022 <- full_join(eielson.atmo.2022.compare, poke.final.pressure.2022, by = "DateTimeAK") %>% 
+
+POKE.2022 <- full_join(NEON_bp, poke.final.pressure.2022, by = "DateTimeAK") %>% 
   select(DateTimeAK, AirPressureCorrectedPOKE, WaterPressure.merged)
 
 
@@ -664,13 +728,15 @@ POKE.2022 <- POKE.2022 %>%
 
 
 # Water pressure - atmospheric pressure 
-POKE.2022$AirPressureCorrectedPOKE <- na.approx(POKE.2022$AirPressureCorrectedPOKE, rule = 2)
-
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
 2022-05-18 00:45"),ymd_hm("2022-10-04 06:00"), by = '15 mins'))
 POKE.2022 <- full_join(POKE.2022, DateTimeFill, by = "DateTimeAK")
-POKE.2022$AirPressureCorrectedPOKE <- na_kalman(POKE.2022$AirPressureCorrectedPOKE, maxgap = 9)
+
 POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxgap = 9)
+any(is.na(POKE.2022$AirPressureCorrectedPOKE))
+POKE.2022$AirPressureCorrectedPOKE <- na_kalman(POKE.2022$AirPressureCorrectedPOKE)
+any(is.na(POKE.2022$AirPressureCorrectedPOKE))
+
 
 POKE.2022$difference <- POKE.2022$WaterPressure.merged - POKE.2022$AirPressureCorrectedPOKE
 
