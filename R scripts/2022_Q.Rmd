@@ -127,10 +127,10 @@ eielson.atmo.2022.compare$AirPressureCorrectedVAUL <- eielson.atmo.2022.compare$
 
 NEON air pressure data
 ```{r}
-#NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
- #                          site=c("BONA"),
-#                           startdate="2022-05", 
-#                           enddate="2022-11")
+NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
+                           site=c("BONA"),
+                           startdate="2022-05", 
+                           enddate="2022-11")
 
 NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
 attr(NEON_bp$startDateTime, "tzone") <- "America/Anchorage"
@@ -149,15 +149,17 @@ NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() + geom_point(data = e
 # They are similar, so I will fill in the gaps in NEON with Eielson
 # Fill in gaps
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '5 mins'))
+2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '15 mins'))
 NEON_bp <- full_join(NEON_bp, DateTimeFill)
-Air_combo <- left_join(NEON_bp, eielson.atmo.2022.compare)
-Air_combo <- Air_combo %>% mutate(bp_combo = ifelse(bp_sea %in% NA, sea_level_pressure_kpa,. ))
+Air_combo <- left_join(NEON_bp, eielson.atmo.2022.compare[,c(1,15)])
+Air_combo$bp_combo <- rowMeans(Air_combo[,c(2,3)], na.rm = TRUE)
+Air_combo$bp_combo <- na_kalman(Air_combo$bp_combo, type = "level")
+NEON_bp1 <- NEON_bp %>% filter(DateTimeAK > "2022-05-01" & DateTimeAK < "2022-06-01")
+NEON_bp1$bp_sea <- na.approx(NEON_bp1$bp_sea, rule = 2)
+NEON_bp1 %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
 
-NEON_bp <- na_kalman(NEON_bp, type = "level")
-any(is.na(NEON_bp))
-
-NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() # units are kilopascals, corrected to sea level
+Air_combo %>% filter(DateTimeAK > "2022-07-01" & DateTimeAK < "2022-08-01") %>% 
+  ggplot(aes(DateTimeAK, bp_combo)) + geom_point(size = 2) #+ geom_point(aes(DateTimeAK, bp_sea), color = 2, size = 0.2) + geom_point(aes(DateTimeAK, sea_level_pressure_kpa), color = 3, size = 0.2)# units are kilopascals, corrected to sea level
 
 
 
@@ -179,7 +181,13 @@ NEON_bp$AirPressureCorrectedVAUL <- (NEON_bp$bp_sea*7.50062 - (2.5*688.8/100)) /
 
 any(is.na(NEON_bp))
 ```
+Trim merged air pressure data
+```{r}
+Air_combo <- Air_combo %>% mutate(across(c(bp_combo), ~ifelse(DateTimeAK > "2022-05-15 15:00" & DateTimeAK < "2022-05-17" & bp_combo > 101.1, NA, .)))
 
+Air_combo %>% filter(DateTimeAK > "2022-05-20" & DateTimeAK < "2022-06-01") %>% 
+  ggplot(aes(DateTimeAK, bp_combo)) + geom_point(size = 2)
+```
 
 ### MOOS #### 
 ```{r, warning = FALSE, message = FALSE}
@@ -914,6 +922,13 @@ names(strt.stream.two.2022) <- c("Site","WaterPressure", "TempC", "DateTimeAK")
 
 names(strt.atmo.2022) <- c("Site", "AirPressureSTRT", "DateTimeAK")
 
+
+# Plot atmosphere data
+strt.atmo.2022 %>% ggplot(aes(DateTimeAK, AirPressureSTRT)) + geom_point()
+```
+
+
+```{r}
 ggplot(strt.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()

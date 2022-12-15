@@ -81,10 +81,9 @@ names(moos.stream) <- c("Date", "AbsolutePressure")
 names(frch.stream) <- c("Date", "AbsolutePressure")
 
 #Convert time and put in AK time 
-moos.stream$DateTimeAK <- mdy_hm(moos.stream$Date)
-attributes(moos.stream$DateTimeAK)$tzone <-'America/Anchorage'
-frch.stream$DateTimeAK <- mdy_hm(frch.stream$Date)
-attributes(frch.stream$DateTimeAK)$tzone <-'America/Anchorage'
+moos.stream$DateTimeAK <- mdy_hm(moos.stream$Date, tz = "America/Anchorage")
+frch.stream$DateTimeAK <- mdy_hm(frch.stream$Date, tz = "America/Anchorage")
+
 
 QSummary$date <- mdy(QSummary$date)
 QSummary$DateTimeAK <- as.POSIXct(paste(QSummary$date, QSummary$time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
@@ -176,14 +175,6 @@ ggplot(aes(x = DateTimeAK, y = AirPressureCorrectedMOOS), data = eielson.atmo.20
 ##### Checking Raw PT data 
 
 ## Raw Moose
-```{r , echo=FALSE, warning=FALSE}
-plot(caribou.2015.gauge$Precip~ caribou.2015.gauge$DateTimeAK, type="h",
-     xlim = as.POSIXct(c("2015-05-14 04:05:00","2015-09-22 02:20:00"), tz="America/Anchorage"),
-     ylim = c(20,0), 
-     axes=F, xlab="", ylab="")
-par(new = T)
-plot(x = moos.stream$DateTimeAK, y = moos.stream$AbsolutePressure, type = "l")
-```
 
 There is a big increase in middle to end of may that doesnt seem to be real from precip , and then a lot of vertical drops in middle of June, July, August (potentially cleanning points) and then at the end of september we get a big drop, this is when the site was taken out...(PT was taken out on the 21st)... let the cleaning commence!
 
@@ -248,7 +239,7 @@ moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>
 ```
 1) Clipped off the take out date (anything after 2015-09-20 18:30:00)
 2) Set vertical drops in raw data to NA's
-3) NEED TO DO NA INTERPRET
+
 
 I will clean up the jumps.
 ```{r}
@@ -256,42 +247,38 @@ I will clean up the jumps.
 moos.stream[15821,2] - moos.stream[15823,2]
 moos.stream <- moos.stream %>%
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-07-08 02:30:00", AbsolutePressure + 2.182, .)))
+                ~ifelse(DateTimeAK >= "2015-07-08 10:40:00", AbsolutePressure + 2.182, .)))
 
 # Shift following pressure up after May 25 jump:
 moos.stream[3146,2] - moos.stream[3149,2]
-moos.stream <- moos.stream %>% filter(DateTimeAK < "2015-05-25 02:15:00" | DateTimeAK > "2015-05-25 02:30:00") %>%
+moos.stream <- moos.stream %>% filter(DateTimeAK < "2015-05-25 10:15:00" | DateTimeAK > "2015-05-25 10:30:00") %>%
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-05-25 02:15:00", AbsolutePressure - 0.993, .)))
+                ~ifelse(DateTimeAK > "2015-05-25 10:15:00", AbsolutePressure - 0.993, .)))
 
 # Shift following pressure up after Jun 19 jump:
 moos.stream[10403,2] - moos.stream[10413,2]
 moos.stream <- moos.stream %>%
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-06-19 07:05:00", AbsolutePressure - 0.468, .)))
+                ~ifelse(DateTimeAK > "2015-06-19 15:05:00", AbsolutePressure - 0.468, .)))
 
-# Shift following pressure up after Aug 26 jump:
-moos.stream[30086,2] - moos.stream[30093,2]
-moos.stream <- moos.stream %>% filter(DateTimeAK < "2015-08-26 15:15:00" | DateTimeAK > "2015-08-26 15:50:00") %>%
-  mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-08-26 15:15:00", AbsolutePressure + 1.781, .)))
 
 # Shift following pressure up after Sep 7 jump:
 moos.stream[33693,2] - moos.stream[33694,2]
 moos.stream <- moos.stream %>% 
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-09-08 04:30:00", AbsolutePressure - 0.714, .)))
+                ~ifelse(DateTimeAK > "2015-09-08 12:30:00", AbsolutePressure - 0.714, .)))
 
 moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>%
   ggplot(aes(x = DateTimeAK, y = AbsolutePressure)) +
   geom_point()
 ```
+
 ### Impute missing observations in pressure for Moose 
 ```{r , echo=FALSE, warning=FALSE}
 moos.stream <- na_kalman(moos.stream) %>% filter(DateTimeAK >= "2015-05-20 14:10:00" )
 
 ggplot(moos.stream, aes(x = DateTimeAK, y = AbsolutePressure)) +
-  geom_point()
+  geom_point() + geom_point(data = eielson.atmo.2015, aes(DateTimeAK, AirPressureCorrectedMOOS)) #+ scale_x_datetime(limits = ymd_h(c("2015-06-15 00", "2015-06-30 23"))) + ylim(95,107)
 
 
 ```
@@ -310,7 +297,7 @@ Similarily to Moose There is a big increase in middle to end of may that doesnt 
 
 ### French 1.0 
 ```{r, echo=FALSE, warning=FALSE}
-frch.stream <- frch.stream %>%  subset(frch.stream$DateTimeAK < "2015-09-20 18:30:00") # PT was taken out on the 21st 
+frch.stream <- frch.stream %>%  subset(frch.stream$DateTimeAK <= "2015-09-21 12:45:00") # PT was taken out on the 21st 
 
 #May to june
 frch.stream.1 <- frch.stream %>% subset(frch.stream$DateTimeAK < "2015-06-01 00:00:00" & frch.stream$DateTimeAK > "2015-05-20 00:00:00") 
@@ -357,16 +344,16 @@ I will clean up the jumps.
 ```{r}
 # Shift following pressure up after Jul 27 jump:
 frch.stream[3726,2] - frch.stream[3741,2]
-frch.stream <- frch.stream %>% filter(DateTimeAK >= "2015-05-18 07:15:00") %>%
+frch.stream <- frch.stream %>% filter(DateTimeAK >= "2015-05-18 15:15:00") %>%
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-05-27 02:30:00
+                ~ifelse(DateTimeAK > "2015-05-27 10:30:00
 ", AbsolutePressure + 1.64, .)))
 
 # Shift following pressure up after Jul 19 jump:
 frch.stream[9158,2] - frch.stream[9189,2]
-frch.stream <- frch.stream %>% filter(DateTimeAK != "2015-06-19 05:15:00") %>%
+frch.stream <- frch.stream %>% filter(DateTimeAK != "2015-06-19 13:15:00") %>%
   mutate(across(c(AbsolutePressure), 
-                ~ifelse(DateTimeAK > "2015-06-19 02:45:00
+                ~ifelse(DateTimeAK > "2015-06-19 10:45:00
 ", AbsolutePressure - 0.669, .)))
 
 ```
@@ -495,7 +482,7 @@ ggplot(aes(x = difference, y = Q..L.s.), data = Moose1comb.2015.part.two) +
 Plot predicted Q.
 
 ```{r, message = FALSE, warning = FALSE}
-## Predict STRT Q
+## Predict MOOS Q
 MOOS1.lm.2015 <- lm(Moose1comb.2015.part.two$Q..L.s. ~ Moose1comb.2015.part.two$difference + I(Moose1comb.2015.part.two$difference^2))
 
 MOOS.2015.one.dt$pred.moos.Q <- coef(MOOS1.lm.2015)[2] * MOOS.2015.one.dt$difference + coef(MOOS1.lm.2015)[1] + coef(MOOS1.lm.2015)[3] * I(MOOS.2015.one.dt$difference^2)
