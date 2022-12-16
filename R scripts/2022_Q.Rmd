@@ -142,6 +142,23 @@ NEON_bp$DateTimeAK <- NEON_bp$startDateTime
 NEON_bp$DateTimeAK <- lubridate::round_date(NEON_bp$DateTimeAK, "5 minutes") 
 NEON_bp <- NEON_bp %>% group_by(DateTimeAK) %>% summarise(bp_sea = mean(corPres, na.rm = TRUE))
 
+
+NEON_bp$bp_sea <- na.approx(NEON_bp$bp_sea, rule = 2)
+NEON_bp %>% filter(DateTimeAK > "2022-07-25", DateTimeAK < "2022-07-30") %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
+
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '15 mins'))
+NEON_bp <- full_join(NEON_bp, DateTimeFill)
+length(is.na(NEON_bp$bp_sea))
+any(duplicated(NEON_bp$DateTimeAK))
+NEON_bp <- so
+NEON_bp$bp_sea <- na.approx(NEON_bp$bp_sea, rule = 2)
+
+NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
+```
+
+
+```{r}
 # Compare NEON and Eielson sea level pressure
 eielson.atmo.2022.compare$sea_level_pressure_kpa <- eielson.atmo.2022.compare$sea_level_pressure*3.38639
 NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() + geom_point(data = eielson.atmo.2022.compare, aes(DateTimeAK, sea_level_pressure_kpa), color = "red") 
@@ -154,9 +171,7 @@ NEON_bp <- full_join(NEON_bp, DateTimeFill)
 Air_combo <- left_join(NEON_bp, eielson.atmo.2022.compare[,c(1,15)])
 Air_combo$bp_combo <- rowMeans(Air_combo[,c(2,3)], na.rm = TRUE)
 Air_combo$bp_combo <- na_kalman(Air_combo$bp_combo, type = "level")
-NEON_bp1 <- NEON_bp %>% filter(DateTimeAK > "2022-05-01" & DateTimeAK < "2022-06-01")
-NEON_bp1$bp_sea <- na.approx(NEON_bp1$bp_sea, rule = 2)
-NEON_bp1 %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
+
 
 Air_combo %>% filter(DateTimeAK > "2022-07-01" & DateTimeAK < "2022-08-01") %>% 
   ggplot(aes(DateTimeAK, bp_combo)) + geom_point(size = 2) #+ geom_point(aes(DateTimeAK, bp_sea), color = 2, size = 0.2) + geom_point(aes(DateTimeAK, sea_level_pressure_kpa), color = 3, size = 0.2)# units are kilopascals, corrected to sea level

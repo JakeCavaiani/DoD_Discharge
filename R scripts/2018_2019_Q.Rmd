@@ -70,14 +70,15 @@ Moose1 <- read.csv(url(Moose1.url))
 Moose2 <- read.csv(url(Moose2.url))
 
 # Convert time and put in AK time 
-French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="GMT") #convert date format.
-attributes(French1$DateTime)$tzone <-'America/Anchorage'
-French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="GMT") #convert date format.
-attributes(French2$DateTime)$tzone <-'America/Anchorage'
-Moose1$DateTime <- mdy_hm(Moose1$DateTimeGMT, tz="GMT") #convert date format.
-attributes(Moose1$DateTime)$tzone <-'America/Anchorage'
-Moose2$DateTime <- mdy_hm(Moose2$DateTimeGMT, tz="GMT") #convert date format.
-attributes(Moose2$DateTime)$tzone <-'America/Anchorage'
+##### Origional was in GGMT-9!!!!!!!!!!
+French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="America/Anchorage") #convert date format.
+#French1$DateTime <- French1$DateTime - 3600 # Convert to AKDT
+French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="America/Anchorage") #convert date format.
+
+Moose1$DateTime <- mdy_hm(Moose1$DateTimeGMT, tz="America/Anchorage") #convert date format.
+
+Moose2$DateTime <- mdy_hm(Moose2$DateTimeGMT, tz="America/Anchorage") #convert date format.
+
 
 # format data, combine all french, combine all moose, combine french and moose
 French2 <- French2[1:nrow(French1),] # French 2 has a few extra rows on it from when stopping logger. Stripping them.
@@ -123,6 +124,8 @@ allfrench %>%
   ggtitle("French") +
   scale_color_brewer(palette = "Paired")
 ```
+
+
 There looks like an error when we calculated depth. Tom says that we can adjust the difference of the wrong one to make them agree, then remeasure them next year. French 2 also looks "noisier"
 1) dumping French 2 
 
@@ -143,7 +146,8 @@ plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
 2) we are dumping French PT2 due to it being too "noisy"
 
 ```{r}
-French1 %>% filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>% ggplot() + 
+French1 %>% #filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>% 
+  ggplot() + 
   geom_point(aes(x=DateTime, y=WaterLevelmeters)) +
   theme_classic() +
   ggtitle("French") +
@@ -266,7 +270,7 @@ summary(Moose2.lm)
 ```
 
 
-*Karen - I will try removing that high water, low measured YSI point.
+I will try removing that high water, low measured YSI point.
 ```{r, echo=FALSE, warning=FALSE}
 
 Qsummary.MO <- Qsummary  %>% 
@@ -368,6 +372,7 @@ ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
 
 
 ```
+
 This doesnt look too shabby!
 
 # Export 2018 PT data
@@ -521,7 +526,7 @@ let the cleaning commence!
 ```{r, echo=FALSE, warning=FALSE}
 moos.stream.one.2019 <- moos.stream.one.2019[-c(3715, 5179,5342), ]
 
-moos.stream.one.2019 %>% #filter(DateTime > "2019-09-01" & DateTime < "2019-10-01") %>% 
+moos.stream.one.2019 %>% filter(DateTime > "2019-07-01" & DateTime < "2019-07-10") %>% 
   ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 ```
 1)removed vertical bars in dataframe
