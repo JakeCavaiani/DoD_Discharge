@@ -70,7 +70,7 @@ Moose1 <- read.csv(url(Moose1.url))
 Moose2 <- read.csv(url(Moose2.url))
 
 # Convert time and put in AK time 
-##### Origional was in GGMT-9!!!!!!!!!!
+##### Origional was in GGMT-9!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="America/Anchorage") #convert date format.
 French1$DateTime <- French1$DateTime + 3600 # Convert to AKDT (GMT-8)
 French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="America/Anchorage") #convert date format.
@@ -401,13 +401,20 @@ French2comb <- French2comb[c(1,3,12)]
 names(French2comb) <- c("DateTime", "Site", "Q")
 
 Q_2018 <- rbind(moose3comb, French2comb)
-
-Q_2018$day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
-Q_2018$day = as.POSIXct(Q_2018$day, "%Y-%m-%d", tz="America/Anchorage")
-
-write.csv(moose3comb, here("Predicted_Discharge/2018/MOOS/MOOS.Q.csv"))
-write.csv(French2comb, here("Predicted_Discharge/2018/FRCH/FRCH.Q.csv"))
 write.csv(Q_2018, here("Predicted_Discharge/2018/Q_2018.csv"))
+
+
+Q_2018$Day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2018$Day = as.POSIXct(Q_2018$Day, "%Y-%m-%d", tz="America/Anchorage")
+
+Q.daily.2018 <- Q_2018 %>% dplyr::group_by(Site, Day) %>% dplyr::summarise(Q = mean(Q))
+any(is.na(Q.daily.2018))
+
+write_csv(Q.daily.2018, here("Predicted_Discharge/2015/Q.daily.2018.csv"))
+
+
+
+Q_2018 %>% ggplot() + geom_line(aes(DateTime, Q, color = Site))+ ylab("Predicted Q")
 ```
 
 * We rock at discharge!!!
