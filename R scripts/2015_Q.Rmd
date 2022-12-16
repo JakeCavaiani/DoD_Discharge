@@ -268,6 +268,7 @@ moos.stream <- moos.stream %>%
   mutate(across(c(AbsolutePressure), 
                 ~ifelse(DateTimeAK > "2015-09-08 12:30:00", AbsolutePressure - 0.714, .)))
 
+
 moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>%
   ggplot(aes(x = DateTimeAK, y = AbsolutePressure)) +
   geom_point()
@@ -402,6 +403,10 @@ MOOS.2015.one %>% ggplot(aes(DateTimeAK, AbsolutePressure)) + geom_point() + geo
 # Water pressure - atmospheric pressure
 MOOS.2015.one$difference <- MOOS.2015.one$AbsolutePressure - MOOS.2015.one$AirPressureCorrectedMOOS
 
+# Remove spike at start because it doesn't match French
+MOOS.2015.one <- MOOS.2015.one %>% mutate(across(c(difference), ~ifelse(DateTimeAK < "2015-06-01" & difference > 5, NA,.)))
+
+MOOS.2015.one %>% ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("Moose difference")
 ```
 
 ```{r}
@@ -598,9 +603,24 @@ FRCH.2015.one.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q)) +
 
 ### Export 2015 predicted Q
 ```{r}
-pred_Q_2015 <- full_join(FRCH.2015.one.dt[,c(2,15)], MOOS.2015.one.dt[,c(2,15)])
-pred_Q_2015 <- na_kalman(pred_Q_2015)
-write.csv(pred_Q_2015, here("Predicted_Discharge/2015/Predicted_Q_2015.csv"))
+FRCH.2015.one.dt <- FRCH.2015.one.dt[,c(2,15,13)]
+names(FRCH.2015.one.dt) <- c("DateTimeAK", "Q", "Site")
+MOOS.2015.one.dt <-  MOOS.2015.one.dt[,c(2,15,13)]
+names(MOOS.2015.one.dt) <- c("DateTimeAK", "Q", "Site")
 
-pred_Q_2015 %>% ggplot() + geom_line(aes(DateTimeAK, pred.frch.Q), col = 1)+ geom_line(aes(DateTimeAK, pred.moos.Q), col = 2) + ylab("Predicted Q")
+Q_2015 <- rbind(FRCH.2015.one.dt, MOOS.2015.one.dt)
+Q_2015 <- na_kalman(Q_2015)
+
+write.csv(Q_2015, here("Predicted_Discharge/2015/Predicted_Q_2015.csv"))
+
+Q_2015$Day = format(as.POSIXct(Q_2015$DateTimeAK,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2015$Day = as.POSIXct(Q_2015$Day, "%Y-%m-%d", tz="America/Anchorage")
+
+Q.daily.2015 <- Q_2015 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
+any(is.na(Q.daily.2015))
+
+write_csv(Q.daily.2015, here("Predicted_Discharge/2015/Q.daily.2020.csv"))
+
+
+Q_2015 %>% ggplot() + geom_line(aes(DateTimeAK, Q, color = Site))+ ylab("Predicted Q")
 ```

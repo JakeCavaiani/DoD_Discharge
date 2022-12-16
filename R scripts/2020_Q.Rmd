@@ -1415,8 +1415,6 @@ Q.daily.2020 = as.data.frame(Q.daily.2020)
 write_csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"))
 write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
 
-write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
-
 ```
 
 

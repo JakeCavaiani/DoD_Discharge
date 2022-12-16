@@ -394,10 +394,14 @@ This doesnt look too shabby!
 
 # Export 2018 PT data
 ```{r, echo=FALSE, warning=FALSE}
+moose3comb <- moose3comb[,c(4,6,14)]
+names(moose3comb) <- c("DateTime", "Site", "Q")
+moose3comb$Site <- rep("MOOS", length(moose3comb$DateTime))
+French2comb <- French2comb[c(1,3,12)]
+names(French2comb) <- c("DateTime", "Site", "Q")
 
-final_discharge_2018 <- full_join(moose3comb, French2comb)
+Q_2018 <- rbind(moose3comb, French2comb)
 
-Q_2018 <- final_discharge_2018
 Q_2018$day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
 Q_2018$day = as.POSIXct(Q_2018$day, "%Y-%m-%d", tz="America/Anchorage")
 
