@@ -72,13 +72,13 @@ Moose2 <- read.csv(url(Moose2.url))
 # Convert time and put in AK time 
 ##### Origional was in GGMT-9!!!!!!!!!!
 French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="America/Anchorage") #convert date format.
-#French1$DateTime <- French1$DateTime - 3600 # Convert to AKDT
+French1$DateTime <- French1$DateTime + 3600 # Convert to AKDT (GMT-8)
 French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="America/Anchorage") #convert date format.
-
+French2$DateTime <- French2$DateTime + 3600 # Convert to AKDT (GMT-8)
 Moose1$DateTime <- mdy_hm(Moose1$DateTimeGMT, tz="America/Anchorage") #convert date format.
-
+Moose1$DateTime <- Moose1$DateTime + 3600
 Moose2$DateTime <- mdy_hm(Moose2$DateTimeGMT, tz="America/Anchorage") #convert date format.
-
+Moose2$DateTime <- Moose2$DateTime + 3600
 
 # format data, combine all french, combine all moose, combine french and moose
 French2 <- French2[1:nrow(French1),] # French 2 has a few extra rows on it from when stopping logger. Stripping them.
@@ -157,6 +157,14 @@ French1 %>% #filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>%
 
 Export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2018-05-30 15:30"),ymd_hm("2018-10-12 10:00"), by = '15 mins'))
+French1 <- full_join(French1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
+French1 <- French1[order(French1$DateTime),]
+French1 <- na_kalman(French1)
+French1$Site <- rep("FRCH", length(French1$DateTime))
+any(is.na(French1))
+
 write.csv(French1, here("PT_data/2018/frch.pt.2018.csv"), row.names = FALSE)
 
 ```
@@ -204,6 +212,15 @@ plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, t
 
 ### export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
+Moose1 <- Moose1.pre.middle.post
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2018-05-29 16:00"),ymd_hm("2018-10-26 15:03"), by = '15 mins'))
+Moose1 <- full_join(Moose1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
+Moose1 <- Moose1[order(Moose1$DateTime),]
+Moose1 <- na_kalman(Moose1)
+Moose1$Site <- rep("FRCH", length(Moose1$DateTime))
+any(is.na(Moose1))
+
 write.csv(Moose1.pre.middle.post, here("PT_data/2018/moos.pt.2018.csv"), row.names = FALSE)
 
 ```
@@ -319,25 +336,25 @@ ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose3comb) +
 Qsummary.FR <- Qsummary  %>% #filter out measured Q at just french
   filter(Site == "French") 
 
-French1comb <- full_join(French1, Qsummary.FR) 
+French1comb <- full_join(French1, Qsummary.FR, by = "DateTime") 
 ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French1comb) +
   geom_point(aes( color=Method), size=3) +
   geom_smooth(method = "lm", se=FALSE) +
   stat_poly_eq(formula = y ~ x, 
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
                parse = TRUE) +
-  scale_x_continuous(limits = c(184.2,184.9)) +
+  #scale_x_continuous(limits = c(184.2,184.9)) +
   theme_classic() +
   ggtitle("French1 all measured Q") 
-French1.lm <- lm(French1comb$MeasuredQ_Ls ~ French1comb$WaterLevelmeters)
-summary(French1.lm)
+
 ```
+
 Will remove the two HOBOware points
 
 ```{r, echo=FALSE, warning=FALSE}
 Qsummary.FR.1 <- Qsummary.FR[-c(8:9), ] # removing the HOBOWare points 
 
-French2comb <- full_join(French1, Qsummary.FR.1) 
+French2comb <- full_join(French1, Qsummary.FR.1, by = "DateTime") 
 
 ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French2comb) +
   geom_point(aes( color=Method), size=3) +
@@ -349,8 +366,7 @@ ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French2comb) +
   theme_classic() +
   ggtitle("French1 all measured Q") 
 
-French2.lm <- lm(French2comb$MeasuredQ_Ls ~ French2comb$WaterLevelmeters)
-summary(French1.lm)
+
 ```
 1) Removed the HOBOware points
 
@@ -358,6 +374,7 @@ summary(French1.lm)
 #### Black points are observed Q
 
 ```{r, echo=FALSE, warning=FALSE}
+French2.lm <- lm(French2comb$MeasuredQ_Ls ~ French2comb$WaterLevelmeters)
 French2comb$pred.french1.Q <- coef(French2.lm)[2] * French2comb$WaterLevelmeters + coef(French2.lm)[1]
 # Fill in any missing data
 French2comb <- na_kalman(French2comb)
