@@ -102,28 +102,28 @@ poke.stream.two.2020$DateTimeGMT[poke.stream.two.2020$DateTimeGMT == ""] <- NA
 
 
 # Convert time and put in AK time #
-moos.stream.one.2020$DateTime <- mdy_hms(moos.stream.one.2020$DateTimeGMT, tz = "GMT")
-attributes(moos.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
-moos.stream.two.2020$DateTime <- mdy_hms(moos.stream.two.2020$DateTimeGMT, tz = "GMT")
-attributes(moos.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+moos.stream.one.2020$DateTime <- mdy_hms(moos.stream.one.2020$DateTimeGMT, tz = "America/Anchorage")
 
-frch.stream.one.2020$DateTime <- mdy_hms(frch.stream.one.2020$DateTimeGMT, tz = "GMT")
-attributes(frch.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
-frch.stream.two.2020$DateTime <- mdy_hms(frch.stream.two.2020$DateTimeGMT, tz = "GMT")
-attributes(frch.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+moos.stream.two.2020$DateTime <- mdy_hms(moos.stream.two.2020$DateTimeGMT, tz = "America/Anchorage")
 
-strt.stream.one.2020$DateTime <- mdy_hms(strt.stream.one.2020$DateTimeGMT, tz = "GMT")
-attributes(strt.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
-strt.stream.two.2020$DateTime <- mdy_hms(strt.stream.two.2020$DateTimeGMT, tz = "GMT")
-attributes(strt.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
 
-vaul.stream.2020$DateTime <- mdy_hms(vaul.stream.2020$DateTimeGMT, tz = "GMT")
-attributes(vaul.stream.2020$DateTime)$tzone <- 'America/Anchorage'
+frch.stream.one.2020$DateTime <- mdy_hms(frch.stream.one.2020$DateTimeGMT, tz = "America/Anchorage")
 
-poke.stream.one.2020$DateTime <- mdy_hms(poke.stream.one.2020$DateTimeGMT, tz = "GMT")
-attributes(poke.stream.one.2020$DateTime)$tzone <- 'America/Anchorage'
-poke.stream.two.2020$DateTime <- mdy_hms(poke.stream.two.2020$DateTimeGMT, tz = "GMT")
-attributes(poke.stream.two.2020$DateTime)$tzone <- 'America/Anchorage'
+frch.stream.two.2020$DateTime <- mdy_hms(frch.stream.two.2020$DateTimeGMT, tz = "America/Anchorage")
+
+
+strt.stream.one.2020$DateTime <- mdy_hms(strt.stream.one.2020$DateTimeGMT, tz = "America/Anchorage")
+
+strt.stream.two.2020$DateTime <- mdy_hms(strt.stream.two.2020$DateTimeGMT, tz = "America/Anchorage")
+
+
+vaul.stream.2020$DateTime <- mdy_hms(vaul.stream.2020$DateTimeGMT, tz = "America/Anchorage")
+
+
+poke.stream.one.2020$DateTime <- mdy_hms(poke.stream.one.2020$DateTimeGMT, tz = "America/Anchorage")
+
+poke.stream.two.2020$DateTime <- mdy_hms(poke.stream.two.2020$DateTimeGMT, tz = "America/Anchorage")
+
 
 # Observed discharge
 # Import data from google drive #
@@ -150,6 +150,27 @@ QSummary.2020$DateTime <- as.POSIXct(paste(QSummary.2020$date, QSummary.2020$Tim
 #VAUL_RainGauge_2020$DateTime <-  ymd_hms(VAUL_RainGauge_2020$DateTime)
 #attributes(VAUL_RainGauge_2020$DateTime)$tzone <-'America/Anchorage'
 
+```
+
+NEON air pressure data to check time zone
+```{r}
+#NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
+#                           site=c("BONA"),
+#                           startdate="2020-05", 
+#                           enddate="2020-11")
+
+NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
+attr(NEON_bp$startDateTime, "tzone") <- "America/Anchorage"
+NEON_bp$DateTime <- NEON_bp$startDateTime
+
+
+
+## Round time to 5 minutes and take average
+NEON_bp$DateTime <- lubridate::round_date(NEON_bp$DateTime, "5 minutes") 
+NEON_bp <- NEON_bp %>% group_by(DateTime) %>% summarise(bp_sea = mean(corPres, na.rm = TRUE))
+
+
+NEON_bp %>% ggplot(aes(DateTime, bp_sea)) + geom_point()
 ```
 
 ## Comparing PTs
@@ -255,7 +276,7 @@ c <- QSummary.2020 %>% filter(Site == "POKE") %>%
   ggtitle("Poker")
 c
 
-d <- QSummary.2020 %>% filter(Site == "VAUL") %>% 
+d <- QSummary.2020 %>% filter(Site == "VAUL") %>%
   ggplot() +
   geom_point(aes(x=DateTime, y = MeasuredQ_Ls, color = Method), size=3) +
   theme_classic() +
@@ -276,6 +297,11 @@ plot_grid(all, NA,
           nrow = 4, ncol = 2)
 ```
 
+# Compare with NEON air pressure to verify time zone
+```{r}
+
+moos.stream.one.2020 %>% ggplot(aes(DateTime, AbsolutePressure))  + geom_point() + geom_point(data = NEON_bp, aes(DateTime, bp_sea + 12)) + ylim(111,116) + scale_x_datetime(limits = ymd_h(c("2020-07-07 00", "2020-07-30 23")))
+```
 ## Raw Moose PT1
 ```{r, echo=FALSE, warning=FALSE}
 #plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
@@ -283,7 +309,7 @@ plot_grid(all, NA,
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
-plot(moos.stream.one.2020$DateTime, moos.stream.one.2020$WaterLevel, type = 'l')
+moos.stream.one.2020 %>% ggplot(aes(DateTime, AbsolutePressure))  + geom_point()
 
 ```
 
