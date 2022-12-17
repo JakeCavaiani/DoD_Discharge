@@ -540,6 +540,7 @@ plot(x = frch.stream.one.2019$AbsPTDepth, y = frch.stream.two.2019$AbsPTDepth, m
 abline(1,1) 
 
 ```
+
 Looks pretty good
 
 Checking Raw PT data 
@@ -549,17 +550,38 @@ Raw Moose
 
 plot(moos.stream.one.2019$DateTime, moos.stream.one.2019$AbsPTDepth, type = 'l')
 ```
-let the cleaning commence!
+
+Let the cleaning commence!
+
 ## Moose 2.0 ##
 ```{r, echo=FALSE, warning=FALSE}
 moos.stream.one.2019 <- moos.stream.one.2019[-c(3715, 5179,5342), ]
 
-moos.stream.one.2019 %>% filter(DateTime > "2019-07-01" & DateTime < "2019-07-10") %>% 
+# Remove jump around July 9th
+moos.stream.one.2019 <- moos.stream.one.2019 %>% mutate(across(c(AbsPTDepth), ~ifelse(DateTime > "2019-07-08" & DateTime < "2019-07-10" & AbsPTDepth > 1.05, NA, .)))
+
+moos.stream.one.2019 %>% #filter(DateTime > "2019-07-01" & DateTime < "2019-07-10") %>% 
   ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 ```
 1)removed vertical bars in dataframe
 ? Spike in early Julyish does have rainfall close to it....is it real?
 Middle of October? Ice on? Should I clip middle of October, French was removed on October 10th according to the field notebook 
+
+Fill in data gaps
+```{r}
+moos.stream.one.2019 <- moos.stream.one.2019[,c(5,4)]
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-05-31 15:45"),ymd_hm("2019-10-22 09:15"), by = '15 mins'))
+moos.stream.one.2019 <- full_join(moos.stream.one.2019, DateTimeFill)
+moos.stream.one.2019 <- moos.stream.one.2019[order(moos.stream.one.2019$DateTime),]
+moos.stream.one.2019 <- na_kalman(moos.stream.one.2019)
+
+moos.stream.one.2019$Site <- rep("MOOS", length(moos.stream.one.2019$DateTime))
+
+ggplot(moos.stream.one.2019, aes(x = DateTime, y = AbsPTDepth)) +
+  geom_point()
+```
 
 # Observed Discharge at all sites 
 
@@ -648,8 +670,12 @@ Not too shabby
 
 ### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
 ```{r, echo=FALSE, warning=FALSE}
-Moose2comb.2019_final <- Moose2comb.2019[,-c(2:4,6:12)]
+Moose2comb.2019_final <- Moose2comb.2019[,c(3,1,11)]
 names(Moose2comb.2019_final) <- c("Site", "DateTime", "Q")
+Moose2comb.2019_final$Site <- rep("MOOS", length(Moose2comb.2019_final$DateTime))
+
+
+Moose2comb.2019_final <- na_kalman(Moose2comb.2019_final)
 write.csv(Moose2comb.2019_final, here("Predicted_Discharge/2019/MOOS/MOOS.Q.csv"), row.names = FALSE)
 ```
 
@@ -717,9 +743,16 @@ plot(frch.pt.2019.wide$AbsPTDepth.x, frch.pt.2019.wide$AbsPTDepth.y)
 
 Export PT data to csv to DoD_Discharge->PT_data->2019
 ```{r, echo=FALSE, warning=FALSE}
-frch.pt.2019 <- rbind(frch.stream.one.2019, frch.stream.two.2019)
-frch.pt.2019.final <- frch.pt.2019[,-2]
-write.csv(frch.pt.2019.final, here("PT_data/2019/FRCH/frch.pt.2019.csv"), row.names = FALSE)
+frch.stream.one.2019 <- frch.stream.one.2019[,c(1,5,4)]
+frch.stream.two.2019 <- frch.stream.two.2019[,c(1,5,4)]
+
+frch.stream.2019 <- rbind(frch.stream.one.2019, frch.stream.two.2019)
+write.csv(frch.stream.2019, here("PT_data/2019/FRCH/frch.pt.2019.csv"), row.names = FALSE)
+
+ggplot(frch.stream.2019, aes(x = DateTime, y = AbsPTDepth, color = Site)) +
+  geom_point()
+
+
 ```
 
 
@@ -728,9 +761,9 @@ write.csv(frch.pt.2019.final, here("PT_data/2019/FRCH/frch.pt.2019.csv"), row.na
 ```{r, echo=FALSE, warning=FALSE}
 QSummary.FR.2019 <- QSummary.2019 %>% filter(Site =="French") %>% drop_na(Q_Ls)
 QSummary.FR.2019$Site <- "FRCH"
-frch.stream.one.2019$Site <- "FRCH"
 
-French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019) 
+
+French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019, by = "DateTime") 
 French1.lm.2019 <- lm(French1comb.2019$Q_Ls ~ French1comb.2019$AbsPTDepth)
 summary(French1.lm.2019)  # Worked
 
@@ -747,12 +780,13 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French1comb.2019) +
 
 
 ```
+
 Lots of points that are clustered at the bottom. I will remove the 3 large YSI points 
 
 ```{r, echo=FALSE, warning=FALSE}
 QSummary.FR.2019.1 <- QSummary.FR.2019[-c(11:13), ]
 
-French2comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019.1) 
+French2comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019.1, by = "DateTime") 
 French2.lm.2019 <- lm(French2comb.2019$Q_Ls ~ French2comb.2019$AbsPTDepth)
 summary(French2.lm.2019)  # Worked
 
@@ -771,15 +805,16 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French2comb.2019) +
 
 
 ```
+
 Not as good of an R^2. 
 
 Rating curve with two high Q points.
 ```{r, echo=FALSE, warning=FALSE}
 QSummary.FR.2019 <- QSummary.2019 %>% filter(Site =="French") %>% drop_na(Q_Ls) %>% filter(Q_Ls < 1500)
 QSummary.FR.2019$Site <- "FRCH"
-frch.stream.one.2019$Site <- "FRCH"
 
-French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019) 
+
+French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019, by = "DateTime") 
 French1.lm.2019 <- lm(French1comb.2019$Q_Ls ~ French1comb.2019$AbsPTDepth)
 summary(French1.lm.2019)  # Worked
 
@@ -796,16 +831,17 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = French1comb.2019) +
 
 
 ```
+
 # Predict Q French1
 
 ```{r, echo=FALSE, warning=FALSE}
-French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019) %>% filter(!AbsPTDepth %in% NA)
+French1comb.2019 <- full_join(frch.stream.one.2019, QSummary.FR.2019, by = "DateTime") %>% filter(!AbsPTDepth %in% NA)
 French1.lm.2019 <- lm(French1comb.2019$Q_Ls ~ French1comb.2019$AbsPTDepth)
 
 French1comb.2019$pred.french1.Q <- coef(French1.lm.2019)[2] * French1comb.2019$AbsPTDepth+ coef(French1.lm.2019)[1]
 
 ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb.2019) +
-  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(color="#A6CEE3", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size = 3) +
   theme_classic() +
   ggtitle("French") +
@@ -820,9 +856,8 @@ ggplot(aes(x = DateTime, y = pred.french1.Q), data=French1comb.2019) +
 # Raw Rating Curve with French 2 Pressure Transducer
 
 ```{r, echo=FALSE, warning=FALSE}
-frch.stream.two.2019$Site<- "FRCH"
 
-French3comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019) 
+French3comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019, by = "DateTime") 
 French3.lm.2019 <- lm(French3comb.2019$Q_Ls ~ French3comb.2019$AbsPTDepth)
 summary(French3.lm.2019) # worked
 
@@ -842,7 +877,7 @@ Same thing as FRCH 1. Next plot will be without the 3 high YSI points
 
 ```{r, echo=FALSE, warning=FALSE}
 
-French4comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.1) 
+French4comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.1, by = "DateTime") 
 French4.lm.2019 <- lm(French4comb.2019$Q_Ls ~ French4comb.2019$AbsPTDepth)
 summary(French2.lm.2019)  # Worked
 
@@ -866,7 +901,7 @@ I will remove the low flowmeter point for the next plot
 
 QSummary.FR.2019.2 <- QSummary.FR.2019[-c(10,11:13), ]
 
-French5comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.2) 
+French5comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.2, by = "DateTime") 
 French5.lm.2019 <- lm(French5comb.2019$Q_Ls ~ French5comb.2019$AbsPTDepth)
 summary(French5.lm.2019)
 
@@ -890,7 +925,7 @@ Lets also remove that high depth, low Q YSI point.
 
 QSummary.FR.2019.3 <- QSummary.FR.2019[-c(10,5,11:13), ]
 
-French6comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.3) 
+French6comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.3, by = "DateTime") 
 French6.lm.2019 <- lm(French6comb.2019$Q_Ls ~ French6comb.2019$AbsPTDepth)
 summary(French6.lm.2019)
 
@@ -917,7 +952,7 @@ Black points are observed Q
 ```{r, echo=FALSE, warning=FALSE}
 French6comb.2019$pred.french2.Q <- coef(French6.lm.2019)[2] * French6comb.2019$AbsPTDepth+ coef(French6.lm.2019)[1]
 
-p2 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French6comb.2019) +
+p2 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French6comb.2019, by = "DateTime") +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size = 3) +
   theme_classic() +
@@ -931,15 +966,15 @@ p2 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French6comb.2019) +
 p2
 
 ```
+
 Without a big range in observed Q this is the best we can do.
 
 Most of the water level is above the water level for our Q measurements. Maybe it is more accurate to include the high points?
 
 ```{r, echo=FALSE, warning=FALSE}
 
-QSummary.FR.2019.4 <- QSummary.FR.2019[-c(12), ]
 
-French7comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019.4)  %>% filter(!AbsPTDepth %in% NA)
+French7comb.2019 <- full_join(frch.stream.two.2019, QSummary.FR.2019, by = "DateTime")  %>% filter(!AbsPTDepth %in% NA)
 French7.lm.2019 <- lm(French7comb.2019$Q_Ls ~ French7comb.2019$AbsPTDepth)
 summary(French7.lm.2019)
 
@@ -962,7 +997,7 @@ Lets plot and compare with previous prediction.
 ```{r, echo=FALSE, warning=FALSE}
 French7comb.2019$pred.french2.Q <- coef(French7.lm.2019)[2] * French7comb.2019$AbsPTDepth+ coef(French7.lm.2019)[1]
 
-p4 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French7comb.2019) +
+p4 <- ggplot(aes(x = DateTime, y = pred.french2.Q), data=French7comb.2019, by = "DateTime") +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_line(data = French6comb.2019, aes(DateTime, pred.french2.Q), color= "light green", size=1.25) +
   geom_point(data = French1comb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
@@ -999,16 +1034,17 @@ library(gridExtra)
 grid.arrange(p1, p3, p4, p5)
 
 ```
+
 It looks to me (Karen) that the prediction using the regression including the two high Q points fits better. I will use this to predict discharge.
 
 
 ### Compare FRCH PT1 and PT2
 ```{r, echo=FALSE, warning=FALSE}
 
-frch.final.discharge.2019 <- full_join(French1comb.2019[,c(1, 5,13)], French7comb.2019[,c(5,13)], by = "DateTime")
+frch.final.discharge.2019 <- full_join(French1comb.2019[,c(1,2,12)], French7comb.2019[,c(2,12)])
+#frch.final.discharge.2019 %>% filter(DateTime > "2019-08-12" & DateTime < "2019-08-20") %>% View()
 
-
-frch.final.discharge.2019$MeanDischarge <- rowMeans(frch.final.discharge.2019[,3:4], na.rm = FALSE)
+frch.final.discharge.2019$MeanDischarge <- rowMeans(frch.final.discharge.2019[,3:4], na.rm = TRUE)
 
 frch.final.discharge.2019 %>% ggplot(aes(x = DateTime, y = pred.french1.Q)) +
   geom_line(color="#A6CEE3", size=1.25) +
@@ -1026,7 +1062,18 @@ frch.final.discharge.2019 %>% ggplot(aes(x = DateTime, y = pred.french1.Q)) +
 ```{r, echo=FALSE, warning=FALSE}
 frch.final.discharge.2019.final <- frch.final.discharge.2019[,-c(3,4)]
 names(frch.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
+frch.final.discharge.2019.final$Site <- rep("FRCH", length(frch.final.discharge.2019.final$DateTime))
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-04-29 14:15"),ymd_hm("2019-10-10 9:15"), by = '15 mins'))
+frch.final.discharge.2019 <- full_join(frch.final.discharge.2019, DateTimeFill)
+
+frch.final.discharge.2019 <- frch.final.discharge.2019[order(frch.final.discharge.2019$DateTime),]
+frch.final.discharge.2019 <- na_kalman(frch.final.discharge.2019, maxgap = 10)
+
+frch.final.discharge.2019.final$Site <- rep("FRCH", length(frch.final.discharge.2019.final$DateTime))
 write.csv(frch.final.discharge.2019.final, here("Predicted_Discharge/2019/FRCH/FRCH.Q.csv"), row.names = FALSE)
+
 ```
 
 ## Raw Poker PT1 2019
@@ -1042,6 +1089,7 @@ poke.stream.one.2019.b <- poke.stream.one.2019
 plot(poke.stream.one.2019$DateTime, poke.stream.one.2019$AbsPTDepth, type = 'l')
 
 ```
+
 The beginning increase appears to be real with the precip on top. I need to remove some of the "vertical bars within the data frame and check take out date. I am also going to take out the beaver dam that is there from late august to middle of september  Let the cleaning commence!
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -1050,16 +1098,19 @@ poke.stream.one.2019[c(3359:3365, 5959:5967, 6517:6530, 7296:7300), 4] <- NA  # 
 
 poke.stream.one.2019 <- poke.stream.one.2019[-c(10406:11611), ] # remove beaver dam 
 
+
+
+# Shift jump at start of August
+poke.stream.one.2019 <- poke.stream.one.2019 %>% mutate(across(c(AbsPTDepth), ~ifelse(DateTime <= "2019-08-02 20:15:00", AbsPTDepth + 0.135,.)))
+
 poke.stream.one.2019 <- na_kalman(poke.stream.one.2019)
-
-
 #plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
 #     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
 
-poke.stream.one.2019 %>% #filter(DateTime > "2019-08-01" & DateTime < "2019-09-01") %>%
+poke.stream.one.2019 %>% #filter(DateTime > "2019-08-01" & DateTime < "2019-08-05") %>%
   ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 
 ```
@@ -1090,7 +1141,7 @@ poke.stream.two.2019 <- na_kalman(poke.stream.two.2019)
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
-plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth, type = 'l')
+plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth)
 
 ```
 1) Removed vertical bars early on in dataset
@@ -1100,8 +1151,15 @@ plot(poke.stream.two.2019$DateTime, poke.stream.two.2019$AbsPTDepth, type = 'l')
 ### export PT data to csv to DoD_Discharge->PT_data->2019
 ```{r, echo=FALSE, warning=FALSE}
 poke.pt.2019 <- rbind(poke.stream.one.2019, poke.stream.two.2019)
-poke.pt.2019.final <- poke.pt.2019[,-2]
+poke.pt.2019.final <- poke.pt.2019[,c(1,4,5)]
+
 write.csv(poke.pt.2019.final, here("PT_data/2019/POKE/poke.pt.2019.csv"), row.names = FALSE)
+
+ggplot(poke.pt.2019.final, aes(x = DateTime, y = AbsPTDepth, color = Site)) +
+  geom_point()
+
+
+
 ```
 
 
@@ -1121,7 +1179,7 @@ poke.formula <- y ~ x
 
 ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Poker1comb.2019) +
   geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
+  geom_smooth(method = "lm", se=FALSE, formula = poke.formula) +
   stat_poly_eq(formula = poke.formula, 
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
                parse = TRUE) +
@@ -1130,28 +1188,6 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Poker1comb.2019) +
   ggtitle("Poker1 all measured Q")
 
 ```
-I will remove the highest flowmeter point
-
-```{r, echo=FALSE, warning=FALSE}
-QSummary.PO.2019.1 <- QSummary.PO.2019[-9, ]
-Poker2comb.2019 <- full_join(poke.stream.one.2019, QSummary.PO.2019.1)
-Poker2.lm.2019 <- lm(Poker2comb.2019$Q_Ls ~ Poker2comb.2019$AbsPTDepth)
-summary(Poker2.lm.2019) 
-
-poke.formula <- y ~ x
-
-
-ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Poker2comb.2019) +
-  geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = poke.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-  xlim(0, 0.6) +
-  theme_classic() +
-  ggtitle("Poker1 all measured Q")
-```
-Worse R^2, Ill use the raw one
 
 ### Predicted Q POKE PT1
 #### Black points are observed Q
@@ -1216,7 +1252,9 @@ poke.final.discharge.2019 <- poke.final.discharge.2019[,-c(3:12, 14:24)] # clean
 names(poke.final.discharge.2019) <- c("Site", "DateTime", "PT1", "PT2", "MeanDischarge")
 poke.final.discharge.2019$DateTime <- as.POSIXct(paste(poke.final.discharge.2019$DateTime), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
 poke.final.discharge.2019$DateTime <- lubridate::round_date(poke.final.discharge.2019$DateTime, "15 minutes")
-poke.final.discharge.2019 <- poke.final.discharge.2019 %>% subset(poke.final.discharge.2019$DateTime < "2019-10-10") # removed on 10/18
+
+poke.final.discharge.2019 <- poke.final.discharge.2019
+
 
 ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poker1comb.2019) +
   geom_line(aes(x = DateTime, y = pred.poke1.Q), data = Poker1comb.2019, color="#A6CEE3", size=1.25) +
@@ -1235,6 +1273,18 @@ ggplot(aes(x = DateTime, y = pred.poke1.Q), data = Poker1comb.2019) +
 ```{r, echo=FALSE, warning=FALSE}
 poke.final.discharge.2019.final <- poke.final.discharge.2019[,-c(3:4)]
 names(poke.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
+poke.final.discharge.2019.final$Site <- rep("POKE", length(poke.final.discharge.2019.final$DateTime))
+
+# Fill missing data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-05-10 14:45"),ymd_hm("2019-10-14 00:00"), by = '15 mins'))
+poke.final.discharge.2019.final <- full_join(poke.final.discharge.2019.final, DateTimeFill)
+poke.final.discharge.2019.final <- poke.final.discharge.2019.final[order(poke.final.discharge.2019.final$DateTime),]
+poke.final.discharge.2019.final <- na_kalman(poke.final.discharge.2019.final, maxgap = 10)
+
+ggplot(poke.final.discharge.2019.final, aes(x = DateTime, y = Q)) +
+  geom_point()
+
 write.csv(poke.final.discharge.2019.final, here("Predicted_Discharge/2019/POKE/POKE.Q.csv"), row.names = FALSE)
 ```
 
@@ -1350,7 +1400,20 @@ ggplot(aes(x = DateTime, y = pred.vault.Q), data = Vaultcomb.2019.2) +
 ```{r, echo=FALSE, warning=FALSE}
 vaul.final.discharge.2019.final <- Vaultcomb.2019.2[,-c(2:4,6:12)]
 names(vaul.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
+vaul.final.discharge.2019.final$Site <- rep("VAUL", length(vaul.final.discharge.2019.final$DateTime))
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-06-07 17:45"),ymd_hm("2019-10-11 13:45"), by = '15 mins'))
+vaul.final.discharge.2019.final <- full_join(vaul.final.discharge.2019.final, DateTimeFill)
+vaul.final.discharge.2019.final <- vaul.final.discharge.2019.final[order(vaul.final.discharge.2019.final$DateTime),]
+vaul.final.discharge.2019.final <- na_kalman(vaul.final.discharge.2019.final)
+
 write.csv(vaul.final.discharge.2019.final, here("Predicted_Discharge/2019/VAUL/VAUL.Q.csv"), row.names = FALSE)
+
+ggplot(vaul.final.discharge.2019.final, aes(x = DateTime, y = Q)) +
+  geom_point()
+
+
 ```
 
 
@@ -1575,9 +1638,23 @@ ggplot(aes(x = DateTime, y = pred.stuart2.Q), data = Stuart2comb.2019) +
 
 ### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
 ```{r, echo=FALSE, warning=FALSE}
-Stuart4comb.2019_final <- Stuart4comb.2019[,-c(2:4,6:12)]
+Stuart4comb.2019_final <- Stuart4comb.2019[,-c(2:4,6:12)] %>% filter(DateTime > "2019-05-10")
 names(Stuart4comb.2019_final) <- c("Site", "DateTime", "Q")
+Stuart4comb.2019_final$Site <- rep("STRT", length(Stuart4comb.2019_final$DateTime))
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-05-21 14:45"),ymd_hm("2019-10-12 23:45"), by = '15 mins'))
+Stuart4comb.2019_final <- full_join(Stuart4comb.2019_final, DateTimeFill)
+Stuart4comb.2019_final <- Stuart4comb.2019_final[order(Stuart4comb.2019_final$DateTime),]
+Stuart4comb.2019_final <- na_kalman(Stuart4comb.2019_final, maxgap = 10)
+
 write.csv(Stuart4comb.2019_final, here("Predicted_Discharge/2019/STRT/STRT.Q.csv"), row.names = FALSE)
+
+
+ggplot(Stuart4comb.2019_final, aes(x = DateTime, y = Q)) +
+  geom_point()
+
+
 ```
 
 ### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
@@ -1585,13 +1662,15 @@ write.csv(Stuart4comb.2019_final, here("Predicted_Discharge/2019/STRT/STRT.Q.csv
 Q_2019 <- rbind(frch.final.discharge.2019.final, vaul.final.discharge.2019.final,
                 poke.final.discharge.2019.final, Stuart4comb.2019_final,
                 Moose2comb.2019_final)
-Q_2019$day = format(as.POSIXct(Q_2019$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
-Q_2019$day = as.POSIXct(Q_2019$day, "%Y-%m-%d", tz = "America/Anchorage")
+Q_2019$Day = format(as.POSIXct(Q_2019$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
+Q_2019$Day = as.POSIXct(Q_2019$Day, "%Y-%m-%d", tz = "America/Anchorage")
+
 write_csv(Q_2019, here("Predicted_Discharge/2019/Q_2019.csv"))
 
-#Q_2019$DateTime = NULL
 
-Q.daily.2019 = with(Q_2019, tapply(Q, list(day, Site), mean))
-Q.daily.2019 = as.data.frame(Q.daily.2019)
+Q.daily.2019 <- Q_2019 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
+
 write_csv(Q.daily.2019, here("Predicted_Discharge/2019/Q.daily.2019.csv"))
+length(is.na(Q_2019$Site))
+Q_2019 %>% ggplot(aes(DateTime, Q, color = Site)) + geom_point(size = 0.25)
 ```
