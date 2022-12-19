@@ -158,7 +158,7 @@ French1 %>% #filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>%
 Export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2018-05-30 15:30"),ymd_hm("2018-10-12 10:00"), by = '15 mins'))
+2018-05-30 15:30", tz = "America/Anchorage"),ymd_hm("2018-10-12 10:00", tz = "America/Anchorage"), by = '15 mins'))
 French1 <- full_join(French1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
 French1 <- French1[order(French1$DateTime),]
 French1 <- na_kalman(French1)
@@ -214,7 +214,7 @@ plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, t
 ```{r, echo=FALSE, warning=FALSE}
 Moose1 <- Moose1.pre.middle.post
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2018-05-29 16:00"),ymd_hm("2018-10-26 15:03"), by = '15 mins'))
+2018-05-29 16:00", tz = "America/Anchorage"),ymd_hm("2018-10-26 15:03", tz = "America/Anchorage"), by = '15 mins'))
 Moose1 <- full_join(Moose1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
 Moose1 <- Moose1[order(Moose1$DateTime),]
 Moose1 <- na_kalman(Moose1)
@@ -572,7 +572,7 @@ Fill in data gaps
 moos.stream.one.2019 <- moos.stream.one.2019[,c(5,4)]
 
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2019-05-31 15:45"),ymd_hm("2019-10-22 09:15"), by = '15 mins'))
+2019-05-31 15:45", tz = "America/Anchorage"),ymd_hm("2019-10-22 09:15", tz = "America/Anchorage"), by = '15 mins'))
 moos.stream.one.2019 <- full_join(moos.stream.one.2019, DateTimeFill)
 moos.stream.one.2019 <- moos.stream.one.2019[order(moos.stream.one.2019$DateTime),]
 moos.stream.one.2019 <- na_kalman(moos.stream.one.2019)
@@ -1065,7 +1065,7 @@ names(frch.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
 frch.final.discharge.2019.final$Site <- rep("FRCH", length(frch.final.discharge.2019.final$DateTime))
 
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2019-04-29 14:15"),ymd_hm("2019-10-10 9:15"), by = '15 mins'))
+2019-04-29 14:15", tz = "America/Anchorage"),ymd_hm("2019-10-10 9:15", tz = "America/Anchorage"), by = '15 mins'))
 frch.final.discharge.2019 <- full_join(frch.final.discharge.2019, DateTimeFill)
 
 frch.final.discharge.2019 <- frch.final.discharge.2019[order(frch.final.discharge.2019$DateTime),]
@@ -1277,7 +1277,7 @@ poke.final.discharge.2019.final$Site <- rep("POKE", length(poke.final.discharge.
 
 # Fill missing data
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2019-05-10 14:45"),ymd_hm("2019-10-14 00:00"), by = '15 mins'))
+2019-05-10 14:45", tz = "America/Anchorage"),ymd_hm("2019-10-14 00:00", tz = "America/Anchorage"), by = '15 mins'))
 poke.final.discharge.2019.final <- full_join(poke.final.discharge.2019.final, DateTimeFill)
 poke.final.discharge.2019.final <- poke.final.discharge.2019.final[order(poke.final.discharge.2019.final$DateTime),]
 poke.final.discharge.2019.final <- na_kalman(poke.final.discharge.2019.final, maxgap = 10)
@@ -1403,7 +1403,7 @@ names(vaul.final.discharge.2019.final) <- c("Site", "DateTime", "Q")
 vaul.final.discharge.2019.final$Site <- rep("VAUL", length(vaul.final.discharge.2019.final$DateTime))
 
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2019-06-07 17:45"),ymd_hm("2019-10-11 13:45"), by = '15 mins'))
+2019-06-07 17:45", tz = "America/Anchorage"),ymd_hm("2019-10-11 13:45", tz = "America/Anchorage"), by = '15 mins'))
 vaul.final.discharge.2019.final <- full_join(vaul.final.discharge.2019.final, DateTimeFill)
 vaul.final.discharge.2019.final <- vaul.final.discharge.2019.final[order(vaul.final.discharge.2019.final$DateTime),]
 vaul.final.discharge.2019.final <- na_kalman(vaul.final.discharge.2019.final)
@@ -1643,7 +1643,7 @@ names(Stuart4comb.2019_final) <- c("Site", "DateTime", "Q")
 Stuart4comb.2019_final$Site <- rep("STRT", length(Stuart4comb.2019_final$DateTime))
 
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2019-05-21 14:45"),ymd_hm("2019-10-12 23:45"), by = '15 mins'))
+2019-05-21 14:45", tz = "America/Anchorage"),ymd_hm("2019-10-12 23:45", tz = "America/Anchorage"), by = '15 mins'))
 Stuart4comb.2019_final <- full_join(Stuart4comb.2019_final, DateTimeFill)
 Stuart4comb.2019_final <- Stuart4comb.2019_final[order(Stuart4comb.2019_final$DateTime),]
 Stuart4comb.2019_final <- na_kalman(Stuart4comb.2019_final, maxgap = 10)

@@ -411,12 +411,12 @@ Raw Rating Curve with MOOS PT1
 
 ```{r, echo=FALSE, warning=FALSE}
 
+# trying to merge by nearest date if we have an offset point 
+MOOS.2020.dt <- setDT(moos.stream.one.2020.final)
+
 QSummary.MO.2020 <- QSummary.2020 %>% filter(Site =="MOOS")
+Moose1comb.2020 <- MOOS.2020.dt[QSummary.MO.2020, on = "DateTime", roll = 'nearest']
 
-moos.stream.one.2020.final$Site <- "MOOS"
-
-Moose1comb.2020 <- full_join(moos.stream.one.2020.final, QSummary.MO.2020)
-MOOS1.lm.2020 <- lm(Moose1comb.2020$MeasuredQ_Ls ~ Moose1comb.2020$WaterLevel)
 
 moos.formula <- y ~ x
 ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020) +
@@ -433,15 +433,13 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020) +
 
 ```{r, echo=FALSE, warning=FALSE}
 
-QSummary.MO.2020.1 <- QSummary.MO.2020[-c(1, 9,13,18), ]
+Moose1comb.2020.2 <- Moose1comb.2020[-c(13), ]
 
-Moose2comb.2020 <- full_join(moos.stream.one.2020.final, QSummary.MO.2020.1)
-MOOS2.lm.2020 <- lm(Moose2comb.2020$MeasuredQ_Ls ~ Moose2comb.2020$WaterLevel)
 
 moos.formula <- y ~ x
-ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020) +
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020.2) +
   geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
+  geom_smooth(method = "lm", se=FALSE, formula = moos.formula) +
   stat_poly_eq(formula = moos.formula, 
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
                parse = TRUE) +
@@ -451,16 +449,18 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020) +
 
 ```
 
-1) Removed the two highest YSI's, lowest YSI and one of high flowmeter that wasnt a very high waterlevel
+1) Removed the highest YSI
 
 ## Predict PT1 Q
 
 ```{r, echo=FALSE, warning=FALSE}
-Moose2comb.2020$pred.moos1.Q <- coef(MOOS2.lm.2020)[2] * Moose2comb.2020$WaterLevel+ coef(MOOS2.lm.2020)[1]
+MOOS1.lm.2020 <- lm(Moose1comb.2020.2$MeasuredQ_Ls ~ Moose1comb.2020.2$WaterLevel)
 
-ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose2comb.2020) +
+moos.stream.one.2020.final$pred.moos1.Q <- coef(MOOS1.lm.2020)[2] * moos.stream.one.2020.final$WaterLevel+ coef(MOOS1.lm.2020)[1] 
+
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.stream.one.2020.final) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  geom_point(data = Moose1comb.2020.2, aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Moose1 predicted measured Q") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
@@ -473,12 +473,13 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = Moose2comb.2020) +
 
 ```{r, echo=FALSE, warning=FALSE}
 
-moos.stream.two.2020.final$Site <- "MOOS"
+# trying to merge by nearest date if we have an offset point 
+MOOS2.2020.dt <- setDT(moos.stream.two.2020.final)
 
-Moose3comb.2020 <- full_join(moos.stream.two.2020.final, QSummary.MO.2020)
-MOOS3.lm.2020 <- lm(Moose3comb.2020$MeasuredQ_Ls ~ Moose3comb.2020$WaterLevel)
+Moose2comb.2020 <- MOOS2.2020.dt[QSummary.MO.2020, on = "DateTime", roll = 'nearest']
 
-ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose3comb.2020) +
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020) +
   geom_point(aes(color = Method), size = 3) +
   geom_smooth(method = "lm", se=FALSE) +
   stat_poly_eq(formula = moos.formula, 
@@ -493,14 +494,11 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose3comb.2020) +
 
 ```{r, echo=FALSE, warning=FALSE}
 
-QSummary.MO.2020.2 <- QSummary.MO.2020[-c(13), ]
+Moose2comb.2020.2 <- Moose2comb.2020[-c(13), ]
 
-
-Moose4comb.2020 <- full_join(moos.stream.two.2020.final, QSummary.MO.2020.2)
-MOOS4.lm.2020 <- lm(Moose4comb.2020$MeasuredQ_Ls ~ Moose4comb.2020$WaterLevel)
 
 moos.formula <- y ~ x
-ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose4comb.2020) +
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020.2) +
   geom_point(aes(color = Method), size = 3) +
   geom_smooth(method = "lm", se=FALSE) +
   stat_poly_eq(formula = moos.formula, 
@@ -511,37 +509,17 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose4comb.2020) +
   ggtitle("Moose2 measured Q") 
 
 ```
-
-1) Removed the highest and lowest YSI
-
-What about a curve with just wading rod points?
-
-```{r, echo=FALSE, warning=FALSE}
-Moose5comb.2020 <- Moose3comb.2020 %>% filter(!Method %in% "YSI") 
-MOOS5.lm.2020 <- lm(Moose5comb.2020$MeasuredQ_Ls ~ Moose5comb.2020$WaterLevel)
-
-moos.formula <- y ~ x
-Moose5comb.2020 %>% ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls)) +
-  geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
-  stat_poly_eq(formula = moos.formula, 
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
-               parse = TRUE) +
-   xlim(165.75,166.75) +
-  theme_classic() +
-  ggtitle("Moose2 measured Q") 
-
-```
-
-That looks the best for MOOS PT2
 
 ## Final Q for MOOS PT2
 ```{r, echo=FALSE, warning=FALSE}
-Moose5comb.2020$pred.moos2.Q <- coef(MOOS5.lm.2020)[2] * Moose5comb.2020$WaterLevel+ coef(MOOS5.lm.2020)[1]
+MOOS2.lm.2020 <- lm(Moose2comb.2020.2$MeasuredQ_Ls ~ Moose2comb.2020.2$WaterLevel)
 
-ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose5comb.2020) +
+
+moos.stream.two.2020.final$pred.moos2.Q <- coef(MOOS2.lm.2020)[2] * moos.stream.two.2020.final$WaterLevel+ coef(MOOS2.lm.2020)[1]
+
+ggplot(aes(x = DateTime, y = pred.moos2.Q), data = moos.stream.two.2020.final) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  geom_point(data = Moose2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Moose2 predicted all measured Q") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
@@ -550,18 +528,26 @@ ggplot(aes(x = DateTime, y = pred.moos2.Q), data = Moose5comb.2020) +
 
 ```
 
-Looks pretty good 
 
 
 ## Average of MOOS PT1 and PT2
 ```{r, echo=FALSE, warning=FALSE}
 
-moos.final.discharge.2020 <- full_join(Moose2comb.2020, Moose5comb.2020, by = c("DateTime"))
-names(moos.final.discharge.2020)
-moos.final.discharge.2020$MeanDischarge <- rowMeans(moos.final.discharge.2020[,c(14,27)], na.rm = TRUE)
+moos.final.discharge.2020 <- full_join(moos.stream.two.2020.final, moos.stream.one.2020.final, by = c("DateTime"))
+moos.final.discharge.2020 <- moos.final.discharge.2020 %>% dplyr::select("Site.x", "DateTime", "pred.moos2.Q", "pred.moos1.Q")
+moos.final.discharge.2020$Site.x <- rep("MOOS", length(moos.final.discharge.2020$DateTime))
 
-moos.final.discharge.2020 <- moos.final.discharge.2020[,-c(2:4, 6:11,13, 15:26)]
-names(moos.final.discharge.2020) <- c("Site", "DateTime", "MeasuredQ_Ls", "pred.moos1.Q", "pred.moos2.Q", "MeanDischarge")
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2020-06-15 17:30", tz = "America/Anchorage"),ymd_hm("2020-10-13 23:45", tz = "America/Anchorage"), by = '15 mins'))
+moos.final.discharge.2020 <- full_join(moos.final.discharge.2020, DateTimeFill)
+moos.final.discharge.2020 <- moos.final.discharge.2020[order(moos.final.discharge.2020$DateTime),]
+moos.final.discharge.2020 <- na_kalman(moos.final.discharge.2020, maxgap = 10)
+
+
+
+moos.final.discharge.2020$MeanDischarge <- rowMeans(moos.final.discharge.2020[,c(3,4)], na.rm = TRUE)
+names(moos.final.discharge.2020) <- c("Site", "DateTime", "pred.moos1.Q", "pred.moos2.Q", "MeanDischarge")
 
 ### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
 
@@ -569,7 +555,26 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
   geom_line(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020, color="#A6CEE3", size=1.25) +
   geom_line(aes(x = DateTime, y = pred.moos2.Q), data = moos.final.discharge.2020,color="#1F78B4", size=1.25, alpha = 0.75) +
   geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
+  geom_point(data = Moose2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
+  theme_classic() +
+  ylim(0, 5000) +
+  ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time") #+ scale_x_datetime(limits = ymd_h(c("2020-06-26 12", "2020-06-27 01", tz = "America/Anchorage")))
+
+
+```
+
+Something isn't right for PT 2 at the end of June, so lets only use PT1.
+```{r, echo=FALSE, warning=FALSE}
+moos.final.discharge.2020 <- moos.final.discharge.2020 %>% mutate(across(c(MeanDischarge), ~ifelse(DateTime < "2020-07-01 16:00"  & DateTime > "2020-06-26 11:00", pred.moos1.Q,.)))
+### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
+
+ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
+  geom_line(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.moos2.Q), data = moos.final.discharge.2020,color="#1F78B4", size=1.25, alpha = 0.75) +
+  geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
+  geom_point(data = Moose2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
   ylim(0, 5000) +
   ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
@@ -579,11 +584,13 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
 
 ```
 
+
+
 Red is the average that should be used and exported as csv.
 
 ##Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
 ```{r, echo=FALSE, warning=FALSE}
-moos.final.discharge.2020_final <- moos.final.discharge.2020[,-c(3:5)]
+moos.final.discharge.2020_final <- moos.final.discharge.2020[,-c(3:4)]
 names(moos.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
 write.csv(moos.final.discharge.2020_final, here("Predicted_Discharge/2020/MOOS/MOOS.Q.csv"), row.names = FALSE)
 ```

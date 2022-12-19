@@ -147,11 +147,11 @@ NEON_bp$bp_sea <- na.approx(NEON_bp$bp_sea, rule = 2)
 NEON_bp %>% filter(DateTimeAK > "2022-07-25", DateTimeAK < "2022-07-30") %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '15 mins'))
+2022-05-01 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-15 00:00", tz = "America/Anchorage"), by = '15 mins'))
 NEON_bp <- full_join(NEON_bp, DateTimeFill)
 length(is.na(NEON_bp$bp_sea))
 any(duplicated(NEON_bp$DateTimeAK))
-NEON_bp <- so
+
 NEON_bp$bp_sea <- na.approx(NEON_bp$bp_sea, rule = 2)
 
 NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
@@ -166,7 +166,7 @@ NEON_bp %>% ggplot(aes(DateTimeAK, bp_sea)) + geom_point() + geom_point(data = e
 # They are similar, so I will fill in the gaps in NEON with Eielson
 # Fill in gaps
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-01 00:00"),ymd_hm("2022-10-15 00:00"), by = '15 mins'))
+2022-05-01 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-15 00:00", tz = "America/Anchorage"), by = '15 mins'))
 NEON_bp <- full_join(NEON_bp, DateTimeFill)
 Air_combo <- left_join(NEON_bp, eielson.atmo.2022.compare[,c(1,15)])
 Air_combo$bp_combo <- rowMeans(Air_combo[,c(2,3)], na.rm = TRUE)
@@ -467,7 +467,7 @@ MOOS.2022 <- full_join(moos.final.pressure.2022, NEON_bp, by = "DateTimeAK") %>%
 # Fill gaps in data
 
 
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-09 10:00"),ymd_hm("2022-10-10 16:00"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-09 10:00", tz = "America/Anchorage"),ymd_hm("2022-10-10 16:00", tz = "America/Anchorage"), by = '15 mins'))
 MOOS.2022 <- full_join(MOOS.2022, DateTimeFill, by = "DateTimeAK")
 MOOS.2022$WaterPressure <- na_kalman(MOOS.2022$WaterPressure, maxgap = 9)
 MOOS.2022$AirPressureCorrectedMOOS <- na_kalman(MOOS.2022$AirPressureCorrectedMOOS)
@@ -752,7 +752,7 @@ POKE.2022 <- POKE.2022 %>%
 
 # Water pressure - atmospheric pressure 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-18 00:45"),ymd_hm("2022-10-04 06:00"), by = '15 mins'))
+2022-05-18 00:45", tz = "America/Anchorage"),ymd_hm("2022-10-04 06:00", tz = "America/Anchorage"), by = '15 mins'))
 POKE.2022 <- full_join(POKE.2022, DateTimeFill, by = "DateTimeAK")
 
 POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxgap = 9)

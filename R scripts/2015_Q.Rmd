@@ -277,7 +277,7 @@ moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>
 ### Impute missing observations in pressure for Moose 
 ```{r , echo=FALSE, warning=FALSE}
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2015-05-20 22:15"),ymd_hm("2015-09-21 07:45"), by = '15 mins'))
+2015-05-20 22:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 07:45", tz = "America/Anchorage"), by = '15 mins'))
 moos.stream <- full_join(moos.stream, DateTimeFill)
 moos.stream <- moos.stream[order(moos.stream$DateTimeAK),]
 moos.stream <- na_kalman(moos.stream) %>% filter(DateTimeAK >= "2015-05-20 22:00" )
@@ -366,7 +366,7 @@ frch.stream <- frch.stream %>% filter(DateTimeAK != "2015-06-19 13:15:00") %>%
 ### Impute missing observations in pressure for French 
 ```{r , echo=FALSE, warning=FALSE}
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2015-05-18 15:15"),ymd_hm("2015-09-21 12:45"), by = '15 mins'))
+2015-05-18 15:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 12:45", tz = "America/Anchorage"), by = '15 mins'))
 frch.stream <- full_join(frch.stream, DateTimeFill)
 frch.stream <- frch.stream[order(frch.stream$DateTimeAK),]
 frch.stream <- na_kalman(frch.stream)
