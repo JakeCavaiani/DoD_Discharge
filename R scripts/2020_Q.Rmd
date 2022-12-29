@@ -153,24 +153,21 @@ QSummary.2020$DateTime <- as.POSIXct(paste(QSummary.2020$date, QSummary.2020$Tim
 ```
 
 NEON air pressure data to check time zone
-```{r}
-#NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
-#                           site=c("BONA"),
-#                           startdate="2020-05", 
-#                           enddate="2020-11")
+```{r, echo = FALSE, include = FALSE}
+#NEON_air <-loadByProduct(dpID = "DP1.00004.001", site=c("BONA"), startdate="2020-05", enddate="2020-11")
 
-NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
-attr(NEON_bp$startDateTime, "tzone") <- "America/Anchorage"
-NEON_bp$DateTime <- NEON_bp$startDateTime
+#NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
+#attr(NEON_bp$startDateTime, "tzone") <- "America/Anchorage"
+#NEON_bp$DateTime <- NEON_bp$startDateTime
 
 
 
 ## Round time to 5 minutes and take average
-NEON_bp$DateTime <- lubridate::round_date(NEON_bp$DateTime, "5 minutes") 
-NEON_bp <- NEON_bp %>% group_by(DateTime) %>% summarise(bp_sea = mean(corPres, na.rm = TRUE))
+#NEON_bp$DateTime <- lubridate::round_date(NEON_bp$DateTime, "5 minutes") 
+#NEON_bp <- NEON_bp %>% group_by(DateTime) %>% summarise(bp_sea = mean(corPres, na.rm = TRUE))
 
 
-NEON_bp %>% ggplot(aes(DateTime, bp_sea)) + geom_point()
+#NEON_bp %>% ggplot(aes(DateTime, bp_sea)) + geom_point()
 ```
 
 ## Comparing PTs
@@ -298,17 +295,13 @@ plot_grid(all, NA,
 ```
 
 # Compare with NEON air pressure to verify time zone
-```{r}
+```{r, include = FALSE, echo = FALSE}
 
-moos.stream.one.2020 %>% ggplot(aes(DateTime, AbsolutePressure))  + geom_point() + geom_point(data = NEON_bp, aes(DateTime, bp_sea + 12)) + ylim(111,116) + scale_x_datetime(limits = ymd_h(c("2020-07-07 00", "2020-07-30 23")))
+#moos.stream.one.2020 %>% ggplot(aes(DateTime, AbsolutePressure))  + geom_point() + geom_point(data = NEON_bp, aes(DateTime, bp_sea + 12)) + ylim(111,116) + scale_x_datetime(limits = ymd_h(c("2020-07-07 00", "2020-07-30 23")))
 ```
 ## Raw Moose PT1
 ```{r, echo=FALSE, warning=FALSE}
-#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
-#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
-#     ylim = c(20,0), 
-#     axes=F, xlab="", ylab="")
-#par(new = T)
+
 moos.stream.one.2020 %>% ggplot(aes(DateTime, AbsolutePressure))  + geom_point()
 
 ```
@@ -584,8 +577,6 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
 
 ```
 
-
-
 Red is the average that should be used and exported as csv.
 
 ##Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
@@ -760,6 +751,7 @@ ggplot(aes(x = DateTime, y = pred.french1.Q), data=French3comb.2020) +
 
 ```
 
+
 Red are the points used in the rating curve (if they had pressure data).
 
 ## Raw Rating curve FRCH PT2
@@ -806,7 +798,7 @@ Lets try the same averaging proccess as before.
 
 ```{r, echo=FALSE, warning=FALSE}
 French2comb.2020.2 <- full_join(frch.stream.two.2020, QSummary.FR.2020.2[-4,])
-French2.lm.2020.2 <- lm(French2comb.2020.2$MeasuredQ_Ls.x ~ French2comb.2020.2$WaterLevel + I(French2comb.2020.2$WaterLevel))
+French2.lm.2020.2 <- lm(French2comb.2020.2$MeasuredQ_Ls.x ~ French2comb.2020.2$WaterLevel + I(French2comb.2020.2$WaterLevel^2))
 
 frch.formula = y~ poly(x,2)
 ggplot(aes(x= WaterLevel, y = MeasuredQ_Ls.x), data = French2comb.2020.2) +
@@ -865,13 +857,25 @@ ggplot() +
   xlab("Time")
 
 ```
+
 Red is the average and should be exported to a csv. 
 
 ## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
 ```{r, echo=FALSE, warning=FALSE}
 frch.final.discharge.2020_final <- frch.final.discharge.2020[,-c(3:4)]
 names(frch.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
+
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2020-06-11 13:30", tz = "America/Anchorage"),ymd_hm("	
+2020-10-13 23:45", tz = "America/Anchorage"), by = '15 mins'))
+frch.final.discharge.2020_final <- full_join(frch.final.discharge.2020_final, DateTimeFill)
+frch.final.discharge.2020_final <- frch.final.discharge.2020_final[order(frch.final.discharge.2020_final$DateTime),]
+frch.final.discharge.2020_final <- na_kalman(frch.final.discharge.2020_final, maxgap = 10)
+
 write.csv(frch.final.discharge.2020_final, here("Predicted_Discharge/2020/FRCH/FRCH.Q.csv"), row.names = FALSE)
+
+frch.final.discharge.2020_final %>% ggplot(aes(DateTime, Q)) + geom_point()
 ```
 
 # Poker
@@ -1019,17 +1023,18 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2020) +
 
 ```
 
-Need to remove the top YSI point 
+
+Need to remove the top YSI point and lowest water level YSI point.
 
 ## Raw Rating curve POKE PT2
 ```{r, echo=FALSE, warning=FALSE}
-Poke2comb.2020 <- full_join(poke.stream.two.2020, QSummary.PO.2020.1)
-POKE2.lm.2020 <- lm(Poke2comb.2020$MeasuredQ_Ls ~ Poke2comb.2020$WaterLevel)
+Poke2comb.2020 <- full_join(poke.stream.two.2020, QSummary.PO.2020.1[-c(16),])
+POKE2.lm.2020 <- lm(Poke2comb.2020$MeasuredQ_Ls ~ Poke2comb.2020$WaterLevel + I(Poke2comb.2020$WaterLevel^2))
 
-
+poke.formula <- y ~ poly(x,2)
 ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2020) +
   geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE) +
+  geom_smooth(method = "lm", se=FALSE, formulat = poke.formula) +
   stat_poly_eq(formula = poke.formula, 
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
                parse = TRUE) +
@@ -1039,6 +1044,7 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Poke2comb.2020) +
 ```
 
 1) removed the top YSI point 
+2) Quadratic is a slightly better fit.
 
 ## Final Q for POKE PT1
 ```{r, echo=FALSE, warning=FALSE}
@@ -1059,7 +1065,7 @@ Seems like the predicted overshoots our discrete measurements
 
 ## Final Q for POKE PT2
 ```{r, echo=FALSE, warning=FALSE}
-Poke2comb.2020$pred.poke2.Q <- coef(POKE2.lm.2020)[2] * Poke2comb.2020$WaterLevel+ coef(POKE2.lm.2020)[1]
+Poke2comb.2020$pred.poke2.Q <- coef(POKE2.lm.2020)[2] * Poke2comb.2020$WaterLevel+ coef(POKE2.lm.2020)[1] + coef(POKE2.lm.2020)[3] * I(Poke2comb.2020$WaterLevel^2)
 ggplot(aes(x = DateTime, y = pred.poke2.Q), data = Poke2comb.2020) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
@@ -1103,7 +1109,18 @@ I think we should go with PT1
 ```{r, echo=FALSE, warning=FALSE}
 Poke1comb.2020_final <- Poke1comb.2020[,-c(2:4, 6:12)]
 names(Poke1comb.2020_final) <- c("Site", "DateTime", "Q")
+
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2020-06-04 13:00", tz = "America/Anchorage"),ymd_hm("	
+2020-10-08 23:45", tz = "America/Anchorage"), by = '15 mins'))
+Poke1comb.2020_final <- full_join(Poke1comb.2020_final, DateTimeFill)
+Poke1comb.2020_final <- Poke1comb.2020_final[order(Poke1comb.2020_final$DateTime),]
+Poke1comb.2020_final <- na_kalman(Poke1comb.2020_final, maxgap = 10)
+
 write.csv(Poke1comb.2020_final, here("Predicted_Discharge/2020/POKE/POKE.Q.csv"), row.names = FALSE)
+
+Poke1comb.2020_final %>% ggplot(aes(DateTime, Q)) + geom_point()
 ```
 
 # Vault
@@ -1130,7 +1147,7 @@ vaul.stream.2020 <- vaul.stream.2020 %>% subset(vaul.stream.2020$DateTime < "202
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
-plot(vaul.stream.2020$DateTime, vaul.stream.2020$WaterLevel, type = 'l')
+plot(vaul.stream.2020$DateTime, vaul.stream.2020$WaterLevel)
 
 ```
 
@@ -1188,9 +1205,21 @@ Not too shabby!
 
 ## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
 ```{r, echo=FALSE, warning=FALSE}
-Vaul2comb.2020_final <- Vaul2comb.2020[,-c(2:4, 6:12)]
+Vaul2comb.2020_final <- Vaul2comb.2020[,-c(2:4, 6:12)] %>% filter(DateTime <= "2020-10-04 23:45:00")
 names(Vaul2comb.2020_final) <- c("Site", "DateTime", "Q")
+Vaul2comb.2020_final$Q <- as.numeric(Vaul2comb.2020_final$Q)
+
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2020-06-05 15:00", tz = "America/Anchorage"),ymd_hm("	
+2020-10-04 23:45", tz = "America/Anchorage"), by = '15 mins'))
+Vaul2comb.2020_final <- full_join(Vaul2comb.2020_final, DateTimeFill)
+Vaul2comb.2020_final <- Vaul2comb.2020_final[order(Vaul2comb.2020_final$DateTime),]
+Vaul2comb.2020_final <- na_kalman(Vaul2comb.2020_final, maxgap = 10)
+
 write.csv(Vaul2comb.2020_final, here("Predicted_Discharge/2020/VAUL/VAUL.Q.csv"), row.names = FALSE)
+
+Vaul2comb.2020_final %>% ggplot(aes(DateTime, Q)) + geom_point()
 ```
 
 # Stuart
@@ -1205,8 +1234,8 @@ plot(strt.stream.one.2020$DateTime, strt.stream.one.2020$WaterLevel, type = 'l')
 
 ```
 
-Needs end of season out of water points to be removed....let the cleaning commence!
 
+Needs end of season out of water points to be removed....let the cleaning commence!
 
 STRT PT1 2.0
 ```{r, echo=FALSE, warning=FALSE}
@@ -1218,7 +1247,7 @@ strt.stream.one.2020[6452,4] <- NA
 #     ylim = c(20,0), 
 #     axes=F, xlab="", ylab="")
 #par(new = T)
-plot(strt.stream.one.2020$DateTime, strt.stream.one.2020$WaterLevel, type = 'l')
+plot(strt.stream.one.2020$DateTime, strt.stream.one.2020$WaterLevel)
 
 ```
 
@@ -1258,6 +1287,19 @@ plot(strt.stream.two.2020$DateTime, strt.stream.two.2020$WaterLevel, type = 'l')
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2020
 ```{r, echo=FALSE, warning=FALSE}
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2020-06-17 16:30", tz = "America/Anchorage"),ymd_hm("	
+2020-10-07 23:45", tz = "America/Anchorage"), by = '15 mins'))
+strt.stream.one.2020 <- full_join(strt.stream.one.2020, DateTimeFill)
+strt.stream.one.2020 <- strt.stream.one.2020[order(strt.stream.one.2020$DateTime),]
+strt.stream.one.2020 <- na_kalman(strt.stream.one.2020, maxgap = 10)
+
+strt.stream.two.2020 <- full_join(strt.stream.two.2020, DateTimeFill)
+strt.stream.two.2020 <- strt.stream.two.2020[order(strt.stream.two.2020$DateTime),]
+strt.stream.two.2020 <- na_kalman(strt.stream.two.2020, maxgap = 10)
+
+
 strt.pt.2020 <- rbind(strt.stream.one.2020, strt.stream.two.2020)
 write.csv(strt.pt.2020, here("PT_data/2020/STRT/strt.pt.2020.csv"), row.names = FALSE)
 ```
@@ -1288,14 +1330,15 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
 
 ```
 
+
 Does not look pretty
 
 ## Rating curve for STRT PT1 2.0 
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter Stuart ###
 QSummary.ST.2020.1 <- QSummary.ST.2020[-c(8,14,7), ]
-
-Strt1comb.2020 <- full_join(strt.stream.one.2020, QSummary.ST.2020.1)
+QSummary.ST.2020.2 <- QSummary.ST.2020.1 %>% group_by(DateTime) %>% summarise(MeasuredQ_Ls = mean(MeasuredQ_Ls))
+Strt1comb.2020 <- full_join(strt.stream.one.2020, QSummary.ST.2020.2)
 STRT1.lm.2020 <- lm(Strt1comb.2020$MeasuredQ_Ls ~ Strt1comb.2020$WaterLevel)
 
 summary(STRT1.lm.2020)
@@ -1303,7 +1346,7 @@ summary(STRT1.lm.2020)
 strt.formula <- y ~ x
 
 ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
-  geom_point(aes(color = Method), size = 3) +
+  geom_point(size = 3) +
   geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
   stat_poly_eq(formula = strt.formula, 
                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
@@ -1340,12 +1383,13 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt2comb.2020) +
 
 ```
 
+
 Negative slope is definitely bad 
 
 Rating curve for STRT PT2 2.0 
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter Stuart ###
-QSummary.ST.2020.2 <- QSummary.ST.2020[-c(8,14,7), ]
+QSummary.ST.2020.2 <- QSummary.ST.2020[-c(8,14,7,6,16), ]
 
 Strt2comb.2020 <- full_join(strt.stream.two.2020, QSummary.ST.2020.2)
 STRT2.lm.2020 <- lm(Strt2comb.2020$MeasuredQ_Ls ~ Strt2comb.2020$WaterLevel)
@@ -1373,10 +1417,10 @@ Strt1comb.2020$pred.strt1.Q <- coef(STRT1.lm.2020)[2] * Strt1comb.2020$WaterLeve
 
 ggplot(aes(x = DateTime, y = pred.strt1.Q), data = Strt1comb.2020) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
+  geom_point(aes(x = DateTime, y = MeasuredQ_Ls), size=3) +
   theme_classic() +
   ggtitle("Stuart") +
-  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  #scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
   ylab("Discharge (L/s)") +
   scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-09")))
@@ -1409,7 +1453,7 @@ strt.final.discharge.2020 <- strt.final.discharge.2020 %>% subset(strt.stream.on
 
 strt.final.discharge.2020$MeanDischarge <- rowMeans(strt.final.discharge.2020[,c('pred.strt1.Q', 'pred.strt2.Q')], na.rm = TRUE) 
 
-strt.final.discharge.2020 <- strt.final.discharge.2020[, c(1,5,13, 25, 26)]
+strt.final.discharge.2020 <- strt.final.discharge.2020[, c(1,5,13, 19, 20)]
 
 ### Stuart1 (light blue), Stuart2 (dark blue), and Stuart1 (red) because STRT2 seems bad with observed Q.
 
@@ -1448,6 +1492,8 @@ Q.daily.2020 = as.data.frame(Q.daily.2020)
 write_csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"))
 write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
 
+
+Q_2020 %>% ggplot(aes(DateTime, Q, color = Site)) + geom_point()
 ```
 
 
