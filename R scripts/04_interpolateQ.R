@@ -3,7 +3,8 @@
 ## first half of season 2021 at some sites
 
 ## Inputs:
-      # X.csv : Q compiled for all sites each year
+      # Predicted_Q_2022.csv : Q compiled for all sites 2022
+      # Q_2022.csv : Q compiled for all sites 2022
     
 ## Outputs: 
 
@@ -43,20 +44,33 @@ names(Q21va)[names(Q21va) == 'Q'] <- 'pred.vaul.Q'
 # Find sites with missing data
 Q22 %>% summarize(across(where(is.numeric), ~sum(is.na(.))))
 
-Q22 %>% pivot_longer(pred.vaul.Q:pred.frch.Q) %>%
-        ggplot(aes(x = DateTimeAK, y = value)) +
+Q22 %>% ggplot(aes(x = DateTimeAK, y = Q)) +
         geom_point() +
-        facet_wrap(~name, scales = "free_y")
+        xlim(as.POSIXct(c("2022-05-10", "2022-06-10"))) +
+        facet_wrap(~Site, scales = "free_y")
 
 # MOOS, POKE, STRT, VAUL missing data
 # MOOS: 
-  # 2022-07-23 17:00:00, 2022-08-02 16:00:00
+  # 2022-07-23 16:55:00, 2022-08-02 16:45:00
 
 # POKE:
-  # 2022-07-23 17:00:00, 2022-08-01 16:00:00
+  # 2022-07-23 16:55:00, 2022-08-01 15:55:00
 
 # STRT:
-  # 2022-07-23 18:00:00, 2022-08-10 22:00:00
+  # 2022-07-23 16:55:00, 2022-08-10 22:30:00
+  # this can't be correct: Q record beginning again in middle of night
+
+# VAUL:
+  # 2022-06-06 10:35, 2022-08-01 10:25
+
+# Align data across sites by datetime
+Q22w <- Q22 %>% dplyr::select(-X) %>%
+                pivot_wider(names_from = Site, values_from = Q, values_fn = list) %>%
+                unnest(cols = everything())
+
+pivot_wider(names_from = name, values_from = val
+            , values_fn = list) %>% 
+  unnest(cols = everything() )
 
 # MOOS
 Q22 %>% ggplot(aes(x = pred.frch.Q, y = pred.moos.Q)) +
