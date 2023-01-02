@@ -91,11 +91,11 @@ eielson.atmo.2022$sea_level_pressure_kpa <- eielson.atmo.2022$sea_level_pressure
 NEON air pressure data
 ```{r}
 #NEON_air <-loadByProduct(dpID = "DP1.00004.001", site=c("BONA"),startdate="2022-05", enddate="2022-11")
-#NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
+NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
 #write.csv(NEON_bp, "NEON_bp_2022.csv")
 
-NEON_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxjgfFQQidmFmjWZX1_7wo3g1tbrpyImxGz3jqGczte0wGOdIi8265-2Jbj2qXn7e9N1ymti3rQEnU/pub?output=csv"
-NEON_bp <- read.csv(url(NEON_url))
+#NEON_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxjgfFQQidmFmjWZX1_7wo3g1tbrpyImxGz3jqGczte0wGOdIi8265-2Jbj2qXn7e9N1ymti3rQEnU/pub?output=csv"
+#NEON_bp <- read.csv(url(NEON_url))
 
 NEON_bp$DateTimeAK <- as.POSIXct(NEON_bp$startDateTime, format = "%Y-%m-%d %H:%M", tz = "GMT")
 attr(NEON_bp$DateTimeAK, "tzone") <- "America/Anchorage"
@@ -419,25 +419,31 @@ Our Moose air pressure data is so messy - we will use NEON's data.
 MOOS.2022 <- full_join(moos.final.pressure.2022, Air_combo, by = "DateTimeAK") %>% dplyr::select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
 
 # Fill gaps in data
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-25 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 08:15", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-25 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 08:15", tz = "America/Anchorage"), by = '5 mins'))
 MOOS.2022 <- full_join(MOOS.2022, DateTimeFill)
 MOOS.2022 <- MOOS.2022[order(MOOS.2022$DateTimeAK),]
 MOOS.2022 <- na_kalman(MOOS.2022, maxgap = 10)
 
-
- MOOS.2022 %>% filter(DateTimeAK >= "2022-05-25" & DateTimeAK <= "2022-10-08") %>% 
+MOOS.2022 %>% filter(DateTimeAK >= "2022-05-25" & DateTimeAK <= "2022-10-08") %>% 
   filter(DateTimeAK > "2022-09-01" & DateTimeAK < "2022-09-22") %>%
   ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedMOOS)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
 ggtitle("MOOS air and water pressure")
-```
- 
-```{r, warning = FALSE, message = FALSE} 
+
 # Water pressure - atmospheric pressure
  MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
 
+MOOS.2022 <- MOOS.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
+any(duplicated(MOOS.2022$DateTimeAK))
 
+FRCH.2022$diff <- FRCH.2022$DateTimeAK - lag(FRCH.2022$DateTimeAK)
+unique(FRCH.2022$diff)
+```
+
+
+ 
+```{r, warning = FALSE, message = FALSE} 
 # Plot difference
-MOOS.2022 %>% filter(DateTimeAK > "2022-10-08") %>% 
+MOOS.2022 %>% #filter(DateTimeAK > "2022-10-08") %>% 
   filter(DateTimeAK > "2022-09-25") %>%
   ggplot(aes(DateTimeAK, difference)) + geom_point() +
   ggtitle("MOOS difference")
@@ -446,6 +452,8 @@ MOOS.2022 %>% filter(DateTimeAK > "2022-10-08") %>%
 MOOS.2022 <- MOOS.2022 %>%
   mutate(across(c(difference), 
                 ~ifelse(DateTimeAK >= "2022-10-08" & difference > 1.45, NA, .)))
+
+MOOS.2022$difference <- na_kalman(MOOS.2022$difference, maxgap = 10)
 
 # Plot difference
 MOOS.2022 %>% filter(DateTimeAK > "2022-05-20") %>% 
@@ -707,10 +715,10 @@ POKE.2022 <- POKE.2022 %>% filter(DateTimeAK <= "2022-10-07 12:50:00")
 
 # Water pressure - atmospheric pressure 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-18 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-07 12:50", tz = "America/Anchorage"), by = '15 mins'))
+2022-05-18 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-07 12:50", tz = "America/Anchorage"), by = '5 mins'))
 POKE.2022 <- full_join(POKE.2022, DateTimeFill, by = "DateTimeAK")
 POKE.2022 <- POKE.2022[order(POKE.2022$DateTimeAK),]
-POKE.2022 <- na_kalman(POKE.2022, maxgap = 10)
+POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxgap = 10)
 
 POKE.2022$difference <- POKE.2022$WaterPressure.merged - POKE.2022$AirPressureCorrectedPOKE
 
@@ -721,6 +729,14 @@ POKE.2022 %>% filter(DateTimeAK >"2022-10-01 10:00:00" & DateTimeAK < "2022-10-3
   filter(DateTimeAK > "2022-05-25") %>%
   ggplot(aes(DateTimeAK, WaterPressure.merged)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedPOKE), color = "red") + #geom_point(aes(color = Method, x = DateTimeAK, y = WaterPressure.merged), data = Poker1comb.2022[c(19,20),])
   ggtitle("POKE air and water pressure")
+
+# Remove duplicated time steps
+POKE.2022 <- POKE.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
+any(duplicated(POKE.2022$DateTimeAK))
+
+# Check time step intervals
+POKE.2022$diff <- POKE.2022$DateTimeAK - lag(POKE.2022$DateTimeAK)
+unique(POKE.2022$diff)
 ```
 
 ```{r, warning = FALSE, message = FALSE} 
@@ -996,7 +1012,7 @@ Our air pressure is so messy: lets use NEON air pressure
 STRT.2022 <- full_join(Air_combo, strt.final.pressure.2022, by = "DateTimeAK") %>% dplyr::select("DateTimeAK", "AirPressureCorrectedSTRT", "WaterPressure")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-03 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 15:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-03 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 15:00", tz = "America/Anchorage"), by = '5 mins'))
 STRT.2022 <- full_join(STRT.2022, DateTimeFill, by = "DateTimeAK")
 STRT.2022 <- STRT.2022[order(STRT.2022$DateTimeAK),]
 STRT.2022 <- na_kalman(STRT.2022, maxgap = 10)
@@ -1010,6 +1026,15 @@ STRT.2022 %>% filter(DateTimeAK >"2022-09-01 10:00:00" & DateTimeAK < "2022-09-2
   filter(DateTimeAK > "2022-05-05") %>%
   ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedSTRT), color = "red") + 
   ggtitle("POKE air and water pressure")
+
+# Remove duplicated time steps
+STRT.2022 <- STRT.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
+any(duplicated(STRT.2022$DateTimeAK))
+
+# Check time step intervals
+STRT.2022$diff <- STRT.2022$DateTimeAK - lag(STRT.2022$DateTimeAK)
+unique(STRT.2022$diff)
+STRT.2022 %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
 
 # Plot difference
 STRT.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
@@ -1122,6 +1147,8 @@ names(frch.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
 
 # Round date to 5 minute intervals
 frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "5 minutes")
+frch.stream.one.2022$DateTimeAK <- lubridate::round_date(frch.stream.one.2022$DateTimeAK, "5 minutes")
+
 
 
 # merge to one 
@@ -1162,7 +1189,7 @@ frch.stream.one.2022 <- frch.stream.one.2022 %>%
   mutate(across(c(WaterPressure), ~ifelse(DateTimeAK == "2022-06-07 11:10:00", NA, .)))
 
 
-frch.stream.one.2022 %>% filter(DateTimeAK > "2022-06-07" & DateTimeAK < "2022-06-08") %>% 
+frch.stream.one.2022 %>% #filter(DateTimeAK > "2022-06-07" & DateTimeAK < "2022-06-08") %>% 
   ggplot(aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
@@ -1220,6 +1247,8 @@ They look the same. Lets use PT1 except to fill the gap in July.
 ```{r, message = FALSE, warning = FALSE}
 frch.pt.both <- frch.pt.both %>% dplyr::mutate(WaterPressure.merged = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 12:00:00", WaterPressure.y, WaterPressure.x))
 
+diff <- frch.pt.both$DateTimeAK - lag(frch.pt.both$DateTimeAK)
+unique(diff)
 
 frch.pt.both %>% #filter(DateTimeAK > "2022-07-20" & DateTimeAK < "2022-08-01") %>%
   ggplot(aes(x = DateTimeAK, y = WaterPressure.merged)) +
@@ -1243,27 +1272,45 @@ frch.pt.both %>% #filter(DateTimeAK > "2022-08-01" & DateTimeAK < "2022-08-05") 
 
 frch.final.pressure.2022 <- frch.pt.both
 
-FRCH.2022 <- left_join(Air_combo, frch.final.pressure.2022, by = "DateTimeAK")
+FRCH.2022 <- left_join(Air_combo, frch.final.pressure.2022, by = "DateTimeAK") %>% select(DateTimeAK, AirPressureCorrectedFRCH, WaterPressure.merged) %>% filter(DateTimeAK >= "2022-06-04" & DateTimeAK <= "2022-10-10 10:00")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-12 00:30", tz = "America/Anchorage"),ymd_hm("2022-10-10 10:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-04 12:20", tz = "America/Anchorage"),ymd_hm("2022-10-10 10:00", tz = "America/Anchorage"), by = '5 mins'))
 FRCH.2022 <- full_join(FRCH.2022, DateTimeFill, by = "DateTimeAK")
 FRCH.2022 <- FRCH.2022[order(FRCH.2022$DateTimeAK),]
-FRCH.2022 <- na_kalman(FRCH.2022, maxgap = 10)
-
-# Water pressure - atmospheric pressure 
-FRCH.2022$difference <- FRCH.2022$WaterPressure.merged - FRCH.2022$AirPressureCorrectedFRCH
-
-FRCH.2022$Site <- "FRCH"
+FRCH.2022$WaterPressure.merged <- na_kalman(FRCH.2022$WaterPressure.merged, maxgap = 10)
 
 FRCH.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   #filter(DateTimeAK > "2022-09-18" & DateTimeAK < "2022-09-22") %>%
   ggplot(aes(DateTimeAK, WaterPressure.merged)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedFRCH)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
 ggtitle("FRCH air and water pressure")
+
+# Water pressure - atmospheric pressure 
+FRCH.2022$difference <- FRCH.2022$WaterPressure.merged - FRCH.2022$AirPressureCorrectedFRCH
+
+FRCH.2022 <- FRCH.2022 %>% group_by(DateTimeAK) %>% summarise(difference = mean(difference))
+any(duplicated(FRCH.2022$DateTimeAK))
+
+FRCH.2022$diff <- FRCH.2022$DateTimeAK - lag(FRCH.2022$DateTimeAK)
+unique(FRCH.2022$diff)
+
+#FRCH.2022 %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
+
+FRCH.2022$Site <- "FRCH"
+
+
 ```
 
 Plot difference
 ```{r}
+
+FRCH.2022 %>% filter(DateTimeAK >= "2022-08-01" & DateTimeAK < "2022-08-03") %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
+
+# Remove outliers
+FRCH.2022 <- FRCH.2022 %>% dplyr::mutate(across(c(difference), ~ ifelse(DateTimeAK >= "2022-08-01" & DateTimeAK < "2022-08-03" & difference > 6.6, NA, .)))
+
+FRCH.2022$difference <- na_kalman(FRCH.2022$difference, maxgap = 10)
+
 FRCH.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
 
 ```
@@ -1462,7 +1509,7 @@ vaul.final.pressure.2022 <- vaul.stream.two.2022
 VAUL.2022 <- left_join(Air_combo, vaul.final.pressure.2022 , by = "DateTimeAK")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-26 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-12 15:30", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-26 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-12 15:30", tz = "America/Anchorage"), by = '5 mins'))
 VAUL.2022 <- full_join(VAUL.2022, DateTimeFill, by = "DateTimeAK")
 VAUL.2022 <- VAUL.2022[order(VAUL.2022$DateTimeAK),]
 VAUL.2022 <- na_kalman(VAUL.2022, maxgap = 10)
@@ -1470,20 +1517,31 @@ VAUL.2022 <- na_kalman(VAUL.2022, maxgap = 10)
 # Water pressure - atmospheric pressure 
 VAUL.2022$difference <- VAUL.2022$WaterPressure - VAUL.2022$AirPressureCorrectedVAUL
 
-VAUL.2022 <-  VAUL.2022[ , -which(names(VAUL.2022) %in% c("TempC"))] # removing columns I do not need
-
-VAUL.2022$Site <- "VAUL"
-
 # Plot air and water pressure
 VAUL.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedVAUL), color = "red", size = 0.5) +
   ggtitle("VAUL air and water pressure")
+
+# Remove duplicated time steps
+VAUL.2022 <- VAUL.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
+any(duplicated(VAUL.2022$DateTimeAK))
+
+# Check time step intervals
+VAUL.2022$diff <- VAUL.2022$DateTimeAK - lag(VAUL.2022$DateTimeAK)
+unique(VAUL.2022$diff)
+VAUL.2022 %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
+
+
+VAUL.2022$Site <- "VAUL"
+
+VAUL.2022$difference <- na_kalman(VAUL.2022$difference, maxgap = 50)
 ```
 
 
 ```{r, message = FALSE, warning = FALSE}
 # Plot difference
-VAUL.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("VAUL difference")
+VAUL.2022 %>% #filter(DateTimeAK > "2022-08-15" & DateTimeAK < "2022-09-01") %>% 
+  ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("VAUL difference")
 ```
 
 
@@ -1503,7 +1561,7 @@ ggplot(QSummary.VA.2022) +
 
 ```{r, message = FALSE, warning = FALSE}
 # Merge by nearest date if we have an offset point 
-VAUL.2022.dt <- setDT(VAUL.2022) %>% filter(!WaterPressure %in% NA)
+VAUL.2022.dt <- setDT(VAUL.2022) %>% filter(!difference %in% NA)
 QSummary.VA.2022.dt <- QSummary.VA.2022 %>% filter(DateTimeAK > "2022-05-25" & DateTimeAK < "2022-10-01")
 
 Vault1comb.2022 <- VAUL.2022.dt[QSummary.VA.2022.dt, on = "DateTimeAK", roll = 'nearest']
@@ -1612,7 +1670,7 @@ VAUL.2022.dt <- VAUL.2022.dt %>% dplyr::select(DateTimeAK, pred.vaul.Q) %>% na.o
 VAUL.2022.dt <- na_kalman(VAUL.2022.dt)
 
 VAUL.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.vaul.Q)) +
-  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(color="#A6CEE3", size=1.25) +
   geom_point(data = Vault1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
   theme_classic() +
   ggtitle("VAUL predicted and measured Q") +
