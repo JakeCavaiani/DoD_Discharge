@@ -50,7 +50,7 @@ QSummary.2022 <- read.csv(url(discharge.2022))
 ### Format Time ###
 QSummary.2022$Date <- mdy(QSummary.2022$Date)
 QSummary.2022$DateTimeAK <- as.POSIXct(paste(QSummary.2022$Date, QSummary.2022$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
-QSummary.2022$DateTimeAK <- lubridate::round_date(QSummary.2022$DateTimeAK, "60 minutes")
+QSummary.2022$DateTimeAK <- lubridate::round_date(QSummary.2022$DateTimeAK, "5 minutes")
 
 ### ALL Sites ###
 QSummary.2022 %>% ggplot() +
@@ -109,7 +109,7 @@ DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("
 2022-05-01 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-15 00:00", tz = "America/Anchorage"), by = '15 mins'))
 NEON_bp <- full_join(NEON_bp, DateTimeFill)
 NEON_bp <- NEON_bp[order(NEON_bp$DateTimeAK),]
-NEON_bp <- na_kalman(NEON_bp, maxgap = 10)
+NEON_bp$bp_sea <- na_kalman(NEON_bp$bp_sea, maxgap = 10)
 
 NEON_bp %>% #filter(DateTimeAK > "2022-06-01" & DateTimeAK < "2022-07-01") %>% 
   ggplot(aes(DateTimeAK, bp_sea)) + geom_point()
@@ -876,8 +876,8 @@ strt.atmo.2022$DateTimeAK <- force_tz(strt.atmo.2022$DateTimeAK, tzone = "Americ
 
 
 # round date to 5 minute intervals
-#strt.stream.one.2022$DateTimeAK <- lubridate::round_date(strt.stream.one.2022$DateTimeAK, "5 minutes")
-#strt.stream.two.2022$DateTimeAK <- lubridate::round_date(strt.stream.two.2022$DateTimeAK, "5 minutes")
+strt.stream.one.2022$DateTimeAK <- lubridate::round_date(strt.stream.one.2022$DateTimeAK, "5 minutes")
+strt.stream.two.2022$DateTimeAK <- lubridate::round_date(strt.stream.two.2022$DateTimeAK, "5 minutes")
 
 # cleaning off original datetime 
 strt.stream.one.2022 <- strt.stream.one.2022[, -c(2)] # removing columns that aren't date/abs pressure and temp
@@ -1051,13 +1051,13 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
 
 ```
 
-Lets remove lowest YSI point. Stuart looks like a quadratic relationship might fit better.
+Stuart looks like a quadratic relationship might fit better.
 
 ```{r}
-Stuart1comb.2022.2 <- Stuart1comb.2022 %>% filter(MeasuredQ_Ls > 500)
+
 strt.formula <- y ~ poly(x, 2, raw = TRUE)
 
-ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.2) +
+ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022) +
   geom_point(aes(color = Method), size = 3) +
   geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
   stat_poly_eq(formula = strt.formula,
@@ -1070,7 +1070,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Stuart1comb.2022.2) +
 
 ```{r, message = FALSE, warning = FALSE}
 ## Predict STRT Q
-STRT1.lm.2022 <- lm(Stuart1comb.2022.2$MeasuredQ_Ls ~ Stuart1comb.2022.2$difference + I(Stuart1comb.2022.2$difference^2))
+STRT1.lm.2022 <- lm(Stuart1comb.2022$MeasuredQ_Ls ~ Stuart1comb.2022$difference + I(Stuart1comb.2022$difference^2))
 summary(STRT1.lm.2022)
 
 STRT.2022.dt$pred.strt1.Q <- coef(STRT1.lm.2022)[2] * STRT.2022.dt$difference + coef(STRT1.lm.2022)[3] * I(STRT.2022.dt$difference^2) + coef(STRT1.lm.2022)[1]
@@ -1120,11 +1120,8 @@ names(frch.stream.one.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
 
 names(frch.stream.two.2022) <- c("Site", "WaterPressure", "TempC", "DateTimeAK")
 
-# Take average at 30 min interval
-frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "30 minutes")
-frch.stream.one.2022$DateTimeAK <- lubridate::round_date(frch.stream.one.2022$DateTimeAK, "30 minutes")
-frch.stream.two.2022 <- frch.stream.two.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
-frch.stream.one.2022 <- frch.stream.one.2022 %>% group_by(DateTimeAK) %>% summarise(DateTimeAK = unique(DateTimeAK), WaterPressure = mean(WaterPressure))
+# Round date to 5 minute intervals
+frch.stream.two.2022$DateTimeAK <- lubridate::round_date(frch.stream.two.2022$DateTimeAK, "5 minutes")
 
 
 # merge to one 
@@ -1155,7 +1152,18 @@ frch.stream.one.2022 <- frch.stream.one.2022 %>%
 
 frch.stream.one.2022 <- frch.stream.one.2022 %>% filter(DateTimeAK < "2022-10-10 10:30:00")
 
-ggplot(frch.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure))+
+# Shift small gap on June 6th
+frch.stream.one.2022 <- frch.stream.one.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK > "2022-05-07" & DateTimeAK < "2022-05-08" &
+  WaterPressure < 109.5, NA, ifelse(WaterPressure > 110.5, NA, .)))) %>% 
+   mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-06-07 11:25:00", WaterPressure - 0.231, .))) %>%
+  mutate(across(c(WaterPressure), ~ifelse(DateTimeAK == "2022-06-07 11:10:00", NA, .)))
+
+
+frch.stream.one.2022 %>% filter(DateTimeAK > "2022-06-07" & DateTimeAK < "2022-06-08") %>% 
+  ggplot(aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
 
@@ -1210,25 +1218,20 @@ ggplot(aes(x = DateTimeAK, y = WaterPressure.x), data = frch.pt.both) +
 They look the same. Lets use PT1 except to fill the gap in July.
 
 ```{r, message = FALSE, warning = FALSE}
-frch.pt.both$WaterPressure.merged <- ifelse(frch.pt.both$DateTimeAK >= "2022-07-23 17:00:00" & frch.pt.both$DateTimeAK <= "2022-08-02 12:00:00", frch.pt.both$WaterPressure.y, frch.pt.both$WaterPressure.x)
+frch.pt.both <- frch.pt.both %>% dplyr::mutate(WaterPressure.merged = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 12:00:00", WaterPressure.y, WaterPressure.x))
 
 
-frch.pt.both %>% filter(DateTimeAK > "2022-07-01" & DateTimeAK < "2022-08-01") %>%
+frch.pt.both %>% #filter(DateTimeAK > "2022-07-20" & DateTimeAK < "2022-08-01") %>%
   ggplot(aes(x = DateTimeAK, y = WaterPressure.merged)) +
   geom_point()
 ```
 
 ```{r, message = FALSE, warning = FALSE}
 ## Clean merged water pressure data
-
+                                                                             
 # Shift step in July
-frch.before <- frch.pt.both[c(1:3488), ]
-frch.after <- frch.pt.both[c(3489:40000), ]
-frch.pt.both[3488, 4] - frch.pt.both[3489, 4] # 1.914
-frch.after$WaterPressure.merged <- frch.after$WaterPressure.merged + 1.914
-frch.pt.both <- rbind(frch.before, frch.after)
+frch.pt.both <- frch.pt.both %>% dplyr::mutate(across(c(WaterPressure.merged), ~ ifelse(DateTimeAK >= "2022-08-02 11:30:00", WaterPressure.merged + 1.914, .)))
 
-frch.pt.both <- frch.pt.both %>% filter(!DateTimeAK %in% NA)
 
 frch.pt.both %>% #filter(DateTimeAK > "2022-08-01" & DateTimeAK < "2022-08-05") %>%
   ggplot(aes(x = DateTimeAK, y = WaterPressure.merged)) +
@@ -1251,8 +1254,6 @@ FRCH.2022 <- na_kalman(FRCH.2022, maxgap = 10)
 # Water pressure - atmospheric pressure 
 FRCH.2022$difference <- FRCH.2022$WaterPressure.merged - FRCH.2022$AirPressureCorrectedFRCH
 
-names(FRCH.2022)[names(FRCH.2022) == 'Site.x'] <- 'Site'
-
 FRCH.2022$Site <- "FRCH"
 
 FRCH.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
@@ -1260,6 +1261,13 @@ FRCH.2022 %>% filter(DateTimeAK > "2022-05-15") %>%
   ggplot(aes(DateTimeAK, WaterPressure.merged)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedFRCH)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
 ggtitle("FRCH air and water pressure")
 ```
+
+Plot difference
+```{r}
+FRCH.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
+
+```
+
 
 ```{r, message = FALSE, warning = FALSE}
 ### Filter FRCH ###
@@ -1279,9 +1287,7 @@ ggplot(QSummary.FR.2022) +
 FRCH.2022.dt <- setDT(FRCH.2022)
 QSummary.FR.2022.dt <- QSummary.FR.2022
 
-French1comb.2022 <- FRCH.2022.dt[QSummary.FR.2022.dt, on = "DateTimeAK", roll = 'nearest']
-
-FRCH1.lm.2022 <- lm(French1comb.2022$MeasuredQ_Ls ~ French1comb.2022$difference)
+French1comb.2022 <- FRCH.2022.dt[QSummary.FR.2022.dt, on = "DateTimeAK", roll = 'nearest'] %>% select(DateTimeAK, difference, MeasuredQ_Ls, Method)
 
 ```
 
@@ -1319,32 +1325,12 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022) +
 
 ```
 
-Not good. How about a rating curve just with the wading rod measurements and the 3 low YSI points?
+Not good. Lets just remove one YSI point.
 
 ```{r, message = FALSE, warning = FALSE}
-French1comb.2022.2 <- French1comb.2022 %>% filter(MeasuredQ_Ls < 430)
+French1comb.2022.3 <- French1comb.2022 %>% filter(MeasuredQ_Ls < 800 | difference > 6)
 # rating curve # 
-frch.formula <- y ~ x
-
-ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022.2) +
-  geom_point(aes(color = Method), size = 3) +
-  geom_smooth(method = "lm", se=FALSE, formula = frch.formula) +
-  stat_poly_eq(formula = frch.formula,
-               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
-               parse = TRUE) +
-  #xlim(216, 216.4) +
-  #ylim(0,1500) +
-  theme_light() +
-  ggtitle("French measured Q")
-
-```
-
-Not good at low Q, but lets add back in the two high difference YSI points.
-
-```{r, message = FALSE, warning = FALSE}
-French1comb.2022.3 <- French1comb.2022 %>% filter(MeasuredQ_Ls < 430 | difference > 10)
-# rating curve # 
-frch.formula <- y ~ x
+frch.formula <- y ~ poly(x,2)
 
 ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022.3) +
   geom_point(aes(color = Method), size = 3) +
@@ -1361,7 +1347,7 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = French1comb.2022.3) +
 
 
 ```{r, message = FALSE, warning = FALSE}
-## Predict STRT Q
+## Predict FRCH Q
 FRCH.lm.2022 <- lm(French1comb.2022.3$MeasuredQ_Ls ~ French1comb.2022.3$difference)
 summary(FRCH.lm.2022)
 
@@ -1661,9 +1647,9 @@ write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"), ro
 pred_Q_2022$Day = format(as.POSIXct(pred_Q_2022$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
 pred_Q_2022$Day = as.POSIXct(pred_Q_2022$Day, "%Y-%m-%d", tz = "America/Anchorage")
 
-pred_Q_2022 <- pred_Q_2022 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
+Q.daily.2022 <- pred_Q_2022 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
 
-write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Q.daily.2022.csv"), row.names = FALSE)
+write.csv(Q.daily.2022, here("Predicted_Discharge/2022/Q.daily.2022.csv"), row.names = FALSE)
 
 pred_Q_2022 %>% ggplot(aes(DateTimeAK, Q, color = Site)) + geom_point()
 ```
