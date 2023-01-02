@@ -392,7 +392,7 @@ ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
 
 This doesnt look too shabby!
 
-# Export 2018 PT data
+# Export 2018 Q data
 ```{r, echo=FALSE, warning=FALSE}
 moose3comb <- moose3comb[,c(4,6,14)]
 names(moose3comb) <- c("DateTime", "Site", "Q")
@@ -400,8 +400,12 @@ moose3comb$Site <- rep("MOOS", length(moose3comb$DateTime))
 French2comb <- French2comb[c(1,3,12)]
 names(French2comb) <- c("DateTime", "Site", "Q")
 
+write.csv(French2comb, here("Predicted_Discharge/2018/FRCH/FRCH.Q.csv"), row.names = FALSE)
+write.csv(moose3comb, here("Predicted_Discharge/2018/MOOS/MOOS.Q.csv"), row.names = FALSE)
+
+# Combined
 Q_2018 <- rbind(moose3comb, French2comb)
-write.csv(Q_2018, here("Predicted_Discharge/2018/Q_2018.csv"))
+write.csv(Q_2018, here("Predicted_Discharge/2018/Q_2018.csv"), row.names = FALSE)
 
 
 Q_2018$Day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
@@ -410,7 +414,7 @@ Q_2018$Day = as.POSIXct(Q_2018$Day, "%Y-%m-%d", tz="America/Anchorage")
 Q.daily.2018 <- Q_2018 %>% dplyr::group_by(Site, Day) %>% dplyr::summarise(Q = mean(Q))
 any(is.na(Q.daily.2018))
 
-write_csv(Q.daily.2018, here("Predicted_Discharge/2015/Q.daily.2018.csv"))
+write.csv(Q.daily.2018, here("Predicted_Discharge/2018/Q.daily.2018.csv"), row.names = FALSE)
 
 
 
@@ -1662,15 +1666,16 @@ ggplot(Stuart4comb.2019_final, aes(x = DateTime, y = Q)) +
 Q_2019 <- rbind(frch.final.discharge.2019.final, vaul.final.discharge.2019.final,
                 poke.final.discharge.2019.final, Stuart4comb.2019_final,
                 Moose2comb.2019_final)
+
+
+write.csv(Q_2019, here("Predicted_Discharge/2019/Q_2019.csv"), row.names = FALSE)
+
 Q_2019$Day = format(as.POSIXct(Q_2019$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
 Q_2019$Day = as.POSIXct(Q_2019$Day, "%Y-%m-%d", tz = "America/Anchorage")
 
-write_csv(Q_2019, here("Predicted_Discharge/2019/Q_2019.csv"))
-
-
 Q.daily.2019 <- Q_2019 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
 
-write_csv(Q.daily.2019, here("Predicted_Discharge/2019/Q.daily.2019.csv"))
-length(is.na(Q_2019$Site))
+write.csv(Q.daily.2019, here("Predicted_Discharge/2019/Q.daily.2019.csv"), row.names = FALSE)
+
 Q_2019 %>% ggplot(aes(DateTime, Q, color = Site)) + geom_point(size = 0.25)
 ```

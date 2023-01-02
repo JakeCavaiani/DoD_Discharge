@@ -1482,15 +1482,16 @@ write.csv(strt.final.discharge.2020_final, here("Predicted_Discharge/2020/STRT/S
 Q_2020 <- rbind(moos.final.discharge.2020_final,frch.final.discharge.2020_final,
                 Poke1comb.2020_final,Vaul2comb.2020_final,
                 strt.final.discharge.2020_final)
-Q_2020$day = format(as.POSIXct(Q_2020$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
-Q_2020$day = as.POSIXct(Q_2020$day, "%Y-%m-%d", tz="America/Anchorage")
+
+write.csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"), row.names = FALSE)
+
+Q_2020$Day = format(as.POSIXct(Q_2020$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
+Q_2020$Day = as.POSIXct(Q_2020$Day, "%Y-%m-%d", tz = "America/Anchorage")
+
+Q.daily.2020 <- Q_2020 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
 
 
-Q.daily.2020 = with(Q_2020, tapply(Q, list(day, Site), mean))
-Q.daily.2020 = as.data.frame(Q.daily.2020)
-
-write_csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"))
-write_csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"))
+write.csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"), row.names = FALSE)
 
 
 Q_2020 %>% ggplot(aes(DateTime, Q, color = Site)) + geom_point()

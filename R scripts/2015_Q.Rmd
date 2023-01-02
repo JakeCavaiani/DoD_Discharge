@@ -619,7 +619,7 @@ Q_2015$Day = as.POSIXct(Q_2015$Day, "%Y-%m-%d", tz="America/Anchorage")
 Q.daily.2015 <- Q_2015 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
 any(is.na(Q.daily.2015))
 
-write_csv(Q.daily.2015, here("Predicted_Discharge/2015/Q.daily.2015.csv"))
+write.csv(Q.daily.2015, here("Predicted_Discharge/2015/Q.daily.2015.csv"))
 
 
 Q_2015 %>% ggplot() + geom_line(aes(DateTimeAK, Q, color = Site))+ ylab("Predicted Q")

@@ -1656,6 +1656,14 @@ names(FRCH.2022.dt) <- c("DateTimeAK", "Q", "Site")
 
 pred_Q_2022 <- rbind(VAUL.2022.dt, MOOS.2022.dt, POKE.2022.dt, STRT.2022.dt, FRCH.2022.dt)
 
-write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"))
+write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"), row.names = FALSE)
+
+pred_Q_2022$Day = format(as.POSIXct(pred_Q_2022$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
+pred_Q_2022$Day = as.POSIXct(pred_Q_2022$Day, "%Y-%m-%d", tz = "America/Anchorage")
+
+pred_Q_2022 <- pred_Q_2022 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
+
+write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Q.daily.2022.csv"), row.names = FALSE)
+
 pred_Q_2022 %>% ggplot(aes(DateTimeAK, Q, color = Site)) + geom_point()
 ```
