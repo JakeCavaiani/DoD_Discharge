@@ -1,7 +1,7 @@
 # DoD_Discharge
 
 **Overview** <br>
-This repository reads in discharge data and generates predicted discharge throughout the year. The code is separated into R markdowns for each year. Raw pressure transducer (PT) and calculated measured discharge (Q) are pulled in from the coresponding year's sensor folder on the "DoD project" Google Drive. Cleaning the PT data included removing out-of-water points, shifting jumps in pressure due to cleaning of sensor houseing, removing beaver dams, combining data from paired PTs when neither had a complete record, and filling in small gaps in data using the 'na_kalman' fuction from the 'imputeTS' R package. Air pressure data was collected by the Harms' lab, or downloaded from NEON or Eielson Airforce Base. For some years we have water level data (water level above sensor, not stream depth) that was calculated in HOBOware instead of pressure data. Water pressure - air pressure or water level was regressed against the measured Q to fit a linear relationship and the formula is used to predict Q from the PT data.
+This repository reads in discharge data and generates predicted discharge throughout the year. The code is separated into R markdowns for each year. Raw pressure transducer (PT) and calculated measured discharge (Q) are pulled in from the coresponding year's sensor folder on the "DoD project" Google Drive. Cleaning the PT data included removing out-of-water points, shifting jumps in pressure due to cleaning of sensor houseing, removing beaver dams, combining data from paired PTs when neither had a complete record, and filling in small gaps in data using the 'na_kalman' fuction from the 'imputeTS' R package. Air pressure data was collected by the Harms' lab, or downloaded from NEON or Eielson Airforce Base. For some years we have water level data (water level above sensor, not stream depth) that was calculated in HOBOware instead of pressure data. Water pressure - air pressure or water level was regressed against the measured Q to fit a linear relationship and the formula is used to predict Q from the PT data. Pressure units are kPa and discharge units are L/s.
 
 **Folders**
 - PT_data: Once the PT data are cleaned they are exported to this folder. All date+times are in AKDT.
@@ -9,7 +9,7 @@ This repository reads in discharge data and generates predicted discharge throug
   'Predicted_Q_YEAR' that contains date+time, Q and site, and a file labeled 'Q.daily.YEAR' where Q is the 
   average Q for each day. Most years have the same data saparated into separate folder by site. All date+times 
   are in AKDT!!
-- Rating curve Rmd summaries: Contains HTML Markdown files for each year.
+- Rmd summaries: Contains HTML RMarkdown files for each year.
 
 **2015 Q**
 - Raw PT input time zone: GMT - 8 (AKDT)
@@ -85,3 +85,6 @@ This repository reads in discharge data and generates predicted discharge throug
   - Predicted Q start and end times: 5/25/2022 12:05 to 10/8/2022 8:15
   - Only PT2 was used because PT1 had a big gap in July and August
   - PT2 < 100 until 2022-05-24 13:45
+- Checks available at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites  
