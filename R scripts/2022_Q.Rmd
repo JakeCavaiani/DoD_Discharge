@@ -8,7 +8,14 @@ output:
     df_print: paged
   pdf_document: default
   word_document: default
+  
+knit: (function(inputFile, encoding) {
+      out_dir <- "Rmd summaries";
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        output_dir=file.path(dirname(inputFile), out_dir))})
 ---
+
 The purpose of this script is to read in pressure transducer data from 2022 and generate rating curves to ultimately generate predicted continuous discharge records throughout the whole season.
 
 Read in most updated merged files from each site from the google drive (DoD Project->2022 AK sensors->Discharge->site->"merged_date_file" )
@@ -91,11 +98,11 @@ eielson.atmo.2022$sea_level_pressure_kpa <- eielson.atmo.2022$sea_level_pressure
 NEON air pressure data
 ```{r}
 #NEON_air <-loadByProduct(dpID = "DP1.00004.001", site=c("BONA"),startdate="2022-05", enddate="2022-11")
-NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
+#NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
 #write.csv(NEON_bp, "NEON_bp_2022.csv")
 
-#NEON_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxjgfFQQidmFmjWZX1_7wo3g1tbrpyImxGz3jqGczte0wGOdIi8265-2Jbj2qXn7e9N1ymti3rQEnU/pub?output=csv"
-#NEON_bp <- read.csv(url(NEON_url))
+NEON_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxjgfFQQidmFmjWZX1_7wo3g1tbrpyImxGz3jqGczte0wGOdIi8265-2Jbj2qXn7e9N1ymti3rQEnU/pub?output=csv"
+NEON_bp <- read.csv(url(NEON_url))
 
 NEON_bp$DateTimeAK <- as.POSIXct(NEON_bp$startDateTime, format = "%Y-%m-%d %H:%M", tz = "GMT")
 attr(NEON_bp$DateTimeAK, "tzone") <- "America/Anchorage"
@@ -285,7 +292,8 @@ Looks like we have to use the corrected pressure to get what we want for our rat
 We will only use pressure transducer 2 at Moose because it is more complete.
 
 ```{r, warning = FALSE, message = FALSE}
-ggplot(moos.stream.two.2022, aes(x = DateTimeAK, y = WaterPressure)) +
+moos.stream.two.2022 %>% 
+  ggplot(aes(x = DateTimeAK, y = WaterPressure)) +
   geom_point() +
   theme_classic()
 
@@ -328,11 +336,8 @@ moos.stream.two.2022 <- full_join(moos.stream.two.2022.2, moos.2.after2)
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK > "2022-08-01", WaterPressure + 3.897/2, .)))
-#moos.2.before3 <- moos.stream.two.2022[c(1:17192), ] 
-#moos.2.after3 <- moos.stream.two.2022[c(17193:40000), ]
 moos.stream.two.2022[17192, 2] - moos.stream.two.2022[17211, 2] # 3.897
-#moos.2.after3$WaterPressure <- moos.2.after3[, 2] + 5.389/2
-#moos.stream.two.2022 <- full_join(moos.2.before3, moos.2.after3)
+
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(DateTimeAK < "2022-07-31" | DateTimeAK > "2022-08-02 16:45:00") %>% filter(DateTimeAK <= "2022-10-08 08:15:00")
 
@@ -343,22 +348,20 @@ moos.stream.two.2022[5240, 2] - moos.stream.two.2022[5241, 2] # 0.365
 moos.2.after4$WaterPressure <- moos.2.after4[, 2] - 0.365
 moos.stream.two.2022 <- full_join(moos.2.before4, moos.2.after4)
 
-# shifting small step change 
-moos.2.before5 <- moos.stream.two.2022[c(1:33588), ]
-moos.2.after5 <- moos.stream.two.2022[c(33591:40000), ]
-moos.stream.two.2022[33588, 2] - moos.stream.two.2022[33591, 2] # 0.41
-moos.2.after5$WaterPressure <- moos.2.after5[, 2] - 0.41
-moos.stream.two.2022 <- full_join(moos.2.before5, moos.2.after5)
-
 moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(WaterPressure < 110)
 
+# Small step change
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
-                ~ifelse(DateTimeAK >= "2022-09-28" & DateTimeAK <= "2022-09-28 17:00" & WaterPressure > 100.8, NA, .)))
+                ~ifelse(DateTimeAK >= "2022-09-28 14:20", WaterPressure - 0.248, .)))
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
-                ~ifelse(DateTimeAK >= "2022-09-28" & DateTimeAK <= "2022-09-28 17:00" & WaterPressure < 100.2, NA, .)))
+                ~ifelse(DateTimeAK >= "2022-09-28 12:00" & DateTimeAK <= "2022-09-28 15:00" & WaterPressure > 100.9, NA, .)))
+
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-09-28 12:00" & DateTimeAK <= "2022-09-28 15:00" & WaterPressure < 100.3, NA, .)))
 
 
 moos.stream.two.2022 %>%  #filter(DateTimeAK > "2022-09-28 12:00") %>%
@@ -419,7 +422,7 @@ Our Moose air pressure data is so messy - we will use NEON's data.
 MOOS.2022 <- full_join(moos.final.pressure.2022, Air_combo, by = "DateTimeAK") %>% dplyr::select("DateTimeAK", "AirPressureCorrectedMOOS", "WaterPressure")
 
 # Fill gaps in data
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-25 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 08:15", tz = "America/Anchorage"), by = '5 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-25 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 08:15", tz = "America/Anchorage"), by = '15 mins'))
 MOOS.2022 <- full_join(MOOS.2022, DateTimeFill)
 MOOS.2022 <- MOOS.2022[order(MOOS.2022$DateTimeAK),]
 MOOS.2022 <- na_kalman(MOOS.2022, maxgap = 10)
@@ -435,8 +438,6 @@ ggtitle("MOOS air and water pressure")
 MOOS.2022 <- MOOS.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
 any(duplicated(MOOS.2022$DateTimeAK))
 
-FRCH.2022$diff <- FRCH.2022$DateTimeAK - lag(FRCH.2022$DateTimeAK)
-unique(FRCH.2022$diff)
 ```
 
 
@@ -715,7 +716,7 @@ POKE.2022 <- POKE.2022 %>% filter(DateTimeAK <= "2022-10-07 12:50:00")
 
 # Water pressure - atmospheric pressure 
 DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2022-05-18 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-07 12:50", tz = "America/Anchorage"), by = '5 mins'))
+2022-05-18 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-07 12:50", tz = "America/Anchorage"), by = '15 mins'))
 POKE.2022 <- full_join(POKE.2022, DateTimeFill, by = "DateTimeAK")
 POKE.2022 <- POKE.2022[order(POKE.2022$DateTimeAK),]
 POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxgap = 10)
@@ -1012,7 +1013,7 @@ Our air pressure is so messy: lets use NEON air pressure
 STRT.2022 <- full_join(Air_combo, strt.final.pressure.2022, by = "DateTimeAK") %>% dplyr::select("DateTimeAK", "AirPressureCorrectedSTRT", "WaterPressure")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-03 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 15:00", tz = "America/Anchorage"), by = '5 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-03 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-08 15:00", tz = "America/Anchorage"), by = '15 mins'))
 STRT.2022 <- full_join(STRT.2022, DateTimeFill, by = "DateTimeAK")
 STRT.2022 <- STRT.2022[order(STRT.2022$DateTimeAK),]
 STRT.2022 <- na_kalman(STRT.2022, maxgap = 10)
@@ -1275,7 +1276,7 @@ frch.final.pressure.2022 <- frch.pt.both
 FRCH.2022 <- left_join(Air_combo, frch.final.pressure.2022, by = "DateTimeAK") %>% select(DateTimeAK, AirPressureCorrectedFRCH, WaterPressure.merged) %>% filter(DateTimeAK >= "2022-06-04" & DateTimeAK <= "2022-10-10 10:00")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-04 12:20", tz = "America/Anchorage"),ymd_hm("2022-10-10 10:00", tz = "America/Anchorage"), by = '5 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-06-04 12:20", tz = "America/Anchorage"),ymd_hm("2022-10-10 10:00", tz = "America/Anchorage"), by = '15 mins'))
 FRCH.2022 <- full_join(FRCH.2022, DateTimeFill, by = "DateTimeAK")
 FRCH.2022 <- FRCH.2022[order(FRCH.2022$DateTimeAK),]
 FRCH.2022$WaterPressure.merged <- na_kalman(FRCH.2022$WaterPressure.merged, maxgap = 10)
@@ -1467,7 +1468,12 @@ vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
 
 vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
-                ~ifelse(DateTimeAK >= "2022-08-15" & DateTimeAK <= "2022-08-31" &
+                ~ifelse(DateTimeAK >= "2022-06-06" & DateTimeAK <= "2022-07-10" &
+  WaterPressure < 98.7, NA, .)))
+
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-29" & DateTimeAK <= "2022-08-30" &
   WaterPressure < 98, NA, .)))
 
 vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
@@ -1492,8 +1498,14 @@ vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK < "2022-10-11 19:10:00", WaterPressure, WaterPressure + 0.924)))
 
+vaul.stream.two.2022 <- vaul.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-29 11:15", WaterPressure + 0.08, .)))
+
+
+
 vaul.stream.two.2022 %>% 
-  #filter(DateTimeAK > "2022-10-10") %>% 
+  filter(DateTimeAK >= "2022-08-15" & DateTimeAK <= "2022-08-16") %>% 
   ggplot( aes(x = DateTimeAK, y = WaterPressure))+
   geom_point() +
   theme_classic()
@@ -1509,7 +1521,7 @@ vaul.final.pressure.2022 <- vaul.stream.two.2022
 VAUL.2022 <- left_join(Air_combo, vaul.final.pressure.2022 , by = "DateTimeAK")
 
 # Fill time gaps
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-26 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-12 15:30", tz = "America/Anchorage"), by = '5 mins'))
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2022-05-26 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-12 15:30", tz = "America/Anchorage"), by = '15 mins'))
 VAUL.2022 <- full_join(VAUL.2022, DateTimeFill, by = "DateTimeAK")
 VAUL.2022 <- VAUL.2022[order(VAUL.2022$DateTimeAK),]
 VAUL.2022 <- na_kalman(VAUL.2022, maxgap = 10)
@@ -1540,7 +1552,7 @@ VAUL.2022$difference <- na_kalman(VAUL.2022$difference, maxgap = 50)
 
 ```{r, message = FALSE, warning = FALSE}
 # Plot difference
-VAUL.2022 %>% #filter(DateTimeAK > "2022-08-15" & DateTimeAK < "2022-09-01") %>% 
+VAUL.2022 %>% filter(DateTimeAK > "2022-08-15" & DateTimeAK < "2022-08-20") %>% 
   ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("VAUL difference")
 ```
 
@@ -1669,7 +1681,8 @@ VAUL.2022.dt$pred.vaul.Q <- coef(VAUL.lm.2022)[2] * VAUL.2022.dt$difference + co
 VAUL.2022.dt <- VAUL.2022.dt %>% dplyr::select(DateTimeAK, pred.vaul.Q) %>% na.omit()
 VAUL.2022.dt <- na_kalman(VAUL.2022.dt)
 
-VAUL.2022.dt %>% ggplot(aes(x = DateTimeAK, y = pred.vaul.Q)) +
+VAUL.2022.dt %>% 
+  ggplot(aes(x = DateTimeAK, y = pred.vaul.Q)) +
   geom_point(color="#A6CEE3", size=1.25) +
   geom_point(data = Vault1comb.2022, aes(x = DateTimeAK, y = MeasuredQ_Ls, color = Method), size=3) +
   theme_classic() +
@@ -1700,14 +1713,43 @@ names(FRCH.2022.dt) <- c("DateTimeAK", "Q", "Site")
 
 pred_Q_2022 <- rbind(VAUL.2022.dt, MOOS.2022.dt, POKE.2022.dt, STRT.2022.dt, FRCH.2022.dt)
 
-write.csv(pred_Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"), row.names = FALSE)
+# Round all sites to 15 minute intervals
+pred_Q_2022$DateTimeAK <- lubridate::round_date(pred_Q_2022$DateTimeAK, "15 minutes")
+Q_2022 <- pred_Q_2022 %>% group_by(Site, DateTimeAK) %>% summarise(Q = mean(Q))
 
-pred_Q_2022$Day = format(as.POSIXct(pred_Q_2022$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
-pred_Q_2022$Day = as.POSIXct(pred_Q_2022$Day, "%Y-%m-%d", tz = "America/Anchorage")
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2022-05-09 00:00", tz = "America/Anchorage"),ymd_hm("2022-10-12 00:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill_all <- data.frame(Site = c(rep("FRCH", length(DateTimeFill$DateTimeAK)),rep("MOOS", length(DateTimeFill$DateTimeAK)),rep("POKE", length(DateTimeFill$DateTimeAK)),rep("STRT", length(DateTimeFill$DateTimeAK)),rep("VAUL", length(DateTimeFill$DateTimeAK))), DateTimeAK = rep(DateTimeFill$DateTimeAK, 5))
+Q_2022 <- full_join(Q_2022, DateTimeFill_all)
+Q_2022 <- Q_2022[order(Q_2022$DateTimeAK),]
 
-Q.daily.2022 <- pred_Q_2022 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
+# Fill in gaps up to 15 x 10 minutes
+Q_2022 <- Q_2022 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 10),
+                                                  DateTimeAK = DateTimeAK) %>% filter(DateTimeAK < "2022-10-09")
+
+write.csv(Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"), row.names = FALSE)
+
+Q_2022$Day = format(as.POSIXct(Q_2022$DateTimeAK, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
+Q_2022$Day = as.POSIXct(Q_2022$Day, "%Y-%m-%d", tz = "America/Anchorage")
+
+Q.daily.2022 <- Q_2022 %>% group_by(Site, Day) %>% summarise(Q = mean(Q))
 
 write.csv(Q.daily.2022, here("Predicted_Discharge/2022/Q.daily.2022.csv"), row.names = FALSE)
 
-pred_Q_2022 %>% ggplot(aes(DateTimeAK, Q, color = Site)) + geom_point()
+Q_2022 %>% ggplot(aes(DateTimeAK, Q, color = Site)) + geom_point()
+
+# Check time step intervals
+Q_2022_check <- Q_2022 %>% group_by(Site) %>% summarise(diff = DateTimeAK - lag(DateTimeAK),
+                                                        DateTimeAK = DateTimeAK)
+unique(Q_2022_check$diff)
+
+Q_2022_check %>% ggplot(aes(DateTimeAK, diff, color = Site)) + geom_point()# + ylim(0,60)
+
+# Check length of consecutive NA's
+Q_2022_check_NA <- Q_2022 %>% mutate(Yes_NA = ifelse(Q %in% NA, "Y", "N"))
+
+Q_2022_check_NA %>% #filter(Site == "VAUL") %>% 
+  #filter( DateTimeAK > "2022-09-20" & DateTimeAK < "2022-10-01") %>% 
+  ggplot(aes(DateTimeAK, Yes_NA)) + geom_point(size = 0.5) + facet_wrap(~Site)
 ```
