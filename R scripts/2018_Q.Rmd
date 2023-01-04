@@ -1,0 +1,431 @@
+---
+title: "2018 Q"
+author: "Jake Cavaiani"
+date: "12/2/22"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+
+  
+knit: (function(inputFile, encoding) {
+      out_dir <- "Rmd summaries";
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        output_dir=file.path(dirname(inputFile), out_dir))})
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(TZ='America/Anchorage')
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(lubridate)
+library(rio)
+library(neonUtilities)
+library(raster)
+library(data.table)
+library(scales)
+library(psych)
+library(here)
+library(googledrive)
+library(readxl)
+library(cowplot)
+library(zoo)
+library(RColorBrewer)
+library(gridExtra)
+library(ggpmisc)
+library(imputeTS)
+library(itsmr)
+library(here)
+
+```
+
+Important NOTES:
+1) Water level data is obtained from HOBO pressure transducers (PTs) that were installed in PVC pipes in streams, with the PT sitting on top of a rebar piece at bottom of pipe. Raw pressure from PTs were processed in HOBOware to correct for atmospheric pressure to get water depth. Atmospheric pressure was obtained from a PT installed at each site in a tree. HOWEVER, water depth is absolute PT depth, NOT actual water depth. To get actual water depth, we need a reference water depth from a time point in the water depth time series that is an accurate measure of the depth of the pt from the water surface. We do not have these (depth measurements from flow meter measurements were not done sufficiently close to PT locations to use).We have waterlevel surveys from Kate Broberg in 2020 and 2021  We must therefore rely on the rating curve to convert absolute water depth to continuous Q.
+
+2) Date/time from HOBOware data is GMT-8, which is Alaska Daylight Time, which is the correct timezone for this project in summer (AK is in GMT-9 March-November when daylight savings is not observed). Data/time therefore needs to be formatted but not timezone-converted.
+
+Step 1: import raw data hoboware files which is site, datetime, absolute pressure and water level
+Step 2: Clean errant points within the data that could be due to installation/decommission or gaps in data
+Step 3: Write final output of cleaned site, datetime, absolute pressure and water level
+Step 4: import Qsummary document to generate rating curves of Q and pressure
+Step 5: clean errant points in regression
+Step 6: apply rating curve to generate continuous predicted discharge at each site
+Step 7: Output final discharge as csv.
+
+### French and Moose 2018 Discharge
+
+2018 data is read from DoD->2018 sesors French Moose->Q->Qprocessing->"French_stream_PT_may-oct2018_20005933.csv" 
+Wading rods and slugs were used to measure discrete Q during site visit
+
+
+```{r, include=FALSE, warning=FALSE}
+# Import processed Q data
+# Import Data #
+French1.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQeBCz7Rq59AjhTnjeJH_H9ot8gtiujyv9-W7KOAKYacPFizjOp4KqxGbhMWmsT756KEGzBYQjeRpgz/pub?output=csv"
+French2.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCm-lCZI01xF1g4ytFCMECZJoUhjjEd11_cQTLDGzyv_4GHeLVEwX5alAVyO8hiDLzJOwWVYQui7E_/pub?output=csv"
+Moose1.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTAzlkTb2-hfKPTXP1ZWp1vYCqK1irV4Gy2UMcjF7HSDdUq1WZCRNBfJs07VDrB7dGeHgIalOzrsKPG/pub?output=csv"
+Moose2.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vTGobrtIaYMa8-jDTYvO2s9OBsnQyksLPLRXPycD0pLi3_Asd786dK0XGnYowobM0p7NLZM5qpxmk9S/pub?output=csv"
+
+# read in data #
+French1 <- read.csv(url(French1.url))
+French2 <- read.csv(url(French2.url))
+Moose1 <- read.csv(url(Moose1.url))
+Moose2 <- read.csv(url(Moose2.url))
+
+# Convert time and put in AK time 
+##### Origional was in GGMT-9!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+French1$DateTime <- mdy_hm(French1$DateTimeGMT, tz="America/Anchorage") #convert date format.
+French1$DateTime <- French1$DateTime + 3600 # Convert to AKDT (GMT-8)
+French2$DateTime <- mdy_hm(French2$DateTimeGMT, tz="America/Anchorage") #convert date format.
+French2$DateTime <- French2$DateTime + 3600 # Convert to AKDT (GMT-8)
+Moose1$DateTime <- mdy_hm(Moose1$DateTimeGMT, tz="America/Anchorage") #convert date format.
+Moose1$DateTime <- Moose1$DateTime + 3600
+Moose2$DateTime <- mdy_hm(Moose2$DateTimeGMT, tz="America/Anchorage") #convert date format.
+Moose2$DateTime <- Moose2$DateTime + 3600
+
+# format data, combine all french, combine all moose, combine french and moose
+French2 <- French2[1:nrow(French1),] # French 2 has a few extra rows on it from when stopping logger. Stripping them.
+French1$name <- "French1" #add column identifier
+French2$name <- "French2"
+allfrench <- bind_rows(French1, French2) # combine 1&2 into one dataframe French
+Moose1$name <- "Moose1" #add column indentifier
+Moose2$name <- "Moose2"
+allmoose <- bind_rows(Moose1, Moose2) # combine 1&2 into one dataframe Moose
+frenchmoose <- bind_rows(allfrench, allmoose) # combine all french and all moose
+
+# Load in Q summary
+Qsummary.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT0R955lmRu0iaZFc-CxoVhwApmJuWaiHCYxhqICnY4oFH1sDI-VhRESmLFeuss01SYz0krWRktJ3oF/pub?output=csv" 
+Qsummary <- read.csv(url(Qsummary.url))
+
+Qsummary$Date <- mdy(Qsummary$Date)
+Qsummary$DateTime <- as.POSIXct(paste(Qsummary$Date, Qsummary$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+Qsummary$DateTime <- lubridate::round_date(Qsummary$DateTime, "15 minutes")
+
+```
+
+##### Checking closeness between the two Pressure Transducers
+
+1:1 line in green
+```{r , echo=FALSE, warning=FALSE}
+
+plot(x= French1$WaterLevelmeters[100:nrow(French1)], y=French2$WaterLevelmeters[100:nrow(French2)], 
+     main = "French PT comparison", xlab = "French1 PT", ylab = "French2 PT")
+
+plot(x= Moose1$WaterLevelmeters[100:nrow(Moose1)-15], y=Moose2$WaterLevelmeters[100:nrow(Moose2)-15], 
+     main = "Moose PT comparison", xlab = "Moose1 PT", ylab = "Moose2 PT")
+
+```
+
+### French
+
+```{r, echo=FALSE, warning=FALSE}
+allfrench %>% 
+  filter(WaterLevelmeters > 184) %>% 
+  ggplot() + 
+  geom_line(aes(x=DateTime, y=WaterLevelmeters, color=name), size=1.25) +
+  theme_classic() +
+  ggtitle("French") +
+  scale_color_brewer(palette = "Paired")
+```
+
+
+There looks like an error when we calculated depth. Tom says that we can adjust the difference of the wrong one to make them agree, then remeasure them next year. French 2 also looks "noisier"
+1) dumping French 2 
+
+### Raw French 1
+```{r, echo=FALSE, warning=FALSE}
+plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
+
+```
+The beginning is probably when this was installed, I will remove that. the spije in October is confirmed with French 2 so that is real. let the cleaning commence!
+
+
+# French PT 1 2.0
+```{r, echo=FALSE, warning=FALSE}
+French1[c(1:47), 3] <- NA
+plot(French1$DateTime, French1$WaterLevelmeters, type = "l")
+```
+1) set the beginning of the dataframe where PT was taking out of water points to NA
+2) we are dumping French PT2 due to it being too "noisy"
+
+```{r}
+French1 %>% #filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>% 
+  ggplot() + 
+  geom_point(aes(x=DateTime, y=WaterLevelmeters)) +
+  theme_classic() +
+  ggtitle("French") +
+  scale_color_brewer(palette = "Paired")
+```
+
+
+Export PT data to csv to DoD_Discharge->PT_data->2018
+```{r, echo=FALSE, warning=FALSE}
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2018-05-30 15:30", tz = "America/Anchorage"),ymd_hm("2018-10-12 10:00", tz = "America/Anchorage"), by = '15 mins'))
+French1 <- full_join(French1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
+French1 <- French1[order(French1$DateTime),]
+French1 <- na_kalman(French1)
+French1$Site <- rep("FRCH", length(French1$DateTime))
+any(is.na(French1))
+
+write.csv(French1, here("PT_data/2018/frch.pt.2018.csv"), row.names = FALSE)
+
+```
+
+
+### Raw Moose
+```{r, echo=FALSE, warning=FALSE}
+
+ggplot(data = allmoose, aes(x = DateTime, y = WaterLevelmeters, color = name))+
+  geom_line()
+
+```
+Moose2 looks a little weird during mid July, where it doens't agree w/ Moose 1. Moose 2 seems a lot noisier....we are dumping moose 2
+
+### Moose PT 1 2.0
+```{r, echo=FALSE, warning=FALSE}
+Moose1[c(1:38, 7191:7199), 3] <- NA
+plot(Moose1$DateTime, Moose1$WaterLevelmeters, type = "l")
+
+# removing the noise on the receding limb of the storm in september
+Moose1.pre <- Moose1[-c(4639:7202), ] # clipping off the pre storm part
+moos.stream.3 <- Moose2 %>% subset(Moose2$DateTime < "2018-09-08 00:00:00" & DateTime > "2018-09-02 21:30:00") # finding the receding limb in the PT2 dataset
+Moose1.pre.middle <- rbind(Moose1.pre, moos.stream.3) # jpining the pre and new receding limb
+Moose1.post <- Moose1[-c(1:4882), ] # clipping off through the storm
+Moose1.pre.middle.post <- rbind(Moose1.pre.middle, Moose1.post) # joining the new dataframe
+
+# cleaning vertical drop in the middle of september 
+Moose1.pre.middle.post[c(5642:5662), 3] <- NA
+plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = "l")
+
+```
+1) Removed the beginning and end of the dataframe where the PT was out of water
+2) Cleaned the receding limb of the september storm and replaced it with the receding limb from the second PT however now we get a steep drop for the end of the timeseries. Should I shift the back half of the dataframe up?
+3) set middle of Setember vertical drop to NAs
+4) still need to do NA INTERPRET!
+
+### Impute missing observations in pressure for MOOS
+```{r, echo=FALSE, fig.width=6, fig.height=4, warning=FALSE}
+Moose1.pre.middle.post <- na_kalman(Moose1.pre.middle.post)
+plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = "l")
+```
+### Observed Discharge at French and Moose
+
+* from Rachel Voight For the days we used the HOBO, there are two "measurements" since I did not know which slug solution was used, so I calculated it with the two likely slug batches. We changed where we were measuring Q at Moose; the first two times we measured Q, we did it  downstream of the sensors near the actual pressure transducer. We likely underestimated Q for those few measurements at the old spot downstream of the sensors. 
+
+### export PT data to csv to DoD_Discharge->PT_data->2018
+```{r, echo=FALSE, warning=FALSE}
+Moose1 <- Moose1.pre.middle.post
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2018-05-29 16:00", tz = "America/Anchorage"),ymd_hm("2018-10-26 15:03", tz = "America/Anchorage"), by = '15 mins'))
+Moose1 <- full_join(Moose1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
+Moose1 <- Moose1[order(Moose1$DateTime),]
+Moose1 <- na_kalman(Moose1)
+Moose1$Site <- rep("FRCH", length(Moose1$DateTime))
+any(is.na(Moose1))
+
+write.csv(Moose1.pre.middle.post, here("PT_data/2018/moos.pt.2018.csv"), row.names = FALSE)
+
+```
+
+```{r, echo=FALSE, fig.width=6, fig.height=4, warning=FALSE}
+ggplot(Qsummary) +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Site, shape=Method), size=3) +
+ theme_classic() +
+  scale_color_brewer(palette = "Set1")
+
+a <- Qsummary %>% filter(Site == "Moose") %>% 
+  ggplot() +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Method), size=3) +
+  theme_classic() +
+  ggtitle("Moose")
+
+b <- Qsummary %>% filter(Site == "French") %>% 
+  ggplot() +
+  geom_point(aes(x=Date, y=MeasuredQ_Ls, color=Method), size=3) +
+  theme_classic() +
+  ggtitle("French")
+```
+
+```{r, echo=FALSE, fig.width=10, fig.height=4, warning=FALSE}
+grid.arrange(a,b, ncol=2)
+```
+
+###  Raw Rating Curve with Moose 1 Pressure Transducer
+
+```{r, echo=FALSE, warning=FALSE}
+Qsummary.MO <- Qsummary  %>% 
+  filter(Site == "Moose") 
+moose1comb <- full_join(Moose1.pre.middle.post, Qsummary.MO) 
+
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose1comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+Moose1.lm <- lm(moose1comb$MeasuredQ_Ls ~ moose1comb$WaterLevelmeters)
+summary(Moose1.lm)
+```
+* Rachel -While we only had 4 measurements from the flow meter, they agree well with our trendline and slug Q.
+*Jake - I will remove the Hobo points in this regression 
+
+```{r, echo=FALSE, warning=FALSE}
+Qsummary.MO <- Qsummary  %>% 
+  filter(Site == "Moose") 
+Qsummary.MO.1 <- Qsummary.MO[-c(9:10), ] # removing HOBO points
+moose2comb <- full_join(Moose1.pre.middle.post, Qsummary.MO.1) 
+
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose2comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = y ~ x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose1 all measured Q") 
+Moose2.lm <- lm(moose2comb$MeasuredQ_Ls ~ moose2comb$WaterLevelmeters)
+summary(Moose2.lm)
+```
+
+
+I will try removing that high water, low measured YSI point.
+```{r, echo=FALSE, warning=FALSE}
+
+Qsummary.MO <- Qsummary  %>% 
+  filter(Site == "Moose") 
+Qsummary.MO.2 <- Qsummary.MO[-c(1, 9:10), ] # removing points
+moose3comb <- full_join(Moose1.pre.middle.post, Qsummary.MO.2) 
+
+
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose3comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = y ~ x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  scale_x_continuous(limits = c(166.2,167)) +
+  theme_classic() +
+  ggtitle("Moose measured Q") 
+```
+
+# Estimated Q from Moose 1 PT. 
+Black points are observed Q
+
+```{r, echo=FALSE, warning=FALSE}
+Moose3.lm <- lm(moose3comb$MeasuredQ_Ls ~ moose3comb$WaterLevelmeters)
+summary(Moose3.lm)
+
+moose3comb$pred.moose1.Q <- coef(Moose3.lm)[2] * moose3comb$WaterLevelmeters + coef(Moose3.lm)[1]
+
+moose3comb <- na_kalman(moose3comb)
+
+ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose3comb) +
+  geom_line(color="#A6CEE3", size=1.25) +
+ geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=2) +
+  theme_classic() +
+  ggtitle("Moose1 predicted all measured Q") +
+  scale_y_continuous(name = "Predicted Discharge L/s") +
+  scale_x_datetime(name = "Time")
+```
+
+
+## French Creek
+
+# Raw Rating Curve French 1 Pressure Transducer
+
+```{r, echo=FALSE, warning=FALSE}
+Qsummary.FR <- Qsummary  %>% #filter out measured Q at just french
+  filter(Site == "French") 
+
+French1comb <- full_join(French1, Qsummary.FR, by = "DateTime") 
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French1comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = y ~ x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  #scale_x_continuous(limits = c(184.2,184.9)) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+
+```
+
+Will remove the two HOBOware points
+
+```{r, echo=FALSE, warning=FALSE}
+Qsummary.FR.1 <- Qsummary.FR[-c(8:9), ] # removing the HOBOWare points 
+
+French2comb <- full_join(French1, Qsummary.FR.1, by = "DateTime") 
+
+ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=French2comb) +
+  geom_point(aes( color=Method), size=3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = y ~ x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  scale_x_continuous(limits = c(184.2,184.9)) +
+  theme_classic() +
+  ggtitle("French1 all measured Q") 
+
+
+```
+1) Removed the HOBOware points
+
+## French 1 Calculated Q (L/s)
+#### Black points are observed Q
+
+```{r, echo=FALSE, warning=FALSE}
+French2.lm <- lm(French2comb$MeasuredQ_Ls ~ French2comb$WaterLevelmeters)
+French2comb$pred.french1.Q <- coef(French2.lm)[2] * French2comb$WaterLevelmeters + coef(French2.lm)[1]
+# Fill in any missing data
+French2comb <- na_kalman(French2comb)
+
+ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=3) +
+  theme_classic() +
+  ggtitle("French1 predicted all measured Q") +
+  scale_y_continuous(name = "Discharge L/s") +
+  scale_x_datetime(name = "Time")
+
+
+```
+
+This doesnt look too shabby!
+
+# Export 2018 Q data
+```{r, echo=FALSE, warning=FALSE}
+moose3comb <- moose3comb[,c(4,6,14)]
+names(moose3comb) <- c("DateTime", "Site", "Q")
+moose3comb$Site <- rep("MOOS", length(moose3comb$DateTime))
+French2comb <- French2comb[c(1,3,12)]
+names(French2comb) <- c("DateTime", "Site", "Q")
+
+write.csv(French2comb, here("Predicted_Discharge/2018/FRCH/FRCH.Q.csv"), row.names = FALSE)
+write.csv(moose3comb, here("Predicted_Discharge/2018/MOOS/MOOS.Q.csv"), row.names = FALSE)
+
+# Combined
+Q_2018 <- rbind(moose3comb, French2comb)
+write.csv(Q_2018, here("Predicted_Discharge/2018/Q_2018.csv"), row.names = FALSE)
+
+
+Q_2018$Day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
+Q_2018$Day = as.POSIXct(Q_2018$Day, "%Y-%m-%d", tz="America/Anchorage")
+
+Q.daily.2018 <- Q_2018 %>% dplyr::group_by(Site, Day) %>% dplyr::summarise(Q = mean(Q))
+any(is.na(Q.daily.2018))
+
+write.csv(Q.daily.2018, here("Predicted_Discharge/2018/Q.daily.2018.csv"), row.names = FALSE)
+
+
+
+Q_2018 %>% ggplot() + geom_line(aes(DateTime, Q, color = Site))+ ylab("Predicted Q")
+```
+
+* We rock at discharge!!!

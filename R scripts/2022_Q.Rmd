@@ -1726,7 +1726,7 @@ Q_2022 <- Q_2022[order(Q_2022$DateTimeAK),]
 
 # Fill in gaps up to 15 x 10 minutes
 Q_2022 <- Q_2022 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 10),
-                                                  DateTimeAK = DateTimeAK) %>% filter(DateTimeAK < "2022-10-09")
+                                                  DateTimeAK = DateTimeAK) %>% filter(DateTimeAK < "2022-10-12")
 
 write.csv(Q_2022, here("Predicted_Discharge/2022/Predicted_Q_2022.csv"), row.names = FALSE)
 
