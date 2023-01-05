@@ -136,7 +136,7 @@ eielson.atmo.2015$DateTimeAK <- mdy_hm(eielson.atmo.2015$DateTimeAK)
 
 eielson.atmo.2015$DateTimeAK <- force_tz(eielson.atmo.2015$DateTimeAK, "America/Anchorage")
 
-eielson.atmo.2015$DateTimeAK <- lubridate::round_date(eielson.atmo.2015$DateTimeAK, "15 minutes")
+eielson.atmo.2015$DateTimeAK <- lubridate::round_date(eielson.atmo.2015$DateTimeAK, "5 minutes")
 
 
 eielson.atmo.2015$AirPressure <- as.numeric(eielson.atmo.2015$sea_level_pressure)
@@ -180,7 +180,9 @@ There is a big increase in middle to end of may that doesnt seem to be real from
 
 ## Moose 1.0
 ```{r , echo=FALSE, warning=FALSE}
-#plot(x = moos.stream$DateTimeAK, y = moos.stream$AbsolutePressure, type = "l")
+plot(x = moos.stream$DateTimeAK, y = moos.stream$AbsolutePressure, type = "l")
+moos.stream %>% filter(DateTimeAK < "2015-06-15") %>% ggplot(aes(DateTimeAK, AbsolutePressure)) + geom_point() + geom_point(data = eielson.atmo.2015, aes(DateTimeAK, AirPressureCorrectedMOOS))
+
 #moos.stream <- moos.stream %>% subset(moos.stream$DateTimeAK < "2015-09-20 18:30:00") # PT was taken out on the 21st 
 
 #june to july
@@ -223,7 +225,7 @@ moos.stream <- moos.stream %>%
   mutate(across(c(AbsolutePressure), 
                 ~ifelse(DateTimeAK >= "2015-06-07" & DateTimeAK <= "2015-06-09" & AbsolutePressure > 103.95, NA, .)))
 
-moos.stream <- moos.stream %>% filter(DateTimeAK <= "2015-09-21 07:50:00") %>%
+moos.stream <- moos.stream %>% filter(DateTimeAK <= "2015-09-21 15:50:00") %>%
   mutate(across(c(AbsolutePressure), 
                 ~ifelse(AbsolutePressure < 101, NA, .)))
 
@@ -237,7 +239,7 @@ moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>
 
 
 ```
-1) Clipped off the take out date (anything after 2015-09-20 18:30:00)
+
 2) Set vertical drops in raw data to NA's
 
 
@@ -274,19 +276,7 @@ moos.stream %>% #filter(DateTimeAK > "2015-05-01" & DateTimeAK < "2015-5-30") %>
   geom_point()
 ```
 
-### Impute missing observations in pressure for Moose 
-```{r , echo=FALSE, warning=FALSE}
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2015-05-20 22:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 07:45", tz = "America/Anchorage"), by = '15 mins'))
-moos.stream <- full_join(moos.stream, DateTimeFill)
-moos.stream <- moos.stream[order(moos.stream$DateTimeAK),]
-moos.stream <- na_kalman(moos.stream) %>% filter(DateTimeAK >= "2015-05-20 22:00" )
 
-ggplot(moos.stream, aes(x = DateTimeAK, y = AbsolutePressure)) +
-  geom_point() #+ geom_point(data = eielson.atmo.2015, aes(DateTimeAK, AirPressureCorrectedMOOS)) #+ scale_x_datetime(limits = ymd_h(c("2015-06-15 00", "2015-06-30 23"))) + ylim(95,107)
-
-
-```
 
 ## Raw FRCH
 ```{r , echo=FALSE, warning=FALSE}
@@ -363,19 +353,6 @@ frch.stream <- frch.stream %>% filter(DateTimeAK != "2015-06-19 13:15:00") %>%
 
 ```
 
-### Impute missing observations in pressure for French 
-```{r , echo=FALSE, warning=FALSE}
-DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
-2015-05-18 15:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 12:45", tz = "America/Anchorage"), by = '15 mins'))
-frch.stream <- full_join(frch.stream, DateTimeFill)
-frch.stream <- frch.stream[order(frch.stream$DateTimeAK),]
-frch.stream <- na_kalman(frch.stream)
-
-ggplot(frch.stream, aes(x = DateTimeAK, y = AbsolutePressure)) +
-  geom_point()
-
-```
-
 ### Raw Rating Curve with Moose 1 Pressure Transducer
 
 ```{r}
@@ -394,13 +371,14 @@ ggplot(QSummary.MO) +
 #join the atmospheric and water pressure together 
 moos.stream$site <- "MOOS"
 
-MOOS.2015.one <- left_join(eielson.atmo.2015, moos.stream, by = "DateTimeAK") %>% filter(!AbsolutePressure %in% NA, !AirPressureCorrectedMOOS %in% NA)
+MOOS.2015.one <- left_join(moos.stream, eielson.atmo.2015, by = "DateTimeAK")
 
 MOOS.2015.one %>% ggplot(aes(DateTimeAK, AbsolutePressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedMOOS)) + ggtitle("Moose air and water pressure")
 ```
 
 ```{r}
 # Water pressure - atmospheric pressure
+MOOS.2015.one$AirPressureCorrectedMOOS <- na_kalman(MOOS.2015.one$AirPressureCorrectedMOOS)
 MOOS.2015.one$difference <- MOOS.2015.one$AbsolutePressure - MOOS.2015.one$AirPressureCorrectedMOOS
 
 # Remove spike at start because it doesn't match French
@@ -413,7 +391,6 @@ MOOS.2015.one %>% ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("
 
 # trying to merge by nearest date if we have an offset point 
 MOOS.2015.one.dt <- setDT(MOOS.2015.one) 
-MOOS.2015.one.dt <- subset(MOOS.2015.one.dt, DateTimeAK < "2015-09-20 18:00:00") # removing rows that had dates corresponding to end of record that messed up the rolling nearest function 
 QSummary.MO.dt <- QSummary.MO 
 
 Moose1comb.2015 <- MOOS.2015.one.dt[QSummary.MO.dt, on = "DateTimeAK", roll = 'nearest']
@@ -525,10 +502,16 @@ ggplot(QSummary.FR) +
 #join the atmospheric and water pressure together 
 frch.stream$site <- "FRCH"
 
-FRCH.2015.one <- left_join(eielson.atmo.2015, frch.stream, by = "DateTimeAK") %>% filter(!AirPressureCorrectedFRCH %in% NA, !AbsolutePressure %in% NA)
+
+FRCH.2015.one <- left_join(frch.stream, eielson.atmo.2015, by = "DateTimeAK")
+FRCH.2015.one$AirPressureCorrectedFRCH <- na_kalman(FRCH.2015.one$AirPressureCorrectedFRCH)
+
+FRCH.2015.one %>% ggplot(aes(DateTimeAK, AbsolutePressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedFRCH))
 
 # Water pressure - atmospheric pressure
 FRCH.2015.one$difference <- FRCH.2015.one$AbsolutePressure - FRCH.2015.one$AirPressureCorrectedFRCH
+
+FRCH.2015.one %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
 
 ```
 
@@ -536,7 +519,7 @@ FRCH.2015.one$difference <- FRCH.2015.one$AbsolutePressure - FRCH.2015.one$AirPr
 
 # trying to merge by nearest date if we have an offset point 
 FRCH.2015.one.dt <- setDT(FRCH.2015.one)
-FRCH.2015.one.dt <- subset(FRCH.2015.one.dt, DateTimeAK < "2015-09-20 19:00:00") # removing rows that had dates corresponding to end of record that messed up the rolling nearest function 
+FRCH.2015.one.dt <- subset(FRCH.2015.one.dt)
 QSummary.FR.dt <- QSummary.FR
 
 French1comb.2015 <- FRCH.2015.one.dt[QSummary.FR.dt, on = "DateTimeAK", roll = 'nearest']
@@ -601,11 +584,45 @@ FRCH.2015.one.dt %>% ggplot(aes(x = DateTimeAK, y = pred.frch.Q)) +
 
 ```
 
+### Impute missing Q 
+```{r , echo=FALSE, warning=FALSE}
+# Moose
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2015-05-20 22:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 07:45", tz = "America/Anchorage"), by = '15 mins'))
+MOOS.2015.one.dt <- full_join(MOOS.2015.one.dt, DateTimeFill)
+MOOS.2015.one.dt <- MOOS.2015.one.dt[order(MOOS.2015.one.dt$DateTimeAK),]
+MOOS.2015.one.dt <- na_kalman(MOOS.2015.one.dt)
+
+MOOS.2015.one.dt <- MOOS.2015.one.dt %>% group_by(DateTimeAK) %>% summarise( pred.moos.Q = mean( pred.moos.Q))
+any(duplicated(MOOS.2015.one.dt$DateTimeAK))
+
+MOOS.2015.one.dt$diff <- MOOS.2015.one.dt$DateTimeAK - lag(MOOS.2015.one.dt$DateTimeAK)
+unique(MOOS.2015.one.dt$diff)
+MOOS.2015.one.dt %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
+
+# French
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("2015-05-18 15:15", tz = "America/Anchorage"),ymd_hm("2015-09-21 12:45", tz = "America/Anchorage"), by = '15 mins'))
+FRCH.2015.one.dt <- full_join(FRCH.2015.one.dt, DateTimeFill)
+FRCH.2015.one.dt <- FRCH.2015.one.dt[order(FRCH.2015.one.dt$DateTimeAK),]
+FRCH.2015.one.dt <- na_kalman(FRCH.2015.one.dt)
+
+FRCH.2015.one.dt <- FRCH.2015.one.dt %>% group_by(DateTimeAK) %>% summarise( pred.frch.Q = mean( pred.frch.Q))
+any(duplicated(FRCH.2015.one.dt$DateTimeAK))
+
+FRCH.2015.one.dt$diff <- FRCH.2015.one.dt$DateTimeAK - lag(FRCH.2015.one.dt$DateTimeAK)
+unique(FRCH.2015.one.dt$diff)
+FRCH.2015.one.dt %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
+
+```
+
+
 ### Export 2015 predicted Q
 ```{r}
-FRCH.2015.one.dt <- FRCH.2015.one.dt[,c(2,15,13)]
+FRCH.2015.one.dt <- FRCH.2015.one.dt[,-3]
+FRCH.2015.one.dt$Site <- "FRCH"
 names(FRCH.2015.one.dt) <- c("DateTimeAK", "Q", "Site")
-MOOS.2015.one.dt <-  MOOS.2015.one.dt[,c(2,15,13)]
+MOOS.2015.one.dt <-  MOOS.2015.one.dt[,-3]
+MOOS.2015.one.dt$Site <- "MOOS"
 names(MOOS.2015.one.dt) <- c("DateTimeAK", "Q", "Site")
 
 Q_2015 <- rbind(FRCH.2015.one.dt, MOOS.2015.one.dt)

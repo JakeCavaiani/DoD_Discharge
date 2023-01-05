@@ -292,7 +292,9 @@ moos.stream.two.2022 %>%
   geom_point() +
   theme_classic()
 
-
+ggplot(moos.stream.one.2022, aes(x = DateTimeAK, y = WaterPressure)) +
+  geom_point() +
+  theme_classic()
 ```
 
 
@@ -301,58 +303,52 @@ This is PT2 that has the step changes due to the cleaning and then it has a gap 
 
 ```{r, warning = FALSE, message = FALSE}
 # adjusting/cleaning moos.stream.two
-#moos.stream.two.2022.b <- moos.stream.two.2022
-#moos.stream.two.2022 <- moos.stream.two.2022.b
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
-                ~ifelse(DateTimeAK <= "2022-05-25", NA, .))) # PT wasnt placed into the stream until 5/25
+                ~ifelse(DateTimeAK <= "2022-05-25" & WaterPressure < 103, NA, .))) # PT wasnt placed into the stream until 5/25?
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK >= "2022-06-01" & DateTimeAK <= "2022-07-01" & WaterPressure < 101, NA, .))) %>% filter(WaterPressure > 90)
 
 # shifting the step change 
-moos.2.before <- moos.stream.two.2022[c(1:3913), ] # 6/7 @ 14:05 we cleaned the PVC housing so we are shifting the previous data up to match after the cleaning 
-moos.2.after <- moos.stream.two.2022[c(3914:40000), ]
-moos.stream.two.2022[3914, 2] - moos.stream.two.2022[3913, 2] # 3.573
-moos.2.before$WaterPressure <- moos.2.before[, 2] + 3.573
-moos.stream.two.2022 <- full_join(moos.2.before, moos.2.after)
+# 6/7 @ 14:05 we cleaned the PVC housing so we are shifting the previous data up to match after the cleaning
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK <= "2022-06-07 14:05:00", WaterPressure + 3.573, .)))
 
-moos.2.before2 <- moos.stream.two.2022[c(1:25525), ] 
-moos.2.mid2 <- moos.stream.two.2022[c(25531:33593), ]
-moos.2.after2 <- moos.stream.two.2022[c(33593:40000), ]
-moos.stream.two.2022[25525, 2] - moos.stream.two.2022[25531, 2]  # 10.918
-moos.2.mid2$WaterPressure <- moos.2.mid2[, 2] - 10.918
-moos.stream.two.2022.2 <- full_join(moos.2.before2, moos.2.mid2)
-moos.stream.two.2022 <- full_join(moos.stream.two.2022.2, moos.2.after2)
+# shifting the step change 
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-08-31 13:55:00" & DateTimeAK <= "2022-09-28 14:00:00", WaterPressure - 10.918, .)))
 
 ## Bring the last chunk up half way?
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK > "2022-08-01", WaterPressure + 3.897/2, .)))
-moos.stream.two.2022[17192, 2] - moos.stream.two.2022[17211, 2] # 3.897
+#moos.stream.two.2022[17192, 2] - moos.stream.two.2022[17211, 2] # 3.897
 
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(DateTimeAK < "2022-07-31" | DateTimeAK > "2022-08-02 16:45:00") %>% filter(DateTimeAK <= "2022-10-08 08:15:00")
 
 # shifting small step change 
-moos.2.before4 <- moos.stream.two.2022[c(1:5240), ]
-moos.2.after4 <- moos.stream.two.2022[c(5241:40000), ]
-moos.stream.two.2022[5240, 2] - moos.stream.two.2022[5241, 2] # 0.365
-moos.2.after4$WaterPressure <- moos.2.after4[, 2] - 0.365
-moos.stream.two.2022 <- full_join(moos.2.before4, moos.2.after4)
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-06-12 04:50", WaterPressure - 0.365, .)))
+#moos.stream.two.2022[5240, 2] - moos.stream.two.2022[5241, 2] # 0.365
+moos.stream.two.2022 <- moos.stream.two.2022 %>%
+  mutate(across(c(WaterPressure), 
+                ~ifelse(DateTimeAK >= "2022-06-12" & DateTimeAK < "2022-06-13" & WaterPressure < 104.2, NA, .)))
 
-moos.stream.two.2022 <- moos.stream.two.2022 %>% filter(WaterPressure < 110)
 
-# Small step change
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
                 ~ifelse(DateTimeAK >= "2022-09-28 14:20", WaterPressure - 0.248, .)))
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
-                ~ifelse(DateTimeAK >= "2022-09-28 12:00" & DateTimeAK <= "2022-09-28 15:00" & WaterPressure > 100.9, NA, .)))
+                ~ifelse(DateTimeAK >= "2022-09-28" & DateTimeAK <= "2022-09-28 17:00" & WaterPressure < 100.2, NA, .))) %>% filter(WaterPressure > 90)
 
 moos.stream.two.2022 <- moos.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
@@ -360,7 +356,7 @@ moos.stream.two.2022 <- moos.stream.two.2022 %>%
 
 
 moos.stream.two.2022 %>%  #filter(DateTimeAK > "2022-09-28 12:00") %>%
-  #filter(DateTimeAK > "2022-09-28 12:00:00" & DateTimeAK < "2022-09-29") %>% 
+  #filter(DateTimeAK > "2022-09-25" & DateTimeAK < "2022-10-01") %>% 
   ggplot(aes(x = DateTimeAK, y = WaterPressure)) +
   geom_point() +
   theme_classic()
@@ -430,9 +426,14 @@ ggtitle("MOOS air and water pressure")
 # Water pressure - atmospheric pressure
  MOOS.2022$difference <- MOOS.2022$WaterPressure - MOOS.2022$AirPressureCorrectedMOOS
 
+# Time checks
 MOOS.2022 <- MOOS.2022 %>% group_by(DateTimeAK) %>% summarise( difference = mean( difference))
 any(duplicated(MOOS.2022$DateTimeAK))
 
+MOOS.2022$diff <- MOOS.2022$DateTimeAK - lag(MOOS.2022$DateTimeAK)
+unique(MOOS.2022$diff)
+MOOS.2022 %>% #filter(diff < 20) %>% 
+  ggplot(aes(DateTimeAK, diff)) + geom_point()
 ```
 
 
