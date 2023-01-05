@@ -392,7 +392,7 @@ ggplot(QSummary.MO) +
 
 ```{r, echo=FALSE, warning=FALSE}
 #join the atmospheric and water pressure together 
-moos.stream$site <- "Moose"
+moos.stream$site <- "MOOS"
 
 MOOS.2015.one <- left_join(eielson.atmo.2015, moos.stream, by = "DateTimeAK") %>% filter(!AbsolutePressure %in% NA, !AirPressureCorrectedMOOS %in% NA)
 
@@ -523,7 +523,7 @@ ggplot(QSummary.FR) +
 
 ```{r, echo=FALSE, warning=FALSE}
 #join the atmospheric and water pressure together 
-frch.stream$site <- "French"
+frch.stream$site <- "FRCH"
 
 FRCH.2015.one <- left_join(eielson.atmo.2015, frch.stream, by = "DateTimeAK") %>% filter(!AirPressureCorrectedFRCH %in% NA, !AbsolutePressure %in% NA)
 
@@ -609,7 +609,22 @@ MOOS.2015.one.dt <-  MOOS.2015.one.dt[,c(2,15,13)]
 names(MOOS.2015.one.dt) <- c("DateTimeAK", "Q", "Site")
 
 Q_2015 <- rbind(FRCH.2015.one.dt, MOOS.2015.one.dt)
-Q_2015 <- na_kalman(Q_2015)
+
+# Round all sites to 15 minute intervals
+Q_2015$DateTimeAK <- lubridate::round_date(Q_2015$DateTimeAK, "15 minutes")
+Q_2015 <- Q_2015 %>% group_by(Site, DateTimeAK) %>% summarise(Q = mean(Q))
+
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTimeAK = seq(ymd_hm("	
+2015-05-14 00:00", tz = "America/Anchorage"),ymd_hm("2015-09-22 00:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill_all <- data.frame(Site = c(rep("FRCH", length(DateTimeFill$DateTimeAK)),rep("MOOS", length(DateTimeFill$DateTimeAK))), DateTimeAK = rep(DateTimeFill$DateTimeAK, 2))
+Q_2015 <- full_join(Q_2015, DateTimeFill_all)
+Q_2015 <- Q_2015[order(Q_2015$DateTimeAK),]
+
+# Fill in gaps up to 15 x 10 minutes
+Q_2015 <- Q_2015 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 50),
+                                                  DateTimeAK = DateTimeAK) %>% filter(DateTimeAK < "2022-09-22")
+
 
 write.csv(Q_2015, here("Predicted_Discharge/2015/Predicted_Q_2015.csv"))
 
@@ -621,6 +636,20 @@ any(is.na(Q.daily.2015))
 
 write.csv(Q.daily.2015, here("Predicted_Discharge/2015/Q.daily.2015.csv"))
 
-
+# Plot
 Q_2015 %>% ggplot() + geom_line(aes(DateTimeAK, Q, color = Site))+ ylab("Predicted Q")
+
+# Check time step intervals
+Q_2015_check <- Q_2015 %>% group_by(Site) %>% summarise(diff = DateTimeAK - lag(DateTimeAK),
+                                                        DateTimeAK = DateTimeAK)
+unique(Q_2015_check$diff)
+
+Q_2015_check %>% ggplot(aes(DateTimeAK, diff, color = Site)) + geom_point()# + ylim(0,60)
+
+# Check length of consecutive NA's
+Q_2015_check_NA <- Q_2015 %>% mutate(Yes_NA = ifelse(Q %in% NA, "Y", "N"))
+
+Q_2015_check_NA %>% #filter(Site == "VAUL") %>% 
+  #filter( DateTimeAK > "2022-09-20" & DateTimeAK < "2022-10-01") %>% 
+  ggplot(aes(DateTimeAK, Yes_NA)) + geom_point(size = 0.5) + facet_wrap(~Site)
 ```

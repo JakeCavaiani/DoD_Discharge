@@ -7,12 +7,7 @@ output:
   word_document: default
   pdf_document: default
 
-  
-knit: (function(inputFile, encoding) {
-      out_dir <- "Rmd summaries";
-      rmarkdown::render(inputFile,
-                        encoding=encoding,
-                        output_dir=file.path(dirname(inputFile), out_dir))})
+
 ---
 
 ```{r setup, include=FALSE, warning=FALSE, message=FALSE}
@@ -103,7 +98,7 @@ Qsummary <- read.csv(url(Qsummary.url))
 
 Qsummary$Date <- mdy(Qsummary$Date)
 Qsummary$DateTime <- as.POSIXct(paste(Qsummary$Date, Qsummary$Time), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
-Qsummary$DateTime <- lubridate::round_date(Qsummary$DateTime, "15 minutes")
+Qsummary$DateTime <- lubridate::round_date(Qsummary$DateTime, "30 minutes")
 
 ```
 
@@ -165,7 +160,7 @@ French1 %>% #filter(DateTime > "2018-10-01" & DateTime < "2018-11-01") %>%
 Export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2018-05-30 15:30", tz = "America/Anchorage"),ymd_hm("2018-10-12 10:00", tz = "America/Anchorage"), by = '15 mins'))
+2018-05-30 15:30", tz = "America/Anchorage"),ymd_hm("2018-10-12 10:00", tz = "America/Anchorage"), by = '30 mins'))
 French1 <- full_join(French1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
 French1 <- French1[order(French1$DateTime),]
 French1 <- na_kalman(French1)
@@ -180,38 +175,46 @@ write.csv(French1, here("PT_data/2018/frch.pt.2018.csv"), row.names = FALSE)
 ### Raw Moose
 ```{r, echo=FALSE, warning=FALSE}
 
-ggplot(data = allmoose, aes(x = DateTime, y = WaterLevelmeters, color = name))+
-  geom_line()
+allmoose %>%  filter(DateTime > "2018-09-01" & DateTime < "2018-09-10") %>%
+  ggplot(aes(x = DateTime, y = WaterLevelmeters))+
+  geom_point(aes(color = name)) #+ geom_point(data = French1, aes(x=DateTime, y=WaterLevelmeters - 17))
 
 ```
 Moose2 looks a little weird during mid July, where it doens't agree w/ Moose 1. Moose 2 seems a lot noisier....we are dumping moose 2
 
 ### Moose PT 1 2.0
 ```{r, echo=FALSE, warning=FALSE}
+Moose1 <- allmoose %>% filter(name == "Moose1")
 Moose1[c(1:38, 7191:7199), 3] <- NA
-plot(Moose1$DateTime, Moose1$WaterLevelmeters, type = "l")
 
 # removing the noise on the receding limb of the storm in september
-Moose1.pre <- Moose1[-c(4639:7202), ] # clipping off the pre storm part
-moos.stream.3 <- Moose2 %>% subset(Moose2$DateTime < "2018-09-08 00:00:00" & DateTime > "2018-09-02 21:30:00") # finding the receding limb in the PT2 dataset
-Moose1.pre.middle <- rbind(Moose1.pre, moos.stream.3) # jpining the pre and new receding limb
-Moose1.post <- Moose1[-c(1:4882), ] # clipping off through the storm
-Moose1.pre.middle.post <- rbind(Moose1.pre.middle, Moose1.post) # joining the new dataframe
+Moose1 <- Moose1 %>% filter(DateTime <= "2018-09-01" | DateTime >= "2018-09-08")
+clip <- allmoose %>% filter(name == "Moose2", DateTime > "2018-09-01" & DateTime < "2018-09-08") %>% mutate(across(c(WaterLevelmeters), ~WaterLevelmeters - 0.15))
+Moose1 <- rbind(Moose1, clip)
+
 
 # cleaning vertical drop in the middle of september 
-Moose1.pre.middle.post[c(5642:5662), 3] <- NA
-plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = "l")
+Moose1 <- Moose1 %>% mutate(across(c(WaterLevelmeters), ~ifelse(DateTime > "2018-09-24 08:00" & DateTime < "2018-09-24 15:00", NA, .)))
+
+Moose1 <- Moose1 %>% mutate(across(c(WaterLevelmeters), ~ifelse(DateTime > "2018-09-24" & DateTime < "2018-09-25" & WaterLevelmeters < 166.87, NA, .))) %>% mutate(across(c(WaterLevelmeters), ~ifelse(DateTime > "2018-09-24" & DateTime < "2018-09-25" & WaterLevelmeters > 167, NA, .)))
+
+Moose1 <- Moose1 %>% mutate(across(c(WaterLevelmeters), ~ifelse(DateTime > "2018-09-25 15:00" & DateTime < "2018-09-26 01:00" & WaterLevelmeters < 166.93, NA, .)))
+
+
+Moose1 %>% #filter(DateTime > "2018-09-25" & DateTime < "2018-09-26 05:00") %>%
+  ggplot(aes(DateTime, WaterLevelmeters)) + geom_point()
 
 ```
 1) Removed the beginning and end of the dataframe where the PT was out of water
 2) Cleaned the receding limb of the september storm and replaced it with the receding limb from the second PT however now we get a steep drop for the end of the timeseries. Should I shift the back half of the dataframe up?
 3) set middle of Setember vertical drop to NAs
-4) still need to do NA INTERPRET!
+
 
 ### Impute missing observations in pressure for MOOS
 ```{r, echo=FALSE, fig.width=6, fig.height=4, warning=FALSE}
-Moose1.pre.middle.post <- na_kalman(Moose1.pre.middle.post)
-plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, type = "l")
+Moose1 <- Moose1[order(Moose1$DateTime),]
+Moose1 <- na_kalman(Moose1)
+plot(Moose1$DateTime, Moose1$WaterLevelmeters, type = "l")
 ```
 ### Observed Discharge at French and Moose
 
@@ -219,16 +222,16 @@ plot(Moose1.pre.middle.post$DateTime, Moose1.pre.middle.post$WaterLevelmeters, t
 
 ### export PT data to csv to DoD_Discharge->PT_data->2018
 ```{r, echo=FALSE, warning=FALSE}
-Moose1 <- Moose1.pre.middle.post
+
 DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
-2018-05-29 16:00", tz = "America/Anchorage"),ymd_hm("2018-10-26 15:03", tz = "America/Anchorage"), by = '15 mins'))
+2018-05-29 16:00", tz = "America/Anchorage"),ymd_hm("2018-10-26 15:03", tz = "America/Anchorage"), by = '30 mins'))
 Moose1 <- full_join(Moose1, DateTimeFill) %>% dplyr::select("DateTime", "WaterLevelmeters")
 Moose1 <- Moose1[order(Moose1$DateTime),]
 Moose1 <- na_kalman(Moose1)
-Moose1$Site <- rep("FRCH", length(Moose1$DateTime))
+Moose1$Site <- rep("MOOS", length(Moose1$DateTime))
 any(is.na(Moose1))
 
-write.csv(Moose1.pre.middle.post, here("PT_data/2018/moos.pt.2018.csv"), row.names = FALSE)
+write.csv(Moose1, here("PT_data/2018/moos.pt.2018.csv"), row.names = FALSE)
 
 ```
 
@@ -260,7 +263,7 @@ grid.arrange(a,b, ncol=2)
 ```{r, echo=FALSE, warning=FALSE}
 Qsummary.MO <- Qsummary  %>% 
   filter(Site == "Moose") 
-moose1comb <- full_join(Moose1.pre.middle.post, Qsummary.MO) 
+moose1comb <- full_join(Moose1, Qsummary.MO, by = "DateTime") 
 
 ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose1comb) +
   geom_point(aes( color=Method), size=3) +
@@ -278,7 +281,7 @@ summary(Moose1.lm)
 Qsummary.MO <- Qsummary  %>% 
   filter(Site == "Moose") 
 Qsummary.MO.1 <- Qsummary.MO[-c(9:10), ] # removing HOBO points
-moose2comb <- full_join(Moose1.pre.middle.post, Qsummary.MO.1) 
+moose2comb <- full_join(Moose1, Qsummary.MO.1, by = "DateTime") 
 
 ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose2comb) +
   geom_point(aes( color=Method), size=3) +
@@ -289,8 +292,6 @@ ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose2comb) +
   scale_x_continuous(limits = c(166.2,167)) +
   theme_classic() +
   ggtitle("Moose1 all measured Q") 
-Moose2.lm <- lm(moose2comb$MeasuredQ_Ls ~ moose2comb$WaterLevelmeters)
-summary(Moose2.lm)
 ```
 
 
@@ -300,7 +301,7 @@ I will try removing that high water, low measured YSI point.
 Qsummary.MO <- Qsummary  %>% 
   filter(Site == "Moose") 
 Qsummary.MO.2 <- Qsummary.MO[-c(1, 9:10), ] # removing points
-moose3comb <- full_join(Moose1.pre.middle.post, Qsummary.MO.2) 
+moose3comb <- full_join(Moose1, Qsummary.MO.2, by = "DateTime") 
 
 
 ggplot(aes(x=WaterLevelmeters, y=MeasuredQ_Ls), data=moose3comb) +
@@ -326,7 +327,7 @@ moose3comb$pred.moose1.Q <- coef(Moose3.lm)[2] * moose3comb$WaterLevelmeters + c
 moose3comb <- na_kalman(moose3comb)
 
 ggplot(aes(x=DateTime, y=pred.moose1.Q), data=moose3comb) +
-  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(color="#A6CEE3", size=1.25) +
  geom_point(aes(x=DateTime, y=MeasuredQ_Ls, shape=Method), size=2) +
   theme_classic() +
   ggtitle("Moose1 predicted all measured Q") +
@@ -397,35 +398,47 @@ ggplot(aes(x=DateTime, y=pred.french1.Q), data=French2comb) +
 
 ```
 
-This doesnt look too shabby!
 
 # Export 2018 Q data
 ```{r, echo=FALSE, warning=FALSE}
-moose3comb <- moose3comb[,c(4,6,14)]
-names(moose3comb) <- c("DateTime", "Site", "Q")
-moose3comb$Site <- rep("MOOS", length(moose3comb$DateTime))
+moose3comb <- moose3comb[,c(1,12)]
+names(moose3comb) <- c("DateTime", "Q")
+moose3comb$Site <- "MOOS"
 French2comb <- French2comb[c(1,3,12)]
 names(French2comb) <- c("DateTime", "Site", "Q")
 
-write.csv(French2comb, here("Predicted_Discharge/2018/FRCH/FRCH.Q.csv"), row.names = FALSE)
-write.csv(moose3comb, here("Predicted_Discharge/2018/MOOS/MOOS.Q.csv"), row.names = FALSE)
 
 # Combined
 Q_2018 <- rbind(moose3comb, French2comb)
+
+# Remove duplicated datetimes
+Q_2018 <- Q_2018 %>% group_by(Site, DateTime) %>% summarise(Q = mean(Q))
+
 write.csv(Q_2018, here("Predicted_Discharge/2018/Q_2018.csv"), row.names = FALSE)
 
-
+# Mean daily Q
 Q_2018$Day = format(as.POSIXct(Q_2018$DateTime,format="%Y-%m-%d %H:%M:%S"),format="%Y-%m-%d")
 Q_2018$Day = as.POSIXct(Q_2018$Day, "%Y-%m-%d", tz="America/Anchorage")
 
 Q.daily.2018 <- Q_2018 %>% dplyr::group_by(Site, Day) %>% dplyr::summarise(Q = mean(Q))
-any(is.na(Q.daily.2018))
 
 write.csv(Q.daily.2018, here("Predicted_Discharge/2018/Q.daily.2018.csv"), row.names = FALSE)
 
+# Plot all sites
+Q_2018 %>% ggplot() + geom_point(aes(DateTime, Q, color = Site))+ ylab("Predicted Q")
 
+# Check time step intervals
+Q_2018_check <- Q_2018 %>% group_by(Site) %>% summarise(diff = DateTime - lag(DateTime),
+                                                        DateTime = DateTime)
+unique(Q_2018_check$diff)
 
-Q_2018 %>% ggplot() + geom_line(aes(DateTime, Q, color = Site))+ ylab("Predicted Q")
+Q_2018_check %>% ggplot(aes(DateTime, diff, color = Site)) + geom_point()# + ylim(0,60)
+
+# Check length of consecutive NA's
+Q_2018_check_NA <- Q_2018 %>% mutate(Yes_NA = ifelse(Q %in% NA, "Y", "N"))
+
+Q_2018_check_NA %>% #filter(Site == "VAUL") %>% 
+  ggplot(aes(DateTime, Yes_NA)) + geom_point(size = 0.5) + facet_wrap(~Site)
 ```
 
 * We rock at discharge!!!
