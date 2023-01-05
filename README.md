@@ -28,7 +28,11 @@ This repository reads in discharge data and generates predicted discharge throug
   - PT data level with air pressure until 2015-05-20 22:10
   - Spike in pressure difference at start removed because it doesn't match French
   - Quadratic relationship
-
+- Gaps filled up to 50 x 15 minutes using na_kalman
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites 
+  
 **2018 Q**
 - Raw PT input time zone: GMT - 9 (AKST)!!
 - PT data time interval: 30 minutes
@@ -37,7 +41,10 @@ This repository reads in discharge data and generates predicted discharge throug
   - FRCH: 5/30/18 ~15:10 to 10/12/18 ~9:35
 - FRCH pressure data was below 100 (out of water) before 5/18
 - MOOS pressure data was below 100 (out of water) before 5/20
-
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 30 minutes
+  - Plot of missing values for all sites 
+ 
 **2019 Q**
 - Raw PT input time zone: GMT - 8
 - Field book PT start and end times: 
@@ -85,6 +92,6 @@ This repository reads in discharge data and generates predicted discharge throug
   - Predicted Q start and end times: 5/25/2022 12:05 to 10/8/2022 8:15
   - Only PT2 was used because PT1 had a big gap in July and August
   - PT2 < 100 until 2022-05-24 13:45
-- Checks available at end of Rmarkdown:
+- Checks at end of Rmarkdown:
   - Plot of length of timesteps for all sites: 15 minutes
   - Plot of missing values for all sites  
