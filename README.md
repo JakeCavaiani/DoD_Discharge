@@ -12,6 +12,7 @@ This repository reads in discharge data and generates predicted discharge throug
 - Rmd summaries: Contains HTML RMarkdown files for each year.
 
 **2015 Q**
+- Predicted Q exported as 15 minute averages
 - Raw PT input time zone: GMT - 8 (AKDT)
 - All PT data at 5 minute intervals
 - Air pressure data from Eielson, 1 hour intervals
@@ -34,6 +35,7 @@ This repository reads in discharge data and generates predicted discharge throug
   - Plot of missing values for all sites 
   
 **2018 Q**
+- Predicted Q at 30 minute intervals
 - Raw PT input time zone: GMT - 9 (AKST)!!
 - PT data time interval: 30 minutes
 - Field book PT start and end times: 
@@ -67,14 +69,20 @@ This repository reads in discharge data and generates predicted discharge throug
 - Raw PT input time zone: GMT - 8
 - Field book PT start and end times: 
   - FRCH: 5/4/21 ~17:00 to 9/28/21 10:15
-  - MOOS: 5/4/21 ~ 17:00 to 9/28/21 13:00
   - POKE: 5/6/21 17:00 to 9/29/21 14:00
   - STRT: 5/7/21 17:00 to 9/30/21 13:30
   - VAUL: 5/13/21 17:00 to 9/27/21 ~ 16:00
-- Raw water level data start and end times:
-  - MOOS: 2021-09-28 02:30
+- MOOS: 
+  - 5 minute intervals 
+  - Field book PT start and end times: 5/4/21 ~17:00 to 9/28/21 13:00
+  - Raw water level data start and end times PT1: 2021-06-30 12:00 to 2021-09-28 10:30
+  - Raw water level data start and end times PT2: 2021-06-30 12:00 to 2021-09-28 10:30
+  - PT1 absolute pressure is above 100 untill 2021-09-28 12:45
+  - Last few points of MOOS predicted Q are negative, but not removed because pressure data well above 100 during that time for PT1 (lots of PT2 pressure data is below 100).
+  - Sharp fall at 2021-08-11 14:00:00 - was the site visited?
   
 **2022 Q**
+- Predicted Q exported as 15 minute averages
 - Raw PT input time zone: GMT - 8
 - Air pressure data is from NEON, with small gaps filled by Eielson
 - Field book PT start and end times: 
