@@ -68,18 +68,29 @@ This repository reads in discharge data and generates predicted discharge throug
 **2021 Q**
 - Raw PT input time zone: GMT - 8
 - Field book PT start and end times: 
-  - FRCH: 5/4/21 ~17:00 to 9/28/21 10:15
   - POKE: 5/6/21 17:00 to 9/29/21 14:00
   - STRT: 5/7/21 17:00 to 9/30/21 13:30
   - VAUL: 5/13/21 17:00 to 9/27/21 ~ 16:00
+- STRT
+  - Field book PT start and end times: 5/7/21 17:00 to 9/30/21 13:30
+  - Raw water level data start and end times PT1: 2021-05-07 17:00 to 2021-09-28 10:30
+  - PT1 and PT2 have similar oscilations but different overall slopes before July gap. Very strange. Only PT1 was used to avoid jumps.
+  - Some field book visits: 7/16, 7/28, 8/9/21, 8/3/21, 8/9. Not visit on 8/6. Removed dam on 8/3 and 8/9.
+  - ADCP at 21-07-16 13:30: data shifted to match this point.
+  - Extremely messy, especially at the start of August.
+- FRCH: 
+  - Field book PT start and end times: 5/4/21 ~17:00 to 9/28/21 10:15
+  - Predicted Q start and end times: 
 - MOOS: 
   - 5 minute intervals 
   - Field book PT start and end times: 5/4/21 ~17:00 to 9/28/21 13:00
   - Raw water level data start and end times PT1: 2021-06-30 12:00 to 2021-09-28 10:30
   - Raw water level data start and end times PT2: 2021-06-30 12:00 to 2021-09-28 10:30
-  - PT1 absolute pressure is above 100 untill 2021-09-28 12:45
+  - Predicted Q start and end times:
+  - PT1 absolute pressure is below 100 after 2021-09-28 12:45
   - Last few points of MOOS predicted Q are negative, but not removed because pressure data well above 100 during that time for PT1 (lots of PT2 pressure data is below 100).
   - Sharp fall at 2021-08-11 14:00:00 - was the site visited?
+  - Sharp change on 9/23 kept because the site was not visited that day.
   
 **2022 Q**
 - Predicted Q exported as 15 minute averages
