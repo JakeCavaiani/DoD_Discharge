@@ -48,13 +48,20 @@ This repository reads in discharge data and generates predicted discharge throug
   - Plot of missing values for all sites 
  
 **2019 Q**
+- Predicted Q at 15 minutes intervals
 - Raw PT input time zone: GMT - 8
+- PT data time interval: 15 minutes
 - Field book PT start and end times: 
   - FRCH:
-  - MOOS:
   - POKE: 5/10/19 12:26 (PT1) and 5/14/19 (PT2) to 10/17/19
   - STRT: 5/21/19 12:30 to 10/16/19 10:30
   - VAUL:
+- MOOS:
+  - Raw PT data start and end times: 2019-05-31 15:45 to 2019-10-22 09:15
+  - Only one PT at MOOS
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites: only gap is at POKE 
 
 **2020 Q**
 - Raw PT input time zone: GMT - 8
@@ -64,6 +71,9 @@ This repository reads in discharge data and generates predicted discharge throug
   - POKE: 6/4/20 ~14:30 to 10/14/20 ~17:00
   - STRT: 6/17/20 16:30 to 10/13/20 ~13:30 
   - VAUL: 6/5/20 16:00 to 10/14/20 ~ 12:30
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites: no gaps! 
   
 **2021 Q**
 - Raw PT input time zone: GMT - 8
