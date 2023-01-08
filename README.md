@@ -48,13 +48,20 @@ This repository reads in discharge data and generates predicted discharge throug
   - Plot of missing values for all sites 
  
 **2019 Q**
+- Predicted Q at 15 minutes intervals
 - Raw PT input time zone: GMT - 8
+- PT data time interval: 15 minutes
 - Field book PT start and end times: 
   - FRCH:
-  - MOOS:
   - POKE: 5/10/19 12:26 (PT1) and 5/14/19 (PT2) to 10/17/19
   - STRT: 5/21/19 12:30 to 10/16/19 10:30
   - VAUL:
+- MOOS:
+  - Raw PT data start and end times: 2019-05-31 15:45 to 2019-10-22 09:15
+  - Only one PT at MOOS
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites: only gap is at POKE 
 
 **2020 Q**
 - Raw PT input time zone: GMT - 8
@@ -64,22 +71,36 @@ This repository reads in discharge data and generates predicted discharge throug
   - POKE: 6/4/20 ~14:30 to 10/14/20 ~17:00
   - STRT: 6/17/20 16:30 to 10/13/20 ~13:30 
   - VAUL: 6/5/20 16:00 to 10/14/20 ~ 12:30
+- Checks at end of Rmarkdown:
+  - Plot of length of timesteps for all sites: 15 minutes
+  - Plot of missing values for all sites: no gaps! 
   
 **2021 Q**
 - Raw PT input time zone: GMT - 8
 - Field book PT start and end times: 
-  - FRCH: 5/4/21 ~17:00 to 9/28/21 10:15
   - POKE: 5/6/21 17:00 to 9/29/21 14:00
   - STRT: 5/7/21 17:00 to 9/30/21 13:30
   - VAUL: 5/13/21 17:00 to 9/27/21 ~ 16:00
+- STRT
+  - Field book PT start and end times: 5/7/21 17:00 to 9/30/21 13:30
+  - Raw water level data start and end times PT1: 2021-05-07 17:00 to 2021-09-28 10:30
+  - PT1 and PT2 have similar oscilations but different overall slopes before July gap. Very strange. Only PT1 was used to avoid jumps.
+  - Some field book visits: 7/16, 7/28, 8/9/21, 8/3/21, 8/9. Not visit on 8/6. Removed dam on 8/3 and 8/9.
+  - ADCP at 21-07-16 13:30: data shifted to match this point.
+  - Extremely messy, especially at the start of August.
+- FRCH: 
+  - Field book PT start and end times: 5/4/21 ~17:00 to 9/28/21 10:15
+  - Predicted Q start and end times: 
 - MOOS: 
   - 5 minute intervals 
   - Field book PT start and end times: 5/4/21 ~17:00 to 9/28/21 13:00
   - Raw water level data start and end times PT1: 2021-06-30 12:00 to 2021-09-28 10:30
   - Raw water level data start and end times PT2: 2021-06-30 12:00 to 2021-09-28 10:30
-  - PT1 absolute pressure is above 100 untill 2021-09-28 12:45
+  - Predicted Q start and end times:
+  - PT1 absolute pressure is below 100 after 2021-09-28 12:45
   - Last few points of MOOS predicted Q are negative, but not removed because pressure data well above 100 during that time for PT1 (lots of PT2 pressure data is below 100).
   - Sharp fall at 2021-08-11 14:00:00 - was the site visited?
+  - Sharp change on 9/23 kept because the site was not visited that day.
   
 **2022 Q**
 - Predicted Q exported as 15 minute averages

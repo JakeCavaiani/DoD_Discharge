@@ -1483,6 +1483,20 @@ Q_2020 <- rbind(moos.final.discharge.2020_final,frch.final.discharge.2020_final,
                 Poke1comb.2020_final,Vaul2comb.2020_final,
                 strt.final.discharge.2020_final)
 
+# Round all sites to 15 minute intervals
+Q_2020$DateTime <- lubridate::round_date(Q_2020$DateTime, "15 minutes")
+Q_2020 <- Q_2020 %>% group_by(Site, DateTime) %>% summarise(Q = mean(Q))
+
+# Fill gaps in data
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2020-06-04 00:00", tz = "America/Anchorage"),ymd_hm("2020-10-16 00:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill_all <- data.frame(Site = c(rep("FRCH", length(DateTimeFill$DateTime)),rep("MOOS", length(DateTimeFill$DateTime)),rep("POKE", length(DateTimeFill$DateTime)),rep("STRT", length(DateTimeFill$DateTime)),rep("VAUL", length(DateTimeFill$DateTime))), DateTime = rep(DateTimeFill$DateTime, 5))
+Q_2020 <- full_join(Q_2020, DateTimeFill_all)
+Q_2020 <- Q_2020[order(Q_2020$DateTime),]
+
+# Fill in gaps up to 15 x 10 minutes
+Q_2020 <- Q_2020 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 10),
+                                                  DateTime = DateTime) %>% filter(DateTime < "2020-10-15")
+
 write.csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"), row.names = FALSE)
 
 Q_2020$Day = format(as.POSIXct(Q_2020$DateTime, format = "%Y-%m-%d %H:%M:%S"), format = "%Y-%m-%d")
@@ -1495,6 +1509,20 @@ write.csv(Q.daily.2020, here("Predicted_Discharge/2020/Q.daily.2020.csv"), row.n
 
 
 Q_2020 %>% ggplot(aes(DateTime, Q, color = Site)) + geom_point()
+
+# Check time step intervals
+Q_2020_check <- Q_2020 %>% group_by(Site) %>% summarise(diff = DateTime - lag(DateTime),
+                                                      DateTime = DateTime)
+unique(Q_2020_check$diff)
+
+Q_2020_check %>% ggplot(aes(DateTime, diff, color = Site)) + geom_point()# + ylim(0,60)
+
+# Check length of consecutive NA's
+Q_2020_check_NA <- Q_2020 %>% mutate(Yes_NA = ifelse(Q %in% NA, "Y", "N"))
+
+Q_2020_check_NA %>% 
+  ggplot(aes(DateTime, Yes_NA)) + geom_point(size = 0.5) + facet_wrap(~Site)
+
 ```
 
 
