@@ -176,15 +176,21 @@ Need to clean out of water points at the end of the dataframe...let the cleaning
 
 ### Moose PT1 2.0
 ```{r, echo=FALSE, warning=FALSE}
+#moos.stream.one.2021.b <- moos.stream.one.2021
+#moos.stream.one.2021 <- moos.stream.one.2021.b
 moos.stream.one.2021 <- moos.stream.one.2021 %>% subset(moos.stream.one.2021$DateTime <= "2021-09-28 13:00") # cleaning data that is before September 28th due to decommission
 
 # Not visited 9/23
 #moos.stream.one.2021[c(29908:30000), 4] <- NA
 
 # Shift jump when site visited on 8/11
+moos.stream.one.2021 <- moos.stream.one.2021 %>% mutate(across(c(WaterLevel), ~ifelse(DateTime > "2021-08-11 14:10:00", WaterLevel + 0.11, .)))
+
+moos.stream.one.2021[c(17577:17582), 4] <- NA
 
 
-moos.stream.one.2021 %>% filter(DateTime > "2021-08-09" & DateTime < "2021-08-12") %>% ggplot(aes(DateTime, WaterLevel)) + geom_point()
+moos.stream.one.2021 %>% filter(DateTime > "2021-08-09" & DateTime < "2021-08-12") %>%
+  ggplot(aes(DateTime, WaterLevel)) + geom_point()
 
 ```
 1) removed out of water points during decommission on 9/28/21
@@ -192,13 +198,9 @@ moos.stream.one.2021 %>% filter(DateTime > "2021-08-09" & DateTime < "2021-08-12
 
 ### Raw Moose PT2
 ```{r, echo=FALSE, warning=FALSE}
-#plot(STRT_RainGauge_2021$inst_rainfall_mm ~ STRT_RainGauge_2021$DateTime, type="h",
-#     xlim = as.POSIXct(c("2021-05-04 09:00:00","2021-09-28 06:15:00"), tz="America/Anchorage"),
-#     ylim = c(20,0), 
-#     axes=F, xlab="", ylab="")
-#par(new = T)
 
-moos.stream.two.2021 %>% filter(DateTime > "2021-09-22") %>% ggplot(aes(DateTime, WaterLevel)) + geom_point()
+moos.stream.two.2021 %>% #filter(DateTime > "2021-09-22") %>% 
+  ggplot(aes(DateTime, WaterLevel)) + geom_point()
 
 ```
 Need to remove out of water points associated with decommission...let the cleaning commence!
@@ -210,14 +212,20 @@ moos.stream.two.2021 <- moos.stream.two.2021 %>% subset(moos.stream.two.2021$Dat
 # Site was not visited on 9/23
 #moos.stream.two.2021[c(29900:30000), 4] <- NA
 
-plot(moos.stream.two.2021$DateTime, moos.stream.two.2021$WaterLevel, type = 'l')
+# Shift jump when site visited on 8/11
+moos.stream.two.2021 <- moos.stream.two.2021 %>% mutate(across(c(WaterLevel), ~ifelse(DateTime > "2021-08-11 14:10:00", WaterLevel + 0.1, .)))
+
+moos.stream.two.2021 <- moos.stream.two.2021 %>% mutate(across(c(WaterLevel), ~ifelse(DateTime > "2021-08-10" & DateTime < "2021-08-12" & WaterLevel < 165.9, NA, .)))
+
+moos.stream.two.2021 %>% filter(DateTime > "2021-06-20") %>%
+  ggplot(aes(DateTime, WaterLevel)) + geom_point()
 
 ```
 
 ## Export PT data to csv in DoD_Discharge->PT_data->2021
 ```{r, echo=FALSE, warning=FALSE}
 # Add any missing time steps
-DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-04 09:00", tz = "America/Anchorage"),ymd_hm("2021-09-28 13:00", tz = "America/Anchorage"), by = '15 mins'))
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("2021-05-20 00:00", tz = "America/Anchorage"),ymd_hm("2021-09-28 13:00", tz = "America/Anchorage"), by = '15 mins'))
 moos.stream.one.2021 <- full_join(moos.stream.one.2021, DateTimeFill)
 moos.stream.one.2021 <- moos.stream.one.2021[order(moos.stream.one.2021$DateTime),]
 moos.stream.one.2021 <- na_kalman(moos.stream.one.2021, maxgap = 10)
@@ -235,10 +243,14 @@ write.csv(moos.pt.2021, here("PT_data/2021/MOOS/moos.pt.2021.csv"), row.names = 
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter MOOS ###
 QSummary.MO.2021 <- QSummary.2021 %>% filter(Site =="MOOS")
+QSummary.MO.2021 %>% ggplot(aes(DateTime, MeasuredQ_Ls, color = Method)) + geom_point()
+
 ### Filter Stuart ###
 moos.stream.one.2021$Site <- "MOOS"
 
-Moos1comb.2021 <- full_join(moos.stream.one.2021, QSummary.MO.2021, by = "DateTime")
+moos.stream.one.2021.dt <- setDT(moos.stream.one.2021) %>% filter(!WaterLevel %in% NA)
+QSummary.MO.2021.dt <- setDT(QSummary.MO.2021) %>% filter(DateTime > "2021-06-29")
+Moos1comb.2021 <- moos.stream.one.2021.dt[QSummary.MO.2021.dt, on = "DateTime", roll = 'nearest'] %>% dplyr::select(DateTime, WaterLevel, MeasuredQ_Ls, Method, Date) 
 
 MOOS1.lm.2021 <- lm(Moos1comb.2021$MeasuredQ_Ls ~ Moos1comb.2021$WaterLevel)
 
@@ -254,12 +266,12 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moos1comb.2021) +
   ggtitle("Moos1 all measured Q") 
 ``` 
 
-High YSI pints will have to be removed 
+High YSI points will have to be removed 
 
 ### MOOS PT1 2.0
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter MOOS ###
-QSummary.MO.2021.1 <- QSummary.MO.2021 %>% filter(MeasuredQ_Ls < 1200)
+QSummary.MO.2021.1 <- QSummary.MO.2021 %>% filter(MeasuredQ_Ls < 1300)
 
 Moos1comb.2021 <- full_join(moos.stream.one.2021, QSummary.MO.2021.1)
 MOOS1.lm.2021 <- lm(Moos1comb.2021$MeasuredQ_Ls ~ Moos1comb.2021$WaterLevel)
