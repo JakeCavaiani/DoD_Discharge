@@ -59,6 +59,7 @@ This repository reads in discharge data and generates predicted discharge throug
 - MOOS:
   - Raw PT data start and end times: 2019-05-31 15:45 to 2019-10-22 09:15
   - Only one PT at MOOS
+  - Moose has a messy jump in pressure on July 9th, but the site was not visited that day so the data was kept.
 - Checks at end of Rmarkdown:
   - Plot of length of timesteps for all sites: 15 minutes
   - Plot of missing values for all sites: only gap is at POKE 
