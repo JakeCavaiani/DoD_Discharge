@@ -171,10 +171,8 @@ Let the cleaning commence!
 ```{r, echo=FALSE, warning=FALSE}
 moos.stream.one.2019 <- moos.stream.one.2019[-c(3715, 5179,5342), ]
 
-# Remove jump around July 9th
-moos.stream.one.2019 <- moos.stream.one.2019 %>% mutate(across(c(AbsPTDepth), ~ifelse(DateTime > "2019-07-08" & DateTime < "2019-07-10" & AbsPTDepth > 1.05, NA, .)))
 
-moos.stream.one.2019 %>% #filter(DateTime > "2019-07-01" & DateTime < "2019-07-10") %>% 
+moos.stream.one.2019 %>% filter(DateTime > "2019-07-01" & DateTime < "2019-07-10") %>% 
   ggplot(aes(DateTime, AbsPTDepth)) + geom_point()
 ```
 1)removed vertical bars in dataframe
@@ -189,7 +187,7 @@ DateTimeFill <- data.frame(DateTime = seq(ymd_hm("
 2019-05-31 15:45", tz = "America/Anchorage"),ymd_hm("2019-10-22 09:15", tz = "America/Anchorage"), by = '15 mins'))
 moos.stream.one.2019 <- full_join(moos.stream.one.2019, DateTimeFill)
 moos.stream.one.2019 <- moos.stream.one.2019[order(moos.stream.one.2019$DateTime),]
-moos.stream.one.2019 <- na_kalman(moos.stream.one.2019)
+moos.stream.one.2019 <- na_kalman(moos.stream.one.2019, maxgap = 10)
 
 moos.stream.one.2019$Site <- rep("MOOS", length(moos.stream.one.2019$DateTime))
 
@@ -291,7 +289,7 @@ Moose2comb.2019_final$Site <- rep("MOOS", length(Moose2comb.2019_final$DateTime)
 # Remove early measured Q rows
 Moose2comb.2019_final <- Moose2comb.2019_final %>% filter(DateTime >= "2019-05-31 15:45")
 
-Moose2comb.2019_final <- na_kalman(Moose2comb.2019_final)
+Moose2comb.2019_final <- na_kalman(Moose2comb.2019_final, maxgap = 10)
 
 write.csv(Moose2comb.2019_final, here("Predicted_Discharge/2019/MOOS/MOOS.Q.csv"), row.names = FALSE)
 ```
@@ -720,7 +718,7 @@ poke.stream.one.2019 <- poke.stream.one.2019[-c(10406:11611), ] # remove beaver 
 # Shift jump at start of August
 poke.stream.one.2019 <- poke.stream.one.2019 %>% mutate(across(c(AbsPTDepth), ~ifelse(DateTime <= "2019-08-02 20:15:00", AbsPTDepth + 0.135,.)))
 
-poke.stream.one.2019 <- na_kalman(poke.stream.one.2019)
+poke.stream.one.2019 <- na_kalman(poke.stream.one.2019, maxgap = 10)
 #plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
 #     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
 #     ylim = c(20,0), 
@@ -751,7 +749,7 @@ Same procedure as PT1....let the cleaning commence!
 poke.stream.two.2019 <- poke.stream.two.2019[-c(9738:11227, 14634:15058), ] # remove out of water points - PT removed on the 14th and the beaver dam
 poke.stream.two.2019[c(4, 2978:2983, 5578:5587,6137:6150, 6913:6920), 4] <- NA  # remove vertical bars...set to NA
 
-poke.stream.two.2019 <- na_kalman(poke.stream.two.2019)
+poke.stream.two.2019 <- na_kalman(poke.stream.two.2019, maxgap = 10)
 
 #plot(POKE_RainGauge_2019$inst_rainfall_mm ~ POKE_RainGauge_2019$DateTime, type="h",
 #     xlim = as.POSIXct(c("2019-05-10 14:45:00","2019-10-18 10:15:00"), #tz="America/Anchorage"),
@@ -1025,7 +1023,7 @@ DateTimeFill <- data.frame(DateTime = seq(ymd_hm("
 2019-06-07 17:45", tz = "America/Anchorage"),ymd_hm("2019-10-11 13:45", tz = "America/Anchorage"), by = '15 mins'))
 vaul.final.discharge.2019.final <- full_join(vaul.final.discharge.2019.final, DateTimeFill)
 vaul.final.discharge.2019.final <- vaul.final.discharge.2019.final[order(vaul.final.discharge.2019.final$DateTime),]
-vaul.final.discharge.2019.final <- na_kalman(vaul.final.discharge.2019.final)
+vaul.final.discharge.2019.final <- na_kalman(vaul.final.discharge.2019.final, maxgap = 10)
 
 write.csv(vaul.final.discharge.2019.final, here("Predicted_Discharge/2019/VAUL/VAUL.Q.csv"), row.names = FALSE)
 
