@@ -944,7 +944,6 @@ strt.stream.two.2022 <- strt.stream.two.2022 %>%
       WaterPressure < 100, NA, .))) %>%
       filter(WaterPressure > 100)
 
-strt.stream.two.2022 <- strt.stream.two.2022 %>% filter(DateTimeAK < "2022-08-01 00:00:00" | DateTimeAK > "2022-08-10 22:30:00")
 
 strt.stream.two.2022 <- strt.stream.two.2022 %>%
   mutate(across(c(WaterPressure), 
