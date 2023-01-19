@@ -27,19 +27,9 @@ Q22 <- Q22 %>% group_by(Site, DateTimeAK) %>%
 ## 2021
 Q21 <- read.csv(here("Predicted_Discharge", "2021", "Q_2021.csv"))
 
-# Q21d <- read.csv(here("Predicted_Discharge", "2021", "Q.daily.2021.csv"))
+#Q21fr <- read.csv(here("Predicted_Discharge", "2021", "FRCH", "FRCH.Q.csv"))
 
-Q21fr <- read.csv(here("Predicted_Discharge", "2021", "FRCH", "FRCH.Q.csv"))
-Q21mo <- read.csv(here("Predicted_Discharge", "2021", "MOOS", "MOOS.Q.csv"))
-Q21po <- read.csv(here("Predicted_Discharge", "2021", "POKE", "POKE.Q.csv"))
-Q21st <- read.csv(here("Predicted_Discharge", "2021", "STRT", "STRT.Q.csv"))
-Q21va <- read.csv(here("Predicted_Discharge", "2021", "VAUL", "VAUL.Q.csv"))
-
-names(Q21fr)[names(Q21fr) == 'Q'] <- 'pred.frch.Q'
-names(Q21mo)[names(Q21mo) == 'Q'] <- 'pred.moos.Q'
-names(Q21po)[names(Q21po) == 'Q'] <- 'pred.poke.Q'
-names(Q21st)[names(Q21st) == 'Q'] <- 'pred.strt.Q'
-names(Q21va)[names(Q21va) == 'Q'] <- 'pred.vaul.Q'
+#names(Q21fr)[names(Q21fr) == 'Q'] <- 'pred.frch.Q'
 
 #####################
 ### Interpolation ###
@@ -55,7 +45,7 @@ Q22 %>% ggplot(aes(x = DateTimeAK, y = Q)) +
 
 # MOOS, POKE, STRT, VAUL missing data
 # MOOS: 
-  # 2022-07-23 16:55:00, 2022-08-02 16:45:00
+  # 2022-07-23 17:00:00, 2022-08-02 16:30:00
 
 # POKE:
   # 2022-07-23 16:55:00, 2022-08-01 15:55:00
@@ -105,95 +95,81 @@ mod.moos.lin <- Q22w %>%
 # Visualize fits
 newdat <- data.frame(FRCH = runif(100, min(Q22w$FRCH, na.rm = TRUE), max(Q22w$FRCH, na.rm = TRUE)))
 
-newdat <- Q22w %>% filter(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 16:00:00") %>%
-                  select(c(FRCH, DateTimeAK)) %>%
-                  filter(!is.na(FRCH)) %>%
-                  data.frame()
-
 newdat$predgls = predict(mod.moos.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.moos.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.moos.lin, newdata = newdat)
 
 ggplot(Q22w, aes(x = FRCH, y = MOOS) ) +
   geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
-  geom_point(aes(x = FRCH, y = MOOS))
-
-newdat$predgls.lin = predict(mod.moos.lin, newdata = newdat)
-
-ggplot(Q22w, aes(x = FRCH, y = MOOS) ) +
-  geom_line(data = newdat, aes(y = predgls.lin), size = 1) +
   geom_point(aes(x = FRCH, y = MOOS)) +
-  geom_smooth(method = "lm", color = "blue")
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")
+# lm is best
 
 # Insert predicted MOOS Q for missing
+newdat <- Q22w %>% filter(DateTimeAK >= "2022-07-23 17:00" & DateTimeAK <= "2022-08-02 16:30") %>%
+                     select(FRCH)
+
+newdat$MOOS.Q.int <- predict(mod.moos.lin, newdata = newdat)
+  
 Q22w.int <- left_join(Q22w, newdat, by = c("DateTimeAK", "FRCH"))
   
-Q22w.int <- Q22w.int %>% mutate(moos.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 16:00:00", predgls, MOOS))
+Q22w.int <- Q22w.int %>% mutate(MOOS.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 16:30:00", MOOS.Q.int, MOOS))
 
-Q22w.int %>% ggplot(aes(x = FRCH, y = moos.Q.int)) +
-          geom_point()
-Q22w.int %>% ggplot(aes(x = DateTimeAK, y = moos.Q.int)) +
-          geom_point() +
+Q22w.int %>% ggplot(aes(x = DateTimeAK, y = MOOS.Q.int)) +
+          geom_point(color = "blue") +
           geom_point(aes(x = DateTimeAK, y = MOOS), color = "green")
-
-# adjust baseline of interpreted Q
-Q22w.int <- Q22w.int %>% mutate(moos.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-02 16:00:00", moos.Q.int - 210.65, moos.Q.int))
-
-Q22w.int %>% ggplot(aes(x = DateTimeAK, y = moos.Q.int)) +
-  geom_point() +
-  geom_point(aes(x = DateTimeAK, y = MOOS), color = "green")
 
 ## POKE ##
 Q22w %>% ggplot(aes(x = DateTimeAK, y = POKE)) +
   geom_point() +
   geom_point(aes(y = FRCH), color = "blue")
-geom_point(aes(x = DateTimeAK, y = pred.poke.Q), color = "green")
 
-mod.poke.2 <- Q22w %>% #filter(pred.frch.Q < 1500) %>%
+mod.poke.2 <- Q22w %>% filter(FRCH < 750 & FRCH > 400) %>%
   gls(POKE ~ FRCH + I(FRCH^2), correlation = corAR1(), na.action = na.omit, data = .)
 
-mod.poke.lin <- Q22 %>% filter(pred.frch.Q < 750 & pred.frch.Q > 400) %>%
-  gls(pred.poke.Q ~ pred.frch.Q , correlation = corAR1(), na.action = na.omit, data = .)
+mod.poke.lin.gls <- Q22w %>% filter(FRCH < 750 & FRCH > 400) %>%
+  gls(POKE ~ FRCH , correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.poke.lin <- Q22w %>% filter(FRCH < 750 & FRCH > 400) %>%
+  lm(POKE ~ FRCH, na.action = na.omit, data = .)
 
 # Visualize fits
-newdat <- data.frame(FRCH = runif(100, min(Q22w$FRCH, na.rm = TRUE), max(Q22w$FRCH, na.rm = TRUE)),
-                     julian = runif(100, min(Q22w$julian), max(Q22w$julian)))
+newdat <- data.frame(FRCH = runif(100, min(Q22w$FRCH, na.rm = TRUE), max(Q22w$FRCH, na.rm = TRUE)))
 
-newdat$predgls.poke = predict(mod.poke.2, newdata = newdat)
-
-ggplot(Q22w, aes(x = FRCH, y = POKE) ) +
-  geom_line(data = newdat, aes(y = predgls.poke), size = 1) +
-  geom_point(aes(x = FRCH, y = POKE))
-
-#newdat$predgls.lin.poke = predict(mod.poke.lin, newdata = newdat)
+newdat$predgls = predict(mod.poke.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.poke.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.poke.lin, newdata = newdat)
 
 ggplot(Q22w, aes(x = FRCH, y = POKE) ) +
-  geom_line(data = newdat, aes(y = predgls.poke), size = 1, color = "blue") +
-  #geom_line(data = newdat, aes(y = predgls.lin, color = "blue")) +
-  geom_point(aes(x = FRCH, y = POKE))
+  geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
+  geom_point(aes(x = FRCH, y = POKE)) +
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")
 
 # Insert predicted POKE Q for missing
-newdat <- Q22w %>% filter(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-01 15:15:00") %>%
-  select(c(FRCH, DateTimeAK, julian)) %>%
-  filter(!is.na(FRCH)) %>%
-  data.frame()
+newdat <- Q22w %>% filter(DateTimeAK >= "2022-07-23 17:00" & DateTimeAK <= "2022-08-01 15:45") %>%
+  select(FRCH)
 
-newdat$predgls.poke = predict(mod.poke.2, newdata = newdat)
-#newdat$predgls.lin.poke = predict(mod.poke.lin, newdata = newdat)
+newdat$POKE.Q.int <- predict(mod.poke.lin.gls, newdata = newdat)
 
-poke.pred <- newdat %>% select(-FRCH, julian)
-Q22w.int <- left_join(Q22w.int, poke.pred, by = c("DateTimeAK", "julian"))
+Q22w.int <- left_join(Q22w.int, newdat, by = c("DateTimeAK", "FRCH"))
 
-Q22w.int <- Q22w.int %>% mutate(poke.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-01 15:15:00", predgls.poke, POKE))
+Q22w.int <- Q22w.int %>% mutate(POKE.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-01 15:45:00", POKE.Q.int, POKE))
 
-Q22w.int %>% ggplot(aes(x = DateTimeAK, y = poke.Q.int)) +
-  geom_point() +
+Q22w.int %>% ggplot(aes(x = DateTimeAK, y = POKE.Q.int)) +
+  geom_point(color = "blue") +
   geom_point(aes(x = DateTimeAK, y = POKE), color = "green")
 
 # Baseline adjust
+Q22w.int <- Q22w.int %>% mutate(POKE.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-01 15:45:00", POKE.Q.int + 17.7098, POKE.Q.int))
+                                       
 # dataframe for drift regression
 # dates to start and end drift correction
 # observed values before and after drift
-PO.dates <- c("2022-07-23 17:00:00", "2022-08-01 16:00:00")
-PO.Q <- c(400.4530, 333.3525)
+
+PO.dates <- c("2022-07-23 17:00:00", "2022-08-01 15:45:00")
+PO.Q <- c(357.5166, 330.498)
 
 PO.drift <- data.frame(cbind("DateTimeAK" = PO.dates, "poke.Q" = PO.Q))
 PO.drift$DateTimeAK <- as.POSIXct(PO.drift$DateTimeAK, format = "%Y-%m-%d %H:%M:%S", tz = "America/Anchorage")
@@ -206,70 +182,90 @@ PO.mod.drift <- lm(diffQ ~ doy, data = PO.drift)
 PO.Q.sl <- PO.mod.drift$coef[2]
 
 Q22w.int <- Q22w.int %>% 
-  mutate(poke.Q.int = ifelse(DateTimeAK > "2022-07-23 17:00:00" & DateTimeAK < "2022-08-01 16:00:00", poke.Q.int - ((julian - 276.2500)*PO.Q.sl), poke.Q.int)) 
+  mutate(POKE.Q.intb = ifelse(DateTimeAK > "2022-07-23 17:00:00" & DateTimeAK < "2022-08-01 15:45:00", POKE.Q.int - ((212.625 - julian)*PO.Q.sl), POKE.Q.int)) 
 
-Q22w.int %>% ggplot(aes(x = DateTimeAK, y = poke.Q.int)) +
+Q22w.int %>% ggplot(aes(x = DateTimeAK, y = POKE.Q.intb)) +
   geom_point() +
   geom_point(aes(x = DateTimeAK, y = POKE), color = "green")
-
-### Use linear interpolation for POKE gap. Poor fit to FRCH
 
 ## STRT
 Q22w %>% ggplot(aes(x = DateTimeAK, y = STRT)) +
   geom_point() +
   geom_point(aes(y = FRCH), color = "blue")
 
-Q22 %>% ggplot(aes(x = pred.frch.Q, y = pred.strt.Q)) +
-          geom_point()
-
-mod.strt.2 <- Q22w %>% #filter(FRCH < 1000) %>%
+mod.strt.2 <- Q22w %>% #filter(FRCH < 750 & FRCH > 400) %>%
   gls(STRT ~ FRCH + I(FRCH^2), correlation = corAR1(), na.action = na.omit, data = .)
 
-# mod.strt.lin <- Q22 %>% filter(pred.frch.Q < 600 ) %>%
-#  gls(pred.strt.Q ~ pred.frch.Q , correlation = corAR1(), na.action = na.omit, data = .)
+mod.strt.lin.gls <- Q22w %>% #filter(FRCH < 750 & FRCH > 400) %>%
+  gls(STRT ~ FRCH , correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.strt.lin <- Q22w %>% #filter(FRCH < 750 & FRCH > 400) %>%
+  lm(STRT ~ FRCH, na.action = na.omit, data = .)
+
+mod.strt.q <- Q22w %>% #filter(FRCH < 750 & FRCH > 400) %>%
+  lm(STRT ~ FRCH + I(FRCH^2), na.action = na.omit, data = .)
 
 # Visualize fits
-newdat <- data.frame(FRCH = runif(100, min(Q22w$FRCH, na.rm = TRUE), max(Q22w$FRCH, na.rm = TRUE)),
-                     julian = runif(100, min(Q22w$julian), max(Q22w$julian)))
+newdat <- data.frame(FRCH = runif(100, min(Q22w$FRCH, na.rm = TRUE), max(Q22w$FRCH, na.rm = TRUE)))
 
-newdat$predgls.strt = predict(mod.strt.2, newdata = newdat)
+newdat$predgls = predict(mod.strt.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.strt.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.strt.lin, newdata = newdat)
+newdat$pred.q = predict(mod.strt.q, newdata = newdat)
 
-ggplot(Q22, aes(x = FRCH, y = STRT) ) +
-  geom_line(data = newdat, aes(y = predgls), size = 1) +
-  geom_point(aes(x = FRCH, y = STRT))
+ggplot(Q22w, aes(x = FRCH, y = STRT) ) +
+  geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
+  geom_point(aes(x = FRCH, y = STRT)) +
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red") +
+  geom_line(data = newdat, aes(y = pred.q), size = 1, color = "orange")
 
-#newdat$predgls.lin.strt = predict(mod.strt.lin, newdata = newdat)
+# Insert predicted POKE Q for missing
+newdat <- Q22w %>% filter(DateTimeAK >= "2022-07-23 17:00" & DateTimeAK <= "2022-08-10 22:30") %>%
+  select(FRCH)
 
-#ggplot(Q22, aes(x = pred.frch.Q, y = pred.strt.Q) ) +
-#  geom_line(data = newdat, aes(y = predgls.strt), size = 1) +
-#  geom_line(data = newdat, aes(y = predgls.lin.strt, color = "blue")) +
-#  geom_point(aes(x = pred.frch.Q, y = pred.strt.Q))
+newdat$STRT.Q.int <- predict(mod.strt.q, newdata = newdat)
 
-# Insert predicted STRT Q for missing
-# 2022-07-23 18:00:00, 2022-08-10 22:00:00
-newdat <- Q22 %>% filter(DateTimeAK >= "2022-07-23 18:00:00" & DateTimeAK <= "2022-08-10 22:00:00") %>%
-  select(c(pred.frch.Q, DateTimeAK, julian)) %>%
-  filter(!is.na(pred.frch.Q)) %>%
-  data.frame()
+Q22w.int <- left_join(Q22w.int, newdat, by = c("DateTimeAK", "FRCH"))
 
-newdat$predgls.strt = predict(mod.strt.2, newdata = newdat)
-newdat$predgls.lin.strt = predict(mod.strt.lin, newdata = newdat)
+Q22w.int <- Q22w.int %>% mutate(STRT.Q.int = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-10 22:30:00", STRT.Q.int, STRT))
 
-strt.pred <- newdat %>% select(-pred.frch.Q, julian)
-Q22.pred <- left_join(Q22.pred, strt.pred, by = c("DateTimeAK", "julian"))
+Q22w.int %>% ggplot(aes(x = DateTimeAK, y = STRT.Q.int)) +
+  geom_point(color = "blue") +
+  geom_point(aes(x = DateTimeAK, y = STRT), color = "green")
 
-Q22.pred <- Q22.pred %>% mutate(strt.Q.int = ifelse(DateTimeAK >= "2022-07-23 18:00:00" & DateTimeAK <= "2022-08-10 22:00:00", predgls.strt, pred.strt.Q))
+# Baseline adjust
+# dataframe for drift regression
+# dates to start and end drift correction
+# observed values before and after drift
 
-Q22.pred %>% ggplot(aes(x = DateTimeAK, y = strt.Q.int)) +
+ST.dates <- c("2022-07-23 17:00:00", "2022-08-10 22:30:00")
+ST.Q <- c(972.0982, 806.215)
+
+ST.drift <- data.frame(cbind("DateTimeAK" = ST.dates, "strt.Q" = ST.Q))
+ST.drift$DateTimeAK <- as.POSIXct(ST.drift$DateTimeAK, format = "%Y-%m-%d %H:%M:%S", tz = "America/Anchorage")
+ST.drift$doy <- sapply(ST.drift$DateTimeAK, function(x) julian(x, origin = as.POSIXct(paste0(format(x, "%Y"),'-01-01'), tz = 'America/Anchorage')))
+ST.drift <- ST.drift %>% mutate(across(where(is.character), ~as.numeric(.)))
+
+ST.drift$diffQ <- ST.drift$strt.Q - ST.drift$strt.Q[1]
+
+ST.mod.drift <- lm(diffQ ~ doy, data = ST.drift)
+ST.Q.sl <- ST.mod.drift$coef[2]
+
+Q22w.int <- Q22w.int %>% 
+  mutate(STRT.Q.intb = ifelse(DateTimeAK >= "2022-07-23 17:00:00" & DateTimeAK <= "2022-08-10 22:30:00", STRT.Q.int - ((221.8958 - julian)*ST.Q.sl), STRT.Q.int)) 
+
+Q22w.int %>% ggplot(aes(x = DateTimeAK, y = STRT.Q.intb)) +
   geom_point() +
-  geom_point(aes(x = DateTimeAK, y = pred.strt.Q), color = "blue")
+  geom_point(aes(x = DateTimeAK, y = STRT), color = "green")
 
-Q22.pred %>% ggplot(aes(x = DateTimeAK, y = strt.Q.int)) +
-  geom_point() +
-  geom_point(aes(x = DateTimeAK, y = pred.strt.Q), color = "blue") +
-  scale_x_datetime(limits = as.POSIXct(c("2022-07-01", "2022-08-15"))) +
-  ylim(c(500, 1500))
-# Possibly raise interpolated piece to match
+## Clean up
+Q22w.int <- Q22w.int %>% select(-c(POKE.Q.int, STRT.Q.int)) %>%
+                        rename(STRT.Q.int = STRT.Q.intb) %>%
+                        rename(POKE.Q.int = POKE.Q.intb)
+
+## Export
+write.csv(Q22w.int, here("Predicted_Discharge", "2022", "Predicted_Q_2022_gapfill.csv"))
 
 ## 2021 ##
 # Manage dates
