@@ -31,6 +31,9 @@ Q21 <- read.csv(here("Predicted_Discharge", "2021", "Q_2021.csv"))
 
 #names(Q21fr)[names(Q21fr) == 'Q'] <- 'pred.frch.Q'
 
+## 2019
+Q19 <- read.csv(here("Predicted_Discharge", "2019", "Q_2019.csv"))
+
 #####################
 ### Interpolation ###
 #####################
@@ -328,3 +331,99 @@ Q21 %>% ggplot(aes(x = pred.poke.Q, y = pred.vaul.Q)) +
 Q21 %>% ggplot(aes(x = pred.strt.Q, y = pred.vaul.Q)) +
   geom_point()
 # POKE?
+
+## 2019 ##
+## Poker
+Q19$DateTimeAK <- as.POSIXct(Q19$DateTime, format = "%Y-%m-%d %H:%M:%S", tz = "America/Anchorage")
+Q19$julian <- sapply(Q19$DateTimeAK, function(x) julian(x, origin = as.POSIXct(paste0(format(x, "%Y"),'-01-01'), tz = 'America/Anchorage')))
+
+Q19 %>% 
+  ggplot(aes(x = DateTimeAK, y = Q)) +
+  geom_point() +
+  facet_wrap(~Site, scales = "free_y")
+
+## Missing
+# 2019-08-27 00:00:00, 2019-09-08 13:15:00
+
+Q19w <- Q19 %>% pivot_wider(names_from = Site, values_from = Q, values_fn = list) %>%
+  unnest(cols = everything())
+
+# Find best match
+Q19w %>% ggplot(aes(x = DateTimeAK, y = POKE)) +
+          geom_line(color = "red") +
+        geom_line(aes(x = DateTimeAK, y = FRCH), color = "blue") +
+        geom_line(aes(x = DateTimeAK, y = MOOS), color = "green") +
+        geom_line(aes(x = DateTimeAK, y = STRT), color = "darkblue") +
+        geom_line(aes(x = DateTimeAK, y = VAUL), color = "violet") +
+        ylim(0, 5000)
+  
+# vs FRCH
+Q19w %>% ggplot(aes(x = FRCH, y = POKE)) +
+  geom_point()
+# no
+
+# vs MOOS
+Q19w %>% ggplot(aes(x = MOOS, y = POKE)) +
+  geom_point()
+# same
+
+# vs STRT
+Q19w %>% ggplot(aes(x = STRT, y = POKE)) +
+  geom_point()
+# same
+
+# vs VAUL
+Q19w %>% ggplot(aes(x = VAUL, y = POKE)) +
+  geom_point()
+# relationship changes in time
+
+## General linear models ##
+mod.poke.2 <- Q19w %>% filter(DateTimeAK > "2019-06-15" & DateTimeAK < "2019-09-28") %>%
+                       filter(POKE < 1000) %>%
+  gls(POKE ~ STRT + I(STRT^2), correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.poke.lin.gls <- Q19w %>% filter(DateTimeAK > "2019-06-15" & DateTimeAK < "2019-09-28") %>%
+                             filter(POKE < 1000) %>%
+  nlme::gls(POKE ~ STRT, correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.poke.lin <- Q19w %>% filter(DateTimeAK > "2019-06-15" & DateTimeAK < "2019-09-28") %>%
+                         filter(POKE < 1000) %>%
+  lm(POKE ~ STRT, na.action = na.omit, data = .)
+
+mod.poke.q <- Q19w %>% filter(DateTimeAK > "2019-06-15" & DateTimeAK < "2019-09-28") %>%
+                       filter(POKE < 1000) %>%
+  lm(POKE ~ STRT + I(STRT^2), na.action = na.omit, data = .)
+
+# Visualize fits
+newdat <- data.frame(STRT = runif(100, 1200, 6000))
+
+newdat$predgls = predict(mod.poke.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.poke.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.poke.lin, newdata = newdat)
+newdat$pred.q = predict(mod.poke.q, newdata = newdat)
+
+ggplot(Q19w, aes(x = STRT, y = POKE) ) +
+  geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
+  geom_point(aes(x = STRT, y = POKE)) +
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")+
+  geom_line(data = newdat, aes(y = pred.q), size = 1, color = "violet") +
+  ylim(0, 1000)
+# try lm
+
+# Insert predicted POKE Q for missing
+newdat <- Q19w %>% filter(DateTimeAK >= "2019-08-27 00:00:00" & DateTimeAK <= "2019-09-08 13:15:00") %>%
+  select(c(DateTimeAK, STRT))
+
+newdat$POKE.Q.int <- predict(mod.poke.lin, newdata = newdat)
+
+Q19w.int <- left_join(Q19w, newdat, by = c("DateTimeAK", "STRT"))
+
+Q19w.int <- Q19w.int %>% mutate(POKE.Q.int = ifelse(DateTimeAK >= "2019-08-27 00:00:00" & DateTimeAK <= "2019-09-08 13:15:00", POKE.Q.int, POKE))
+
+Q19w.int %>% ggplot(aes(x = DateTimeAK, y = POKE.Q.int)) +
+  geom_point(color = "blue") +
+  geom_point(aes(x = DateTimeAK, y = POKE), color = "red")
+
+## Export
+write.csv(Q19w.int, here("Predicted_Discharge", "2019", "Predicted_Q_2019_gapfill.csv"))
