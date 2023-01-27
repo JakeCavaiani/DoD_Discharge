@@ -504,8 +504,9 @@ I will remove two YSI points.
 # Remove outlier Q points
 Moose1comb.2022.2 <- Moose1comb.2022 %>% filter(difference > 2 | MeasuredQ_Ls < 1000) %>% filter(MeasuredQ_Ls > 300)
 
+  
 # plot rating curve 
-moos.formula = y~ poly(x,2)
+moos.formula = y~ x
 
 ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
   geom_point(aes(color = Method), size = 3) +
@@ -523,9 +524,9 @@ ggplot(aes(x = difference, y = MeasuredQ_Ls), data = Moose1comb.2022.2) +
 ```{r, warning = FALSE, message = FALSE}
 ## Predict MOOS Q
 
-MOOS1.lm.2022 <- lm(Moose1comb.2022.2$MeasuredQ_Ls ~ Moose1comb.2022.2$difference + I(Moose1comb.2022.2$difference^2))
+MOOS1.lm.2022 <- lm(Moose1comb.2022.2$MeasuredQ_Ls ~ Moose1comb.2022.2$difference)
 
-MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[3] * I(MOOS.2022.dt$difference^2) + coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
+MOOS.2022.dt$pred.moos1.Q <- coef(MOOS1.lm.2022)[2] * MOOS.2022.dt$difference+ coef(MOOS1.lm.2022)[1]
 
 MOOS.2022.dt <- MOOS.2022.dt %>% dplyr::select(DateTimeAK, pred.moos1.Q) %>% filter(DateTimeAK >= "2022-05-25 00:05" & DateTimeAK <= "2022-10-08 08:15:00")
 MOOS.2022.dt <- na_kalman(MOOS.2022.dt, maxgap = 10)

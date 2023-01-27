@@ -967,10 +967,14 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019) +
 
 ```
 
-Lets remove the high YSI point and make it quadratic.
+Lets remove the highest Q and two lowest PT depth YSI points
 
 ```{r, echo=FALSE, warning=FALSE}
-QSummary.VA.2019.2 <- QSummary.2019 %>% filter(Site =="Vault") %>% filter(Method != "YSI" | Q_Ls < 100) %>% drop_na(Q_Ls)
+QSummary.VA.2019.2 <- QSummary.2019 %>% filter(Site =="Vault") %>% 
+  #filter(Method != "YSI" | Q_Ls < 100,
+  #       #Date != "2019-08-22"
+  #       ) %>% 
+  drop_na(Q_Ls)
 
 QSummary.VA.2019.2$Site <- "VAUL"
 
@@ -978,7 +982,7 @@ Vaultcomb.2019.2 <- full_join(vaul.stream.one.2019, QSummary.VA.2019.2)
 
 
 
-vaul.formula <- y ~ poly(x,2)
+vaul.formula <- y ~ x
 
 ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019.2) +
   geom_point(aes(color = Method), size = 3) +
@@ -1002,7 +1006,7 @@ summary(Vault.lm.2019.2)
 Vaultcomb.2019.2$pred.vault.Q <- coef(Vault.lm.2019.2)[1] + coef(Vault.lm.2019.2)[2] * Vaultcomb.2019.2$AbsPTDepth + coef(Vault.lm.2019.2)[3] * I(Vaultcomb.2019.2$AbsPTDepth^2)
 ggplot(aes(x = DateTime, y = pred.vault.Q), data = Vaultcomb.2019.2) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
+  geom_point(data = Vaultcomb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Vault") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
