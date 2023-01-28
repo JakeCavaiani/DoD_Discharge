@@ -609,7 +609,8 @@ Q21w.int %>% ggplot(aes(x = DateTimeAK, y = POKE.Q.int)) +
   geom_point(color = "blue") +
   geom_point(aes(x = DateTimeAK, y = POKE), color = "red")
 
-#### Remember to export interpolated 2021
+## Export
+write.csv(Q21w.int, here("Predicted_Discharge", "2021", "Predicted_Q_2021_gapfill.csv"))
 
 ## 2019 ##
 ## Poker
@@ -633,8 +634,7 @@ Q19w %>% ggplot(aes(x = DateTimeAK, y = POKE)) +
         geom_line(aes(x = DateTimeAK, y = FRCH), color = "blue") +
         geom_line(aes(x = DateTimeAK, y = MOOS), color = "green") +
         geom_line(aes(x = DateTimeAK, y = STRT), color = "darkblue") +
-        geom_line(aes(x = DateTimeAK, y = VAUL), color = "violet") +
-        ylim(0, 5000)
+        geom_line(aes(x = DateTimeAK, y = VAUL), color = "violet") 
   
 # vs FRCH
 Q19w %>% ggplot(aes(x = FRCH, y = POKE)) +
