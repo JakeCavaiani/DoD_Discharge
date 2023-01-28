@@ -401,41 +401,41 @@ Q21w %>% ggplot(aes(x = STRT, y = FRCH)) +
   geom_point()
 
 ## General linear models - VAUL ##
-mod.frch.2 <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  gls(FRCH ~ POKE + I(POKE^2), correlation = corAR1(), na.action = na.omit, data = .)
+mod.frch.2 <- Q21w %>% mutate(FRCH = ifelse(FRCH > 600 & STRT < 1500, NA, FRCH)) %>%
+  gls(FRCH ~ STRT + I(STRT^2), correlation = corAR1(), na.action = na.omit, data = .)
 
-mod.frch.lin.gls <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  nlme::gls(FRCH ~ POKE, correlation = corAR1(), na.action = na.omit, data = .)
+mod.frch.lin.gls <- Q21w %>% mutate(FRCH = ifelse(FRCH > 600 & STRT < 1500, NA, FRCH)) %>%
+  nlme::gls(FRCH ~ STRT, correlation = corAR1(), na.action = na.omit, data = .)
 
-mod.frch.lin <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  lm(FRCH ~ POKE, na.action = na.omit, data = .)
+mod.frch.lin <- Q21w %>% mutate(FRCH = ifelse(FRCH > 600 & STRT < 1500, NA, FRCH)) %>%
+  lm(FRCH ~ STRT, na.action = na.omit, data = .)
 
-mod.frch.q <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  lm(FRCH ~ POKE + I(POKE^2), na.action = na.omit, data = .)
+mod.frch.q <- Q21w %>% mutate(FRCH = ifelse(FRCH > 600 & STRT < 1500, NA, FRCH)) %>%
+  lm(FRCH ~ STRT + I(STRT^2), na.action = na.omit, data = .)
 
 # Visualize fits
-newdat <- data.frame(POKE = runif(100, 150, 1500))
+newdat <- data.frame(STRT = runif(100, 150, 1750))
 
 newdat$predgls = predict(mod.frch.2, newdata = newdat)
 newdat$predgls.lin = predict(mod.frch.lin.gls, newdata = newdat)
 newdat$pred.lin = predict(mod.frch.lin, newdata = newdat)
 newdat$pred.q = predict(mod.frch.q, newdata = newdat)
 
-ggplot(Q21w, aes(x = POKE, y = FRCH) ) +
+ggplot(Q21w, aes(x = STRT, y = FRCH) ) +
   geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
-  geom_point(aes(x = POKE, y = FRCH)) +
+  geom_point(aes(x = STRT, y = FRCH)) +
   geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
   geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")+
   geom_line(data = newdat, aes(y = pred.q), size = 1, color = "violet") 
-# try quad
+# try lin
 
 # Insert predicted VAUL Q for missing
 newdat <- Q21w %>% filter(DateTimeAK <= "2021-06-30 10:45:00") %>%
-  select(c(DateTimeAK, POKE))
+  select(c(DateTimeAK, STRT))
 
-newdat$FRCH.Q.int <- predict(mod.frch.q, newdata = newdat)
+newdat$FRCH.Q.int <- predict(mod.frch.lin, newdata = newdat)
 
-Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "POKE"))
+Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "STRT"))
 
 Q21w.int <- Q21w.int %>% mutate(FRCH.Q.int = ifelse(DateTimeAK <= "2021-06-30 10:45:00", FRCH.Q.int, FRCH))
 
@@ -443,55 +443,171 @@ Q21w.int %>% ggplot(aes(x = DateTimeAK, y = FRCH.Q.int)) +
   geom_point(color = "blue") +
   geom_point(aes(x = DateTimeAK, y = FRCH), color = "red")
 
-## FRCH ##
-Q21w %>% ggplot(aes(x = POKE, y = FRCH)) +
+## MOOS ##
+Q21w %>% ggplot(aes(x = POKE, y = MOOS)) +
   geom_point()
 
-Q21w %>% ggplot(aes(x = STRT, y = FRCH)) +
+Q21w %>% ggplot(aes(x = STRT, y = MOOS)) +
   geom_point()
+# try STRT
 
-## General linear models - VAUL ##
-mod.frch.2 <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  gls(FRCH ~ POKE + I(POKE^2), correlation = corAR1(), na.action = na.omit, data = .)
+## General linear models - MOOS ##
+mod.moos.2 <- Q21w %>% 
+  gls(MOOS ~ STRT + I(STRT^2), correlation = corAR1(), na.action = na.omit, data = .)
 
-mod.frch.lin.gls <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  nlme::gls(FRCH ~ POKE, correlation = corAR1(), na.action = na.omit, data = .)
+mod.moos.lin.gls <- Q21w %>% 
+  nlme::gls(MOOS ~ STRT, correlation = corAR1(), na.action = na.omit, data = .)
 
-mod.frch.lin <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  lm(FRCH ~ POKE, na.action = na.omit, data = .)
+mod.moos.lin <- Q21w %>% 
+  lm(MOOS ~ STRT, na.action = na.omit, data = .)
 
-mod.frch.q <- Q21w %>% mutate(FRCH = ifelse(FRCH > 400 & POKE < 750, NA, FRCH)) %>%
-  lm(FRCH ~ POKE + I(POKE^2), na.action = na.omit, data = .)
+mod.moos.q <- Q21w %>% 
+  lm(MOOS ~ STRT + I(STRT^2), na.action = na.omit, data = .)
 
 # Visualize fits
-newdat <- data.frame(POKE = runif(100, 150, 1500))
+newdat <- data.frame(STRT = runif(100, 250, 1750))
 
-newdat$predgls = predict(mod.frch.2, newdata = newdat)
-newdat$predgls.lin = predict(mod.frch.lin.gls, newdata = newdat)
-newdat$pred.lin = predict(mod.frch.lin, newdata = newdat)
-newdat$pred.q = predict(mod.frch.q, newdata = newdat)
+newdat$predgls = predict(mod.moos.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.moos.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.moos.lin, newdata = newdat)
+newdat$pred.q = predict(mod.moos.q, newdata = newdat)
 
-ggplot(Q21w, aes(x = POKE, y = FRCH) ) +
+ggplot(Q21w, aes(x = STRT, y = MOOS) ) +
   geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
-  geom_point(aes(x = POKE, y = FRCH)) +
+  geom_point(aes(x = STRT, y = MOOS)) +
   geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
   geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")+
   geom_line(data = newdat, aes(y = pred.q), size = 1, color = "violet") 
-# try quad
+# use lin
 
-# Insert predicted VAUL Q for missing
-newdat <- Q21w %>% filter(DateTimeAK <= "2021-06-30 10:45:00") %>%
-  select(c(DateTimeAK, POKE))
+# Insert predicted MOOS Q for missing
+newdat <- Q21w %>% filter(DateTimeAK <= "2021-06-30 11:45") %>%
+  select(c(DateTimeAK, STRT))
 
-newdat$FRCH.Q.int <- predict(mod.frch.q, newdata = newdat)
+newdat$MOOS.Q.int <- predict(mod.moos.q, newdata = newdat)
 
-Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "POKE"))
+Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "STRT"))
 
-Q21w.int <- Q21w.int %>% mutate(FRCH.Q.int = ifelse(DateTimeAK <= "2021-06-30 10:45:00", FRCH.Q.int, FRCH))
+Q21w.int <- Q21w.int %>% mutate(MOOS.Q.int = ifelse(DateTimeAK <= "2021-06-30 11:45", MOOS.Q.int, MOOS))
 
-Q21w.int %>% ggplot(aes(x = DateTimeAK, y = FRCH.Q.int)) +
+Q21w.int %>% ggplot(aes(x = DateTimeAK, y = MOOS.Q.int)) +
   geom_point(color = "blue") +
-  geom_point(aes(x = DateTimeAK, y = FRCH), color = "red")
+  geom_point(aes(x = DateTimeAK, y = MOOS), color = "red")
+
+## STRT ##
+Q21w %>% ggplot(aes(x = MOOS, y = STRT)) +
+  geom_point()
+# use MOOS
+
+Q21w %>% ggplot(aes(x = FRCH, y = STRT)) +
+  geom_point()
+
+## General linear models - STRT ##
+mod.strt.2 <- Q21w %>% 
+  gls(STRT ~ MOOS + I(MOOS^2), correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.strt.lin.gls <- Q21w %>% 
+  nlme::gls(STRT ~ MOOS, correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.strt.lin <- Q21w %>% 
+  lm(STRT ~ MOOS, na.action = na.omit, data = .)
+
+mod.strt.q <- Q21w %>% 
+  lm(STRT ~ MOOS + I(MOOS^2), na.action = na.omit, data = .)
+
+# Visualize fits
+newdat <- data.frame(MOOS = runif(100, 250, 1500))
+
+newdat$predgls = predict(mod.strt.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.strt.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.strt.lin, newdata = newdat)
+newdat$pred.q = predict(mod.strt.q, newdata = newdat)
+
+ggplot(Q21w, aes(x = MOOS, y = STRT) ) +
+  geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
+  geom_point(aes(x = MOOS, y = STRT)) +
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")+
+  geom_line(data = newdat, aes(y = pred.q), size = 1, color = "violet") 
+# try q
+
+# Insert predicted STRT Q for missing
+newdat <- Q21w %>% filter(DateTimeAK >= "2021-06-28 11:15:00" & DateTimeAK <= "2021-07-16 12:30" |
+                          DateTimeAK >= "2021-07-20 19:15" & DateTimeAK <= "2021-07-28 11:30" |
+                          DateTimeAK >= "2021-08-02 19:15" & DateTimeAK <= "2021-08-03 11:45") %>%
+                   select(c(DateTimeAK, MOOS))
+
+newdat$STRT.Q.int <- predict(mod.strt.q, newdata = newdat)
+
+Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "MOOS"))
+
+Q21w.int <- Q21w.int %>% mutate(STRT.Q.int = ifelse(DateTimeAK >= "2021-06-28 11:15:00" & DateTimeAK <= "2021-07-16 12:30" |
+                                                    DateTimeAK >= "2021-07-20 19:15" & DateTimeAK <= "2021-07-28 11:30" |
+                                                    DateTimeAK >= "2021-08-02 19:15" & DateTimeAK <= "2021-08-03 11:45", STRT.Q.int, STRT))
+
+Q21w.int %>% ggplot(aes(x = DateTimeAK, y = STRT.Q.int)) +
+  geom_point(color = "blue") +
+  geom_point(aes(x = DateTimeAK, y = STRT), color = "red")
+
+## POKE ##
+Q21w %>% ggplot(aes(x = MOOS, y = POKE)) +
+  geom_point()
+# try MOOS
+
+Q21w %>% ggplot(aes(x = FRCH, y = POKE)) +
+  geom_point()
+
+Q21w %>% ggplot(aes(x = STRT, y = POKE)) +
+  geom_point()
+
+## General linear models - POKE ##
+mod.poke.2 <- Q21w %>% mutate(POKE = ifelse(POKE < 400 & MOOS > 500, NA, POKE)) %>%
+  gls(POKE ~ MOOS + I(MOOS^2), correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.poke.lin.gls <- Q21w %>% mutate(POKE = ifelse(POKE < 400 & MOOS > 500, NA, POKE)) %>%
+  nlme::gls(POKE ~ MOOS, correlation = corAR1(), na.action = na.omit, data = .)
+
+mod.poke.lin <- Q21w %>% mutate(POKE = ifelse(POKE < 400 & MOOS > 500, NA, POKE)) %>%
+  lm(POKE ~ MOOS, na.action = na.omit, data = .)
+
+mod.poke.q <- Q21w %>% mutate(POKE = ifelse(POKE < 400 & MOOS > 500, NA, POKE)) %>%
+  lm(POKE ~ MOOS + I(MOOS^2), na.action = na.omit, data = .)
+
+# Visualize fits
+newdat <- data.frame(MOOS = runif(100, 250, 1500))
+
+newdat$predgls = predict(mod.poke.2, newdata = newdat)
+newdat$predgls.lin = predict(mod.poke.lin.gls, newdata = newdat)
+newdat$pred.lin = predict(mod.poke.lin, newdata = newdat)
+newdat$pred.q = predict(mod.poke.q, newdata = newdat)
+
+ggplot(Q21w, aes(x = MOOS, y = POKE) ) +
+  geom_line(data = newdat, aes(y = predgls), size = 1, color = "blue") +
+  geom_point(aes(x = MOOS, y = POKE)) +
+  geom_line(data = newdat, aes(y = predgls.lin), size = 1, color = "green") +
+  geom_line(data = newdat, aes(y = pred.lin), size = 1, color = "red")+
+  geom_line(data = newdat, aes(y = pred.q), size = 1, color = "violet") 
+# try lin
+
+# Insert predicted POKE Q for missing
+newdat <- Q21w %>% filter(DateTimeAK >= "2021-06-23 13:30" & DateTimeAK <= "2021-06-29 14:45" |
+                          DateTimeAK >= "2021-07-02- 08:15" & DateTimeAK <= "2021-07-06 13:15" |
+                          DateTimeAK >= "2021-07-10 08:15" & DateTimeAK <= "2021-07-13 09:30" |
+                          DateTimeAK >= "2021-09-02 01:30" & DateTimeAK <= "2021-09-08 14:15") %>%
+                   select(c(DateTimeAK, MOOS))
+
+newdat$POKE.Q.int <- predict(mod.poke.q, newdata = newdat)
+
+Q21w.int <- left_join(Q21w.int, newdat, by = c("DateTimeAK", "MOOS"))
+
+Q21w.int <- Q21w.int %>% mutate(POKE.Q.int = ifelse(DateTimeAK >= "2021-06-23 13:30" & DateTimeAK <= "2021-06-29 14:45" |
+                                                      DateTimeAK >= "2021-07-02- 08:15" & DateTimeAK <= "2021-07-06 13:15" |
+                                                      DateTimeAK >= "2021-07-10 08:15" & DateTimeAK <= "2021-07-13 09:30" |
+                                                      DateTimeAK >= "2021-09-02 01:30" & DateTimeAK <= "2021-09-08 14:15", POKE.Q.int, POKE))
+
+Q21w.int %>% ggplot(aes(x = DateTimeAK, y = POKE.Q.int)) +
+  geom_point(color = "blue") +
+  geom_point(aes(x = DateTimeAK, y = POKE), color = "red")
 
 #### Remember to export interpolated 2021
 
