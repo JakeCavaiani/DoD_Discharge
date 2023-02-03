@@ -378,14 +378,10 @@ moos.stream.two.2020.final <- full_join(moos.stream.two.before, moos.stream.two.
 moos.stream.two.2020.final <- na_kalman(moos.stream.two.2020.final)
 
 
-#plot(FRCH_RainGauge_2020$inst_rainfall_mm ~ FRCH_RainGauge_2020$DateTime, type="h",
-#     xlim = as.POSIXct(c("2020-06-15 09:30:00","2020-10-15 12:15:00"), #tz="America/Anchorage"),
-#     ylim = c(20,0), 
-#     axes=F, xlab="", ylab="")
-#par(new = T)
-plot(moos.stream.two.2020.final$DateTime, moos.stream.two.2020.final$WaterLevel, type = 'l')
+# Shift on August 24th
 
 
+moos.stream.two.2020.final %>% filter(DateTime > "2020-08-20" & DateTime < "2020-09-01") %>% ggplot(aes(DateTime, WaterLevel)) + geom_point() + geom_point(data = frch.stream.one.2020, aes(DateTime, WaterLevel - 18))
 
 
 ```
@@ -426,7 +422,7 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020) +
 
 ```{r, echo=FALSE, warning=FALSE}
 
-Moose1comb.2020.2 <- Moose1comb.2020[-c(13), ]
+Moose1comb.2020.2 <- Moose1comb.2020[-c(1,11,13,5,16), ] %>% filter(MeasuredQ_Ls > 500)
 
 
 moos.formula <- y ~ x
@@ -447,9 +443,9 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose1comb.2020.2) +
 ## Predict PT1 Q
 
 ```{r, echo=FALSE, warning=FALSE}
-MOOS1.lm.2020 <- lm(Moose1comb.2020.2$MeasuredQ_Ls ~ Moose1comb.2020.2$WaterLevel)
+MOOS1.lm.2020 <- lm(Moose1comb.2020.2$MeasuredQ_Ls ~ Moose1comb.2020.2$WaterLevel)# + I(Moose1comb.2020.2$WaterLevel^2))
 
-moos.stream.one.2020.final$pred.moos1.Q <- coef(MOOS1.lm.2020)[2] * moos.stream.one.2020.final$WaterLevel+ coef(MOOS1.lm.2020)[1] 
+moos.stream.one.2020.final$pred.moos1.Q <- coef(MOOS1.lm.2020)[2] * moos.stream.one.2020.final$WaterLevel+ coef(MOOS1.lm.2020)[1] #+ coef(MOOS1.lm.2020)[3] * I(moos.stream.one.2020.final$WaterLevel^2)
 
 ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.stream.one.2020.final) +
   geom_line(color="#A6CEE3", size=1.25) +
@@ -458,7 +454,7 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.stream.one.2020.final) +
   ggtitle("Moose1 predicted measured Q") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("Date") +
-  ylab("Predicted Discharge") 
+  ylab("Predicted Discharge") + ylim(-10,50)
 
 ```
 
@@ -490,7 +486,7 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020) +
 Moose2comb.2020.2 <- Moose2comb.2020[-c(13), ]
 
 
-moos.formula <- y ~ x
+moos.formula <- y ~ poly(x,2)
 ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020.2) +
   geom_point(aes(color = Method), size = 3) +
   geom_smooth(method = "lm", se=FALSE) +
@@ -499,16 +495,16 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Moose2comb.2020.2) +
                parse = TRUE) +
    xlim(165.75,166.75) +
   theme_classic() +
-  ggtitle("Moose2 measured Q") 
+  ggtitle("Moose2 measured Q")
 
 ```
 
 ## Final Q for MOOS PT2
 ```{r, echo=FALSE, warning=FALSE}
-MOOS2.lm.2020 <- lm(Moose2comb.2020.2$MeasuredQ_Ls ~ Moose2comb.2020.2$WaterLevel)
+MOOS2.lm.2020 <- lm(Moose2comb.2020.2$MeasuredQ_Ls ~ Moose2comb.2020.2$WaterLevel + I(Moose2comb.2020.2$WaterLevel^2))
 
 
-moos.stream.two.2020.final$pred.moos2.Q <- coef(MOOS2.lm.2020)[2] * moos.stream.two.2020.final$WaterLevel+ coef(MOOS2.lm.2020)[1]
+moos.stream.two.2020.final$pred.moos2.Q <- coef(MOOS2.lm.2020)[2] * moos.stream.two.2020.final$WaterLevel+ coef(MOOS2.lm.2020)[1] + coef(MOOS2.lm.2020)[3] * I(moos.stream.two.2020.final$WaterLevel^2)
 
 ggplot(aes(x = DateTime, y = pred.moos2.Q), data = moos.stream.two.2020.final) +
   geom_line(color="#A6CEE3", size=1.25) +
@@ -517,7 +513,7 @@ ggplot(aes(x = DateTime, y = pred.moos2.Q), data = moos.stream.two.2020.final) +
   ggtitle("Moose2 predicted all measured Q") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("Date") +
-  ylab("Predicted Discharge") 
+  ylab("Predicted Discharge") #+ ylim(-10,500)
 
 ```
 
@@ -550,7 +546,7 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
   geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(data = Moose2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
-  ylim(0, 5000) +
+  #ylim(0, 5000) +
   ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time") #+ scale_x_datetime(limits = ymd_h(c("2020-06-26 12", "2020-06-27 01", tz = "America/Anchorage")))
@@ -560,7 +556,7 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
 
 Something isn't right for PT 2 at the end of June, so lets only use PT1.
 ```{r, echo=FALSE, warning=FALSE}
-moos.final.discharge.2020 <- moos.final.discharge.2020 %>% mutate(across(c(MeanDischarge), ~ifelse(DateTime < "2020-07-01 16:00"  & DateTime > "2020-06-26 11:00", pred.moos1.Q,.)))
+moos.final.discharge.2020 <- moos.final.discharge.2020 %>% mutate(across(c(MeanDischarge), ~ifelse(DateTime < "2020-07-01 16:00"  & DateTime > "2020-06-26 00:00", pred.moos1.Q,.)))
 ### Moose1 (light blue), Moose2 (dark blue), and mean (red) with observed Q.
 
 ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
@@ -569,7 +565,7 @@ ggplot(aes(x = DateTime, y = pred.moos1.Q), data = moos.final.discharge.2020) +
   geom_line(aes(x = DateTime, y = MeanDischarge), data = moos.final.discharge.2020, color = "red", size = 1.25, alpha = 0.25) +
   geom_point(data = Moose2comb.2020, aes(x = DateTime, y = MeasuredQ_Ls), size=2) +
   theme_classic() +
-  ylim(0, 5000) +
+  ylim(0, 8000) +
   ggtitle("Moose1(light) & Moose2(dark) predicted all measured Q") +
   ylab("Predicted discharge L/s") +
   xlab("Time")
@@ -597,7 +593,7 @@ write.csv(moos.final.discharge.2020_final, here("Predicted_Discharge/2020/MOOS/M
 #par(new = T)
 frch.stream.one.2020.b <- frch.stream.one.2020
 plot(frch.stream.one.2020$DateTime, frch.stream.one.2020$WaterLevel, type = 'l')
-frch.stream.one.2020 %>% #filter(DateTime >"2020-06-20" & DateTime < "2020-07-15") %>%
+frch.stream.one.2020 %>% filter(DateTime >"2020-08-20" & DateTime < "2020-08-28") %>%
   ggplot(aes(DateTime, WaterLevel)) + geom_point()
 ```
 
@@ -1149,6 +1145,13 @@ vaul.stream.2020 <- vaul.stream.2020 %>% subset(vaul.stream.2020$DateTime < "202
 #par(new = T)
 plot(vaul.stream.2020$DateTime, vaul.stream.2020$WaterLevel)
 
+
+# Site was visited on 220615: shift up slightly before that so that predicted Q isn't negative
+#vaul.stream.2020 <- vaul.stream.2020 %>% mutate(across(WaterLevel, ~ifelse(DateTime < "2020-06-15 16:00", WaterLevel + 0.07, .)))
+
+vaul.stream.2020 %>% filter(DateTime < "2020-06-20") %>% ggplot(aes(DateTime, WaterLevel)) + geom_point()
+
+
 ```
 
 1) removed data after 10/5/20 due to out of water points 
@@ -1161,15 +1164,16 @@ write.csv(vaul.stream.2020, here("PT_data/2020/VAUL/vaul.pt.2020.csv"), row.name
 ## Raw rating curve for VAUL PT1
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter Vault ### 
-QSummary.VA.2020 <- QSummary.2020 %>% filter(Site =="VAUL") %>% filter(MeasuredQ_Ls < 2000)
+QSummary.VA.2020 <- QSummary.2020 %>% filter(Site =="VAUL") %>% filter(MeasuredQ_Ls < 2000) %>%
+  filter(Method != "Wading rod" | MeasuredQ_Ls > 250)
 
 ### Rating curve for VAUL PT2 ###
 vaul.stream.2020$Site <- "VAUL"
 
 Vaul2comb.2020 <- full_join(vaul.stream.2020, QSummary.VA.2020)
-VAUL2.lm.2020 <- lm(Vaul2comb.2020$MeasuredQ_Ls ~ Vaul2comb.2020$WaterLevel + I(Vaul2comb.2020$WaterLevel^2))
+VAUL2.lm.2020 <- lm(Vaul2comb.2020$MeasuredQ_Ls ~ Vaul2comb.2020$WaterLevel)# + I(Vaul2comb.2020$WaterLevel^2))
 
-vaul.formula <- y ~ poly(x, 2)
+vaul.formula <- y ~ x
 
 ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Vaul2comb.2020) +
   geom_point(aes(color = Method), size = 3) +
@@ -1186,17 +1190,17 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Vaul2comb.2020) +
 
 ## Predicted Q for VAUL
 ```{r, echo=FALSE, warning=FALSE}
-Vaul2comb.2020$pred.vaul2.Q <- coef(VAUL2.lm.2020)[2] * Vaul2comb.2020$WaterLevel+ coef(VAUL2.lm.2020)[1] + coef(VAUL2.lm.2020)[3] * I(Vaul2comb.2020$WaterLevel^2)
+Vaul2comb.2020$pred.vaul2.Q <- coef(VAUL2.lm.2020)[2] * Vaul2comb.2020$WaterLevel+ coef(VAUL2.lm.2020)[1] #+ coef(VAUL2.lm.2020)[3] * I(Vaul2comb.2020$WaterLevel^2)
 
 ggplot(aes(x = DateTime, y = pred.vaul2.Q), data = Vaul2comb.2020) +
   geom_line(color="#A6CEE3", size=1.25) +
   geom_point(aes(x = DateTime, y = MeasuredQ_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Vault") +
-  scale_shape_discrete(name = "Mehtod", labels = c("Wading Rod", "Salt Dilution", "")) +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
   ylab("Discharge (L/s)") +
-  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10")))
+  scale_x_datetime(limits = as_datetime(c("2020-05-15", "2020-10-10"))) + ylim (-20,100)
 
 
 ```
@@ -1331,7 +1335,32 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
 ```
 
 
-Does not look pretty
+```{r, echo=FALSE, warning=FALSE}
+### Filter Stuart ###
+QSummary.ST.2020.1 <- QSummary.2020 %>% filter(Site =="STRT", Method != "YSI" | MeasuredQ_Ls > 2000)
+
+### Rating curve for STRT PT1 ### 
+
+strt.stream.one.2020$Site <- "STRT"
+
+Strt1comb.2020 <- full_join(strt.stream.one.2020, QSummary.ST.2020.1)
+STRT1.lm.2020 <- lm(Strt1comb.2020$MeasuredQ_Ls ~ Strt1comb.2020$WaterLevel)
+
+strt.formula <- y ~ x
+
+ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE, formula = strt.formula) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+   xlim(248.4, 248.7) +
+  theme_classic() +
+  ggtitle("Strt1 all measured Q")
+
+```
+
+Does not look pretty. 
 
 ## Rating curve for STRT PT1 2.0 
 ```{r, echo=FALSE, warning=FALSE}
@@ -1353,7 +1382,7 @@ ggplot(aes(x = WaterLevel, y = MeasuredQ_Ls), data = Strt1comb.2020) +
                parse = TRUE) +
   xlim(248.4, 248.7) +
   theme_classic() +
-  ggtitle("Strt1 measured Q")  # I think this worked
+  ggtitle("Strt1 measured Q") 
 
 
 ``` 
@@ -1389,7 +1418,7 @@ Negative slope is definitely bad
 Rating curve for STRT PT2 2.0 
 ```{r, echo=FALSE, warning=FALSE}
 ### Filter Stuart ###
-QSummary.ST.2020.2 <- QSummary.ST.2020[-c(8,14,7,6,16), ]
+QSummary.ST.2020.2 <- QSummary.ST.2020[-c(8,14,7), ]# %>% filter(Method != "YSI" | MeasuredQ_Ls > 1500)   #[-c(8,14,7,6,16), ]
 
 Strt2comb.2020 <- full_join(strt.stream.two.2020, QSummary.ST.2020.2)
 STRT2.lm.2020 <- lm(Strt2comb.2020$MeasuredQ_Ls ~ Strt2comb.2020$WaterLevel)
@@ -1443,7 +1472,7 @@ ggplot(aes(x = DateTime, y = pred.strt2.Q), data = Strt2comb.2020) +
 
 ``` 
 
-Not as good as PT1.
+Not as good as PT1, way too high. Lets only use PT1.
 
 ## Predicted Q for STRT
 ```{r, echo=FALSE, warning=FALSE}
@@ -1470,15 +1499,19 @@ strt.final.discharge.2020 %>% ggplot()+
 
 ``` 
 
+Lets only use PT1.
+
 ## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
 ```{r, echo=FALSE, warning=FALSE}
-strt.final.discharge.2020_final <- strt.final.discharge.2020[,-c(3:4)]
-names(strt.final.discharge.2020_final) <- c("Site", "DateTime", "Q")
+strt.final.discharge.2020_final <- Strt1comb.2020 %>% dplyr::select(DateTime, pred.strt1.Q)
+names(strt.final.discharge.2020_final) <- c("DateTime", "Q")
+strt.final.discharge.2020_final$Site <- "STRT"
 write.csv(strt.final.discharge.2020_final, here("Predicted_Discharge/2020/STRT/STRT.Q.csv"), row.names = FALSE)
 ```
 
 ## Export PT data to csv in DoD_Discharge->Predicted_Discharge->2020
 ```{r, echo=FALSE, warning=FALSE}
+
 Q_2020 <- rbind(moos.final.discharge.2020_final,frch.final.discharge.2020_final,
                 Poke1comb.2020_final,Vaul2comb.2020_final,
                 strt.final.discharge.2020_final)
@@ -1494,7 +1527,7 @@ Q_2020 <- full_join(Q_2020, DateTimeFill_all)
 Q_2020 <- Q_2020[order(Q_2020$DateTime),]
 
 # Fill in gaps up to 15 x 10 minutes
-Q_2020 <- Q_2020 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 10),
+Q_2020 <- Q_2020 %>% group_by(Site) %>% dplyr::summarise(  Q = na_kalman(Q, maxgap = 10),
                                                   DateTime = DateTime) %>% filter(DateTime < "2020-10-15")
 
 write.csv(Q_2020, here("Predicted_Discharge/2020/Q_2020.csv"), row.names = FALSE)
