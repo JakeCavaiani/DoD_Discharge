@@ -1251,10 +1251,10 @@ ggplot(aes(x = DateTime, y = pred.strt1.Q), data = strt.final.discharge.2021) +
 ```
 
 ICKY
-Lets only use PT1 before July.
+Lets only use PT2 before July.
 
 ```{r}
-strt.final.discharge.2021 <- strt.final.discharge.2021 %>% mutate(across(c(MeanDischarge), ~ifelse(DateTime < "2021-07-05", pred.strt1.Q,.)))
+strt.final.discharge.2021 <- strt.final.discharge.2021 %>% mutate(across(c(MeanDischarge), ~ifelse(DateTime < "2021-07-05", pred.strt2.Q,.)))
 
 # Stuart1 (light blue) and Stuart2 (dark blue) with observed Q.
 ggplot(aes(x = DateTime, y = pred.strt1.Q), data = strt.final.discharge.2021) +

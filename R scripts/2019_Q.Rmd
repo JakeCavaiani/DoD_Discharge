@@ -967,10 +967,15 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019) +
 
 ```
 
-Lets remove the high YSI point and make it quadratic.
+Lets remove the highest Q and two lowest PT depth YSI points
 
 ```{r, echo=FALSE, warning=FALSE}
-QSummary.VA.2019.2 <- QSummary.2019 %>% filter(Site =="Vault") %>% filter(Method != "YSI" | Q_Ls < 100) %>% drop_na(Q_Ls)
+QSummary.VA.2019.2 <- QSummary.2019 %>% filter(Site =="Vault") %>% 
+  filter(Q_Ls > 16,
+         Q_Ls != "22.27",
+         Method != "Flowmeter" | Q_Ls > 100
+         ) %>% 
+  drop_na(Q_Ls)
 
 QSummary.VA.2019.2$Site <- "VAUL"
 
@@ -978,7 +983,7 @@ Vaultcomb.2019.2 <- full_join(vaul.stream.one.2019, QSummary.VA.2019.2)
 
 
 
-vaul.formula <- y ~ poly(x,2)
+vaul.formula <- y ~ x
 
 ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019.2) +
   geom_point(aes(color = Method), size = 3) +
@@ -988,7 +993,7 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019.2) +
                parse = TRUE) +
   xlim(0.4, 0.65) +
   theme_classic() +
-  ggtitle("Vault measured Q")
+  ggtitle("Vault measured Q") #+ ylim(0,300) + xlim(0,0.66)
 
 ```
  
@@ -996,19 +1001,19 @@ ggplot(aes(x = AbsPTDepth, y = Q_Ls), data = Vaultcomb.2019.2) +
 #### Black points are observed Q
 
 ```{r, echo=FALSE, warning=FALSE}
-Vault.lm.2019.2 <- lm(Vaultcomb.2019.2$Q_Ls ~ Vaultcomb.2019.2$AbsPTDepth + I(Vaultcomb.2019.2$AbsPTDepth^2))
+Vault.lm.2019.2 <- lm(Vaultcomb.2019.2$Q_Ls ~ Vaultcomb.2019.2$AbsPTDepth)
 summary(Vault.lm.2019.2)
 
-Vaultcomb.2019.2$pred.vault.Q <- coef(Vault.lm.2019.2)[1] + coef(Vault.lm.2019.2)[2] * Vaultcomb.2019.2$AbsPTDepth + coef(Vault.lm.2019.2)[3] * I(Vaultcomb.2019.2$AbsPTDepth^2)
+Vaultcomb.2019.2$pred.vault.Q <- coef(Vault.lm.2019.2)[1] + coef(Vault.lm.2019.2)[2]* Vaultcomb.2019.2$AbsPTDepth 
 ggplot(aes(x = DateTime, y = pred.vault.Q), data = Vaultcomb.2019.2) +
   geom_line(color="#A6CEE3", size=1.25) +
-  geom_point(aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
+  geom_point(data = Vaultcomb.2019, aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
   theme_classic() +
   ggtitle("Vault") +
   scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
   xlab("") +
   ylab("Discharge (L/s)") +
-  scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-10-10")))
+  scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-10-10")))# + ylim(0,100)
 
 ```
 
