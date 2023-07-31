@@ -418,6 +418,8 @@ MOOS.2022 <- full_join(MOOS.2022, DateTimeFill)
 MOOS.2022 <- MOOS.2022[order(MOOS.2022$DateTimeAK),]
 MOOS.2022 <- na_kalman(MOOS.2022, maxgap = 10)
 
+MOOS.2022.atmo.filled <- MOOS.2022
+
 MOOS.2022 %>% filter(DateTimeAK >= "2022-05-25" & DateTimeAK <= "2022-10-08") %>% 
   filter(DateTimeAK > "2022-09-01" & DateTimeAK < "2022-09-22") %>%
   ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedMOOS)) + #geom_vline (xintercept = as.POSIXct("2022-09-20 20:00:00")) 
@@ -720,6 +722,7 @@ POKE.2022$WaterPressure.merged <- na_kalman(POKE.2022$WaterPressure.merged, maxg
 
 POKE.2022$difference <- POKE.2022$WaterPressure.merged - POKE.2022$AirPressureCorrectedPOKE
 
+POKE.2022.atmo.filled <- POKE.2022
 
 # Plot air and water pressure
   
@@ -1017,6 +1020,9 @@ STRT.2022 <- na_kalman(STRT.2022, maxgap = 10)
 # Water pressure - atmospheric pressure 
 STRT.2022$difference <- STRT.2022$WaterPressure - STRT.2022$AirPressureCorrectedSTRT
 
+STRT.2022.atmo.filled <- STRT.2022
+
+
 # Plot air and water pressure
   
 STRT.2022 %>% filter(DateTimeAK >"2022-09-01 10:00:00" & DateTimeAK < "2022-09-26 20:00:00") %>%
@@ -1285,6 +1291,8 @@ ggtitle("FRCH air and water pressure")
 # Water pressure - atmospheric pressure 
 FRCH.2022$difference <- FRCH.2022$WaterPressure.merged - FRCH.2022$AirPressureCorrectedFRCH
 
+FRCH.2022.atmo.filled <- FRCH.2022
+
 FRCH.2022 <- FRCH.2022 %>% group_by(DateTimeAK) %>% summarise(difference = mean(difference))
 any(duplicated(FRCH.2022$DateTimeAK))
 
@@ -1525,6 +1533,8 @@ VAUL.2022 <- na_kalman(VAUL.2022, maxgap = 10)
 # Water pressure - atmospheric pressure 
 VAUL.2022$difference <- VAUL.2022$WaterPressure - VAUL.2022$AirPressureCorrectedVAUL
 
+VAUL.2022.atmo.filled <- VAUL.2022
+
 # Plot air and water pressure
 VAUL.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   ggplot(aes(DateTimeAK, WaterPressure)) + geom_point() + geom_point(aes(DateTimeAK, AirPressureCorrectedVAUL), color = "red", size = 0.5) +
@@ -1748,4 +1758,19 @@ Q_2022_check_NA <- Q_2022 %>% mutate(Yes_NA = ifelse(Q %in% NA, "Y", "N"))
 Q_2022_check_NA %>% #filter(Site == "VAUL") %>% 
   #filter( DateTimeAK > "2022-09-20" & DateTimeAK < "2022-10-01") %>% 
   ggplot(aes(DateTimeAK, Yes_NA)) + geom_point(size = 0.5) + facet_wrap(~Site)
+
+
+#Download Cleaned Air Pressure Data
+
+FRCH.2022.atmo.filled <- FRCH.2022.atmo.filled %>% select(DateTimeAK, AirPressureCorrectedFRCH) %>% rename(AirPressureCorrected = AirPressureCorrectedFRCH) %>% mutate(site = "FRCH")
+VAUL.2022.atmo.filled <- VAUL.2022.atmo.filled %>% select(DateTimeAK, AirPressureCorrectedVAUL) %>% rename(AirPressureCorrected = AirPressureCorrectedVAUL) %>% mutate(site = "VAUL")
+MOOS.2022.atmo.filled <- MOOS.2022.atmo.filled %>% select(DateTimeAK, AirPressureCorrectedMOOS) %>% rename(AirPressureCorrected = AirPressureCorrectedMOOS) %>% mutate(site = "MOOS")
+POKE.2022.atmo.filled <- POKE.2022.atmo.filled %>% select(DateTimeAK, AirPressureCorrectedPOKE) %>% rename(AirPressureCorrected = AirPressureCorrectedPOKE) %>% mutate(site = "POKE")
+STRT.2022.atmo.filled <- STRT.2022.atmo.filled %>% select(DateTimeAK, AirPressureCorrectedSTRT) %>% rename(AirPressureCorrected = AirPressureCorrectedSTRT) %>% mutate(site = "STRT")
+
+atmo.2022.filled <- rbind(FRCH.2022.atmo.filled,VAUL.2022.atmo.filled,MOOS.2022.atmo.filled,POKE.2022.atmo.filled,STRT.2022.atmo.filled)
+
+write.csv(atmo.2022.filled, here("Output for analysis","atmo.2022.filled.csv"))
+
+
 ```
