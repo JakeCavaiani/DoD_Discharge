@@ -146,10 +146,10 @@ QSummary.2021$DateTime <- lubridate::round_date(QSummary.2021$DateTime, "15 minu
 
 NEON air pressure data
 ```{r, echo = FALSE, eval = FALSE}
-#NEON_air <-loadByProduct(dpID = "DP1.00004.001", 
-#                           site=c("BONA"),
-#                           startdate="2021-05", 
-#                           enddate="2021-11")
+NEON_air <-loadByProduct(dpID = "DP1.00004.001",
+                          site=c("BONA"),
+                          startdate="2021-05",
+                          enddate="2021-11", check.size = F)
 
 
 NEON_bp <- NEON_air$BP_1min %>% filter(staPresFinalQF != 1)
@@ -862,6 +862,10 @@ Looks better then PT1...snowmelt signature looks good
 
 poke.final.discharge.2021 <- full_join(Poke1comb.2021, Poke2comb.2021, by = "DateTime")
 poke.final.discharge.2021$MeanDischarge <- rowMeans(poke.final.discharge.2021[,c ("pred.poke1.Q", 'pred.poke2.Q')], na.rm = TRUE) # taking the average of the two PTs
+
+write.csv(poke.final.discharge.2021, here("PT_data/2021/POKE/poke.pt.2021.final.csv"), row.names = FALSE)
+
+
 poke.final.discharge.2021 <- poke.final.discharge.2021 %>% dplyr::select(Site.x, DateTime, pred.poke2.Q, pred.poke1.Q, MeanDischarge)
 
 # Poker1 (light blue) and Poker2 (dark blue) with observed Q.

@@ -460,6 +460,10 @@ MOOS.2022$difference <- na_kalman(MOOS.2022$difference, maxgap = 10)
 MOOS.2022 %>% filter(DateTimeAK > "2022-05-20") %>% 
   ggplot(aes(DateTimeAK, difference)) + geom_point() +
   ggtitle("MOOS difference")
+
+MOOS.2022 %>% mutate(Site = "MOOS") %>% write.csv(here("PT_data","2022","moos.diff.clean.2022.csv"))
+
+
 ```
 
 
@@ -754,6 +758,10 @@ POKE.2022 <- POKE.2022 %>% filter(difference > 1.6)
 POKE.2022 %>% filter(DateTimeAK > "2022-05-15") %>% 
   ggplot(aes(DateTimeAK, difference)) + geom_point() +
   ggtitle("POKE difference")
+
+POKE.2022 %>% mutate(Site = "POKE") %>% write.csv(here("PT_data","2022","poke.diff.clean.2022.csv"))
+
+
 ```
 
 ```{r, warning = FALSE, message = FALSE}
@@ -1051,6 +1059,9 @@ STRT.2022 %>% ggplot(aes(DateTimeAK, diff)) + geom_point()
 # Plot difference
 STRT.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
 
+STRT.2022 %>% mutate(Site = "STRT") %>% write.csv(here("PT_data","2022","strt.diff.clean.2022.csv"))
+
+
 ```
 
 ```{r, warning = FALSE, message = FALSE}
@@ -1330,6 +1341,9 @@ FRCH.2022$difference <- na_kalman(FRCH.2022$difference, maxgap = 10)
 
 FRCH.2022 %>% ggplot(aes(DateTimeAK, difference)) + geom_point()
 
+FRCH.2022 %>% mutate(Site = "FRCH") %>% write.csv(here("PT_data","2022","frch.diff.clean.2022.csv"))
+
+
 ```
 
 
@@ -1576,6 +1590,9 @@ VAUL.2022$difference <- na_kalman(VAUL.2022$difference, maxgap = 50)
 # Plot difference
 VAUL.2022 %>% filter(DateTimeAK > "2022-08-15" & DateTimeAK < "2022-08-20") %>% 
   ggplot(aes(DateTimeAK, difference)) + geom_point() + ggtitle("VAUL difference")
+
+VAUL.2022 %>% mutate(Site = "VAUL") %>% write.csv(here("PT_data","2022","vaul.diff.clean.2022.csv"))
+
 ```
 
 
