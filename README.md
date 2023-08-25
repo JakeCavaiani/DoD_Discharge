@@ -69,12 +69,15 @@ This repository reads in discharge data and generates predicted discharge throug
 
 **2020 Q**
 - Raw PT input time zone: GMT - 8
+- We origionally made all the curves using water level, but they are now all switched to pressure
 - Field book PT start and end times: 
   - FRCH: 6/15/20 12:45 to 10/15/20
   - MOOS: 6/15/20 17:30 to 10/14/20 ~16:15
   - POKE: 6/4/20 ~14:30 to 10/14/20 ~17:00
   - STRT: 6/17/20 16:30 to 10/13/20 ~13:30 
   - VAUL: 6/5/20 16:00 to 10/14/20 ~ 12:30
+- POKE
+  - There is a sharp drop in Q in mid September. I did not shift the following data upwards, because the two PTs had the exact same height jump and it seems unlikely they had the exact same shift during cleaning.
 - Checks at end of Rmarkdown:
   - Plot of length of timesteps for all sites: 15 minutes
   - Plot of missing values for all sites: no gaps! 
