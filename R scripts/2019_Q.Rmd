@@ -1279,6 +1279,237 @@ ggplot(Stuart4comb.2019_final, aes(x = DateTime, y = Q)) +
 
 ```
 
+### Stuart using pressure data
+
+# Read in Stuart data
+```{r, echo=FALSE, warning=FALSE}
+strt.stream.2019.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vT7i2IieWGfIR7FDRn81uHIE4ctuSDto5X1jzuQxFpoMtzQ1kvWTS9-nmorSZl_Hfi8bQbH5s-dZndB/pub?output=csv"
+strt.stream.2019.url.two <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKjPsarj51rVOteLN-hLqK4ffHGMpRgPaSrpkM2tJulszNGNsTQz4awZ09zhu2n_8zN0J8oM7LHIft/pub?output=csv"
+
+strt.stream.one.2019 <- read.csv(url(strt.stream.2019.url), skip = 1)
+strt.stream.two.2019 <- read.csv(url(strt.stream.2019.url.two), skip = 1)
+
+
+strt.stream.one.2019 <- strt.stream.one.2019[,2:4]
+strt.stream.two.2019 <- strt.stream.two.2019[,2:4]
+
+names(strt.stream.one.2019) <- c("DateTime", "WaterPressure", "AirPressure")
+names(strt.stream.two.2019) <- c("DateTime", "WaterPressure", "AirPressure")
+
+strt.stream.one.2019$DateTime[strt.stream.one.2019$DateTime == ""] <- NA
+strt.stream.two.2019$DateTime[strt.stream.two.2019$DateTime == ""] <- NA
+
+strt.stream.one.2019$DateTime <- mdy_hms(strt.stream.one.2019$DateTime, tz = "America/Anchorage")
+strt.stream.two.2019$DateTime <- mdy_hms(strt.stream.two.2019$DateTime, tz = "America/Anchorage")
+
+# Calculate difference
+strt.stream.one.2019$difference <- strt.stream.one.2019$WaterPressure - strt.stream.one.2019$AirPressure
+strt.stream.two.2019$difference <- strt.stream.two.2019$WaterPressure - strt.stream.two.2019$AirPressure
+```
+
+## Raw Stuart PT1
+```{r, echo=FALSE, warning=FALSE}
+# Read in French air pressure to check
+moos.atmo.2019.url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQbCFL8FuUylAIIHsNuyJnbQvOzv3zxG8OC_-On_2wilQM_0OhHrifp9AWy_l4dvwEAmEVFXtGNlJt7/pub?output=csv"
+moos.atmo.2019 <- read.csv(url(moos.atmo.2019.url), skip = 1)
+moos.atmo.2019 <- moos.atmo.2019[,2:3]
+names(moos.atmo.2019) <- c("DateTime", "AirPressure")
+moos.atmo.2019$DateTime[moos.atmo.2019$DateTime == ""] <- NA
+moos.atmo.2019$DateTime <- mdy_hms(moos.atmo.2019$DateTime, tz = "America/Anchorage")
+
+
+plot(strt.stream.one.2019$DateTime, strt.stream.one.2019$WaterPressure, type = 'p')
+
+strt.stream.two.2019 %>% ggplot(aes(DateTime, AirPressure)) + geom_point() + geom_point(data = moos.atmo.2019, aes(DateTime, AirPressure))
+
+strt.stream.two.2019 %>% ggplot(aes(DateTime, WaterPressure)) + geom_point()
+```
+
+We will use Moose air pressure.
+
+## Raw Stuart PT2
+```{r, echo=FALSE, warning=FALSE}
+
+plot(strt.stream.two.2019$DateTime, strt.stream.two.2019$WaterPressure, type = 'p')
+
+```
+
+Just looks like I need to clip out the end of the season points there...Let the cleaning commence!
+
+
+### STRT PT2 2.0 ###
+```{r, echo=FALSE, warning=FALSE}
+strt.stream.two.2019 <- strt.stream.two.2019 %>% subset(strt.stream.two.2019$DateTime > "2019-05-21" & strt.stream.two.2019$DateTime < "2019-10-13") # removed on 10/16 but erroneous values starting after the 14th....maybe ice...maybe beaver dam?
+
+
+plot(strt.stream.two.2019$DateTime, strt.stream.two.2019$WaterPressure, type = 'l')
+
+# 
+```
+1) removed out of water points at the end of the season
+
+Difference
+```{r, echo=FALSE, warning=FALSE}
+# Use Moose air pressure
+strt.stream.two.2019 <- full_join(strt.stream.two.2019[,1:2], moos.atmo.2019)
+
+
+strt.stream.two.2019$difference <- strt.stream.two.2019$WaterPressure - strt.stream.two.2019$AirPressure
+
+strt.stream.two.2019 %>% ggplot(aes(DateTime, difference)) + geom_point()
+```
+
+### export PT data to csv to DoD_Discharge->PT_data->2019
+```{r, echo=FALSE, warning=FALSE}
+strt.pt.final <- rbind(strt.stream.one.2019, strt.stream.two.2019)
+write.csv(strt.pt.final, here("PT_data/2019/STRT/strt.pt.2019.csv"), row.names = FALSE)
+```
+
+
+### Raw Rating Curve with STRT PT2
+
+```{r, echo=FALSE, warning=FALSE}
+strt.stream.two.2019$Site<- "STRT"
+
+Stuart2comb.2019 <- full_join(strt.stream.two.2019, QSummary.ST.2019)
+Stuart2.lm.2019 <- lm(Stuart2comb.2019$Q_Ls ~ Stuart2comb.2019$difference)
+summary(Stuart2.lm.2019) 
+
+
+strt.formula <- y ~ x
+
+
+ggplot(aes(x = difference, y = Q_Ls), data = Stuart2comb.2019) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Stuart2 all measured Q")
+
+```
+
+I am going to remove the high YSI pointt
+
+### Rating Curve with STRT PT2 2.0
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.ST.2019.1 <- QSummary.ST.2019[-10, ]
+
+Stuart3comb.2019 <- full_join(strt.stream.two.2019, QSummary.ST.2019.1)
+Stuart3.lm.2019 <- lm(Stuart3comb.2019$Q_Ls ~ Stuart3comb.2019$difference)
+summary(Stuart3.lm.2019) 
+
+
+strt.formula <- y ~ x
+
+
+ggplot(aes(x = difference, y = Q_Ls), data = Stuart3comb.2019) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Stuart2 all measured Q")
+
+```
+
+Ill remove the high flowmeter 
+
+### Rating Curve with STRT PT2 2.0
+
+```{r, echo=FALSE, warning=FALSE}
+
+QSummary.ST.2019.2 <- QSummary.ST.2019[-c(10,11), ]
+
+Stuart4comb.2019 <- full_join(strt.stream.two.2019, QSummary.ST.2019.2)
+Stuart4.lm.2019 <- lm(Stuart4comb.2019$Q_Ls ~ Stuart4comb.2019$difference)
+summary(Stuart4.lm.2019) 
+
+
+strt.formula <- y ~ x
+
+
+ggplot(aes(x = difference, y = Q_Ls), data = Stuart4comb.2019) +
+  geom_point(aes(color = Method), size = 3) +
+  geom_smooth(method = "lm", se=FALSE) +
+  stat_poly_eq(formula = strt.formula, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  theme_classic() +
+  ggtitle("Stuart2 all measured Q")
+
+```
+
+1)Removed top flowmeter and YSI point
+Terrible.
+
+### Predicted Q STRT PT2
+#### Black points are observed Q
+
+```{r, echo=FALSE, warning=FALSE}
+Stuart4comb.2019$pred.stuart2.Q <- coef(Stuart4.lm.2019)[2] * Stuart4comb.2019$difference+ coef(Stuart4.lm.2019)[1]
+
+ggplot(aes(x = DateTime, y = pred.stuart2.Q), data=Stuart4comb.2019) +
+  geom_line(color="#A6CEE3", size=1.25) +
+  geom_point(aes(x = DateTime, y = Q_Ls, shape = Method), size=3) +
+  theme_classic() +
+  ggtitle("Stuart") +
+  scale_shape_discrete(name = "Method", labels = c("Wading Rod", "Salt Dilution", "")) +
+  xlab("") +
+  ylab("Discharge (L/s)") +
+  scale_x_datetime(limits = as_datetime(c("2019-05-15", "2019-10-10")))
+
+
+```
+
+### Average STRT Q ###
+
+```{r, echo=FALSE, warning=FALSE}
+strt.final.discharge.2019 <- Stuart4comb.2019
+names(strt.final.discharge.2019) <- c("Site", "DateTime", "Q")
+
+strt.final.discharge.2019$DateTime <- as.POSIXct(paste(strt.final.discharge.2019$DateTime), format = "%Y-%m-%d %H:%M", tz = "America/Anchorage")
+strt.final.discharge.2019$DateTime <- lubridate::round_date(strt.final.discharge.2019$DateTime, "15 minutes")
+
+
+ggplot(aes(x = DateTime, y = pred.stuart2.Q), data = Stuart2comb.2019) +
+  geom_line(aes(x = DateTime, y = pred.stuart1.Q), data = Stuart1comb.2019, color="#A6CEE3", size=1.25) +
+  geom_line(aes(x = DateTime, y = pred.stuart2.Q), data = Stuart4comb.2019,color="red", size=1.25, alpha = 0.75) +
+  geom_line(aes(x = DateTime, y = Q), data = strt.final.discharge.2019, color = "#1F78B4", size = 1.25, alpha = 0.25) +
+  geom_point(aes(x = DateTime, y = Q_Ls), size=2) +
+  theme_classic() +
+  ylim(0, 10000) +
+  ggtitle("Stuart1(light) Stuart2(dark) & MeanDischarge (red) predicted all measured Q") +
+  ylab("Predicted discharge L/s") +
+  xlab("Time")
+
+
+```
+
+### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
+```{r, echo=FALSE, warning=FALSE}
+
+DateTimeFill <- data.frame(DateTime = seq(ymd_hm("	
+2019-05-21 14:45", tz = "America/Anchorage"),ymd_hm("2019-10-12 23:45", tz = "America/Anchorage"), by = '15 mins'))
+strt.final.discharge.2019 <- full_join(strt.final.discharge.2019[,1:3], DateTimeFill)
+strt.final.discharge.2019 <- strt.final.discharge.2019[order(strt.final.discharge.2019$DateTime),]
+strt.final.discharge.2019 <- na_kalman(strt.final.discharge.2019, maxgap = 10)
+
+write.csv(strt.final.discharge.2019, here("Predicted_Discharge/2019/STRT/STRT.Q.csv"), row.names = FALSE)
+
+
+ggplot(Stuart4comb.2019_final, aes(x = DateTime, y = Q)) +
+  geom_point()
+
+
+```
+
+
+
 ### export PT data to csv to DoD_Discharge->Predicted_Discharge->2019
 ```{r, echo=FALSE, warning=FALSE}
 Q_2019 <- rbind(frch.final.discharge.2019.final, vaul.final.discharge.2019.final,
@@ -1296,7 +1527,7 @@ Q_2019 <- full_join(Q_2019, DateTimeFill_all)
 Q_2019 <- Q_2019[order(Q_2019$DateTime),]
 
 # Fill in gaps up to 15 x 10 minutes
-Q_2019 <- Q_2019 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 10),
+Q_2019 <- Q_2019 %>% group_by(Site) %>% summarise(Q = na_kalman(Q, maxgap = 15),
                                                   DateTime = DateTime) %>% filter(DateTime < "2019-10-23")
 
 

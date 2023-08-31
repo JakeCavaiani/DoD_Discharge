@@ -63,6 +63,9 @@ This repository reads in discharge data and generates predicted discharge throug
 - POKE
   - No field book end times
   - Raw data ends at 2019-10-13 23:45:00 for both PTs, but there is no field book entry for a site visit on that day or adjacent days.
+  - One gap too large to be filled using functions
+- STRT
+  - Re-estimated Q using water pressure and Moose air pressure data because Stuart air pressure data was very noisy.
 - Checks at end of Rmarkdown:
   - Plot of length of timesteps for all sites: 15 minutes
   - Plot of missing values for all sites: only gap is at POKE 
