@@ -9,16 +9,16 @@ Q.2015 <- read.csv(here("Predicted_Discharge/2015/Predicted_Q_2015.csv"))
 names(Q.2015) <- c(NA, "Site", "Q", "DateTime")
 Q.2018 <- read.csv(here("Predicted_Discharge/2018/Q_2018.csv"))
 Q.2019 <- read.csv(here("Predicted_Discharge/2019/Predicted_Q_2019_gapfill.csv"))
-Q.2019 <- Q.2019 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int"), "Site") %>% filter(!Site %in% c("POKE") )
+Q.2019 <- Q.2019 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int"), values_to = "Q", names_to = "Site") %>% filter(!Site %in% c("POKE") )
 Q.2019 <- Q.2019[,c(2,5,6)]
 Q.2020 <- read.csv(here("Predicted_Discharge/2020/Q_2020.csv"))
 Q.2021 <- read.csv(here("Predicted_Discharge/2021/Predicted_Q_2021_gapfill.csv"))
-Q.2021 <- Q.2021 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int", "FRCH.Q.int", "MOOS.Q.int", "VAUL.Q.int", "STRT.Q.int"), "Site")  %>% filter(!Site %in% c("MOOS", "STRT", "VAUL", "POKE", "FRCH"))
+Q.2021 <- Q.2021 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int", "FRCH.Q.int", "MOOS.Q.int", "VAUL.Q.int", "STRT.Q.int"), values_to = "Q", names_to = "Site")  %>% filter(!Site %in% c("MOOS", "STRT", "VAUL", "POKE", "FRCH"))
 Q.2021 <- Q.2021[,c(2,5,6)]
 Q.2022 <- read.csv(here("Predicted_Discharge/2022/Predicted_Q_2022_gapfill.csv"))
-Q.2022 <- Q.2022 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int", "MOOS.Q.int", "STRT.Q.int"), "Site")  %>% filter(!Site %in% c("MOOS", "STRT", "POKE"))
+Q.2022 <- Q.2022 %>% pivot_longer(c("FRCH", "MOOS", "POKE", "VAUL", "STRT", "POKE.Q.int", "MOOS.Q.int", "STRT.Q.int"), values_to = "Q", names_to = "Site")  %>% filter(!Site %in% c("MOOS", "STRT", "POKE"))
 Q.2022 <- Q.2022[,c(2,4,5)]
-names(Q.2022) <- c("DateTime", "Site", "value")
+names(Q.2022) <- c("DateTime", "Site", "Q")
 
 
 Q.dat.1 <- rbind(Q.2015[,-1],Q.2018, Q.2020)
@@ -94,12 +94,15 @@ Q.dat.cum <- Q.dat.cum %>% mutate(catch_size_km = case_when(Site == "POKE" ~ 62,
 Q.dat.cum$cumul_m3_km2 <- Q.dat.cum$cumul_m3/Q.dat.cum$catch_size_km 
 
 
-Q.dat.cum %>% filter(Year %in% c("2019", "2020", "2021", "2022")) %>% ggplot(aes(Julian, cumul_m3, color = Site)) + geom_point(size = 1) + 
+
+Q.dat.cum %>% filter(Year %in% c("2019", "2020", "2021", "2022")) %>% ggplot(aes(Julian/30.4, cumul_m3, color = Site)) + geom_point(size = 1) + 
   facet_wrap(~Year) +
-  xlab("Julian day") + ylab(expression(paste("Discharge (", m^{3}, ")"))) + theme_bw() +
+  xlab("") + ylab(expression(paste("Discharge (", m^{3}, ")"))) + theme_bw() +
   guides(colour = guide_legend(override.aes = list(size=2)))  +
   theme (strip.background =element_rect (fill="white"), text = element_text(size =15)) +
-  scale_color_discrete(labels = c("French", "Moose", "Poker", "Stuart", "Vault"))
+  scale_color_discrete(labels = c("French", "Moose", "Poker", "Stuart", "Vault")) +
+  scale_x_continuous(breaks = 4:10,
+                     labels = paste0(c("Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct")))
 ggsave("Cumulative Q by year.png", width = 8, height = 6)
 
 site_lab <- c("French", "Moose", "Poker", "Stuart", "Vault")
@@ -114,12 +117,14 @@ Q.dat.cum %>% filter(Year %in% c("2019", "2020", "2021", "2022")) %>% ggplot(aes
 ggsave("Cumulative Q by site.png", width = 8, height = 6)
 
 # Divided by catchment size
-Q.dat.cum %>% filter(Year %in% c("2019", "2020", "2021", "2022")) %>% ggplot(aes(Julian, cumul_m3_km2, color = Site)) + geom_point(size = 1) + 
+Q.dat.cum %>% filter(Year %in% c("2019", "2020", "2021", "2022")) %>% ggplot(aes(Julian/30.4, cumul_m3_km2, color = Site)) + geom_point(size = 1) + 
   facet_wrap(~Year) +
-  xlab("Julian day") + ylab(expression(paste("Discharge (", m^{3},km^{-2},")"))) + theme_bw() +
+  xlab("") + ylab(expression(paste("Discharge (", m^{3},km^{-2},")"))) + theme_bw() +
   guides(colour = guide_legend(override.aes = list(size=2)))  +
   theme (strip.background =element_rect (fill="white"), text = element_text(size =15)) +
-  scale_color_discrete(labels = c("French", "Moose", "Poker", "Stuart", "Vault"))
+  scale_color_discrete(labels = c("French", "Moose", "Poker", "Stuart", "Vault")) +
+  scale_x_continuous(breaks = 4:10,
+                     labels = paste0(c("Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct")))
 ggsave("Cumulative Q by catch size by year.png", width = 8, height = 6)
 
 site_lab <- c("French", "Moose", "Poker", "Stuart", "Vault")
